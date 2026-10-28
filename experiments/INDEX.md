@@ -6,5 +6,6 @@
 | E001 | partial | 崩溃/卡死/泄漏观测工具 | observe/monitor/hb 已实现并做合成验收 | 继续做 monitor 联调与 run-finals |
 | E002 | in_progress | 30 分钟稳定性 + 负载循环 | s10 脚本已写；待跑 30min | 进行中 |
 | E003 | planned | 性能基线 5 次 | plan.md 已写 | 待 E002 后执行 |
+| E004 | planned | 峰值内存压到 1.5G | 低内存变体已写 | 待 E003 后执行 |
 
 > 状态只在实验结束时更新；不要把中间读数写成结论。
