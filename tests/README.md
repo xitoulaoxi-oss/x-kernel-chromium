@@ -2,8 +2,13 @@
 
 决赛场景的一键测试入口。
 
-当前仓库还没有可执行脚本；场景、判据与证据要求见 [../docs/finals.md](../docs/finals.md)。
-建议按下面顺序补：
+当前已有：
+
+- `observe.ps1`：调用 `host/observe.py` 分析一个会话；
+- 崩溃/卡死/泄漏工具与判据见 [../docs/observability.md](../docs/observability.md)。
+
+以下场景仍待补：
+
 
 1. 30 分钟稳定性；
 2. 每 2 分钟加载一次、共 10 次的负载循环；

@@ -16,6 +16,8 @@
 | `demo-record.ps1` | 拉起可手动操作的会话（窗口留在桌面上） | 无参数即可 |
 | `prepare-pr.ps1` | 把 `patches/upstream/port-to-main/` 拆成分支并打印 push 步骤 | `-GiteeUser`、`-Only`、`-Checkout` |
 | `make_gif.py` | 把 screendump 序列合成 GIF（需要 Pillow；生成的 GIF 不提交） | `--dir`、`--out` |
+| `observe.py` | 分析会话的崩溃/卡死/泄漏信号，输出 JSON | `python host/observe.py <session> [--expected-minutes 30] [--out observe.json]` |
+| `monitor-qemu.ps1` | 运行期间采样 QEMU 工作集，写 `observe.jsonl` | `-OutDir`、`-IntervalSec 15`、`-Minutes 35` |
 
 ## 常用命令
 

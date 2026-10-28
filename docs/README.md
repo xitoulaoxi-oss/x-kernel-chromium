@@ -16,6 +16,7 @@
 | 把补丁提回上游 | [upstream.md](upstream.md) |
 | 了解项目经历了哪些弯路 | [history.md](history.md) |
 | 避免踩串口/编码/路径的坑 | [engineering-notes.md](engineering-notes.md) |
+| 查崩溃/卡死/泄漏 | [observability.md](observability.md) |
 | 准备决赛 / 高级任务 | [finals.md](finals.md) |
 | 上传 GitHub / 发 Release | [publish.md](publish.md) |
 | 看赛题背景与原始提交物 | [competition.md](competition.md) |
@@ -40,6 +41,7 @@ docs/
 ├── upstream.md          上游 PR 状态与补丁拆分
 ├── history.md           研发历程（压缩版）
 ├── engineering-notes.md 作业规则与诊断方法
+├── observability.md     崩溃/卡死/泄漏观测工具
 ├── finals.md            决赛准备与测试矩阵
 ├── publish.md           上传 GitHub 与 Release
 └── competition.md       赛题背景与原始提交物

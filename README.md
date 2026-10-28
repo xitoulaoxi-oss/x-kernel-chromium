@@ -169,6 +169,7 @@ bash /path/to/repo/build/apply-and-build.sh "$PWD"
 | [`docs/upstream.md`](docs/upstream.md) | 上游 PR 状态与补丁拆分 |
 | [`docs/history.md`](docs/history.md) | 研发历程（压缩版） |
 | [`docs/engineering-notes.md`](docs/engineering-notes.md) | 三条硬性作业规则与诊断方法 |
+| [`docs/observability.md`](docs/observability.md) | 崩溃/卡死/泄漏工具与判据 |
 | [`docs/finals.md`](docs/finals.md) | 决赛评分映射、30 分钟/负载循环/观测/测试矩阵 |
 | [`docs/publish.md`](docs/publish.md) | 上传 GitHub、创建仓库与 Release 的命令 |
 | [`docs/competition.md`](docs/competition.md) | 赛题背景与原始提交物说明 |

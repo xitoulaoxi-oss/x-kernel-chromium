@@ -15,7 +15,7 @@
   - SHA-256 c915565ac145f95335088296edd93b7a9a7c097188781611eb48ba9d1e067785
 - 已知可用基线：GitHub Release finals-baseline 的 kernel-procfs.bin（5261ceb3…）
 - E000 验证：新构建 c915565… 启动通过（colors=892，两窗口，Alt+Tab 翻转）；**peak_ws≈2.15 GiB，未达 1.5G 资格线**
-- 下一步：E001 观测工具；E003 性能基线时必须把内存资格线纳入
+- 下一步：E001 联调 monitor + run-finals；E003 性能基线时必须把内存资格线纳入
 
 ## 规则
 
@@ -30,7 +30,7 @@
 ## 当前优先级
 
 1. E000：已完成（通过，但 peak_ws 2.15 GiB 超 1.5G）。
-2. E001：观测工具（崩溃 / 卡死 / 泄漏）与一键入口。
+2. E001：观测工具 partial（observe/monitor/hb 已完成；待联调 + run-finals）。
 3. E002：30 分钟稳定性 + 10 次负载循环。
 4. E003：性能基线 5 次（首帧、页面加载、renderer、峰值内存）。
 5. E004+：单变量性能/跨层实验，保留或回退。

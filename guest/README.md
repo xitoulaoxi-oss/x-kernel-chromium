@@ -46,6 +46,14 @@
 | `c1-perf-harvest.sh` | 收割：等到需要的里程碑后把 `/tmp/perf.marks` 打到串口 |
 | `c1-perf-chrome.sh` | 旧口径（日志跨 10 KB），**仅供复算旧会话**，新数据不用 |
 
+## 稳定性观测
+
+| 脚本 | 作用 |
+|---|---|
+| `hb.sh` | 每分钟打印 `HB t=... chrome=... mem_mb=...` |
+| `hb-start.sh` | 在客机后台启动心跳 |
+| `hb-dump.sh` | 打印心跳历史，供 console 解析 |
+
 ## 手动演示 / 帧采集
 
 | 脚本 | 作用 |

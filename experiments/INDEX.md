@@ -3,7 +3,7 @@
 | ID | 状态 | 主题 | 结果 | 决策 |
 |---|---|---|---|---|
 | E000 | pass (run3) | 新构建内核最小启动验收 | colors=892；两窗口；Alt+Tab 翻转；peak_ws≈2.15 GiB | 通过；但峰值内存未达 1.5G 资格线 |
-| E001 | in_progress | 崩溃/卡死/泄漏观测工具 | plan.md 已写 | 待实现 |
+| E001 | partial | 崩溃/卡死/泄漏观测工具 | observe/monitor/hb 已实现并做合成验收 | 继续做 monitor 联调与 run-finals |
 | E002 | pending | 30 分钟稳定性 + 负载循环 | 未开始 | 未开始 |
 | E003 | pending | 性能基线 5 次 | 未开始 | 未开始 |
 
