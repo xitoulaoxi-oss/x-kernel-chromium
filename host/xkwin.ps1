@@ -190,6 +190,20 @@ $Kernel = [System.IO.Path]::GetFullPath($Kernel)
 $Disk   = [System.IO.Path]::GetFullPath($Disk)
 $OutDir = [System.IO.Path]::GetFullPath($OutDir)
 
+# QEMU on Windows fails to open a -kernel path containing spaces even when the
+# argument is quoted: it receives only the tail after the space.  Copy the
+# kernel to a space-free temp path before launching QEMU.
+if ($Kernel -match ' ') {
+    $tmpRoot = Join-Path $env:TEMP 'xk-kernel'
+    if ($tmpRoot -match ' ') {
+        throw "temporary path contains a space: $tmpRoot; set TEMP to a space-free directory"
+    }
+    New-Item -ItemType Directory -Force -Path $tmpRoot | Out-Null
+    $tmpKernel = Join-Path $tmpRoot ([System.IO.Path]::GetFileName($Kernel))
+    Copy-Item -LiteralPath $Kernel -Destination $tmpKernel -Force
+    $Kernel = $tmpKernel
+}
+
 # Guard against the parameter-binding trap described above: if a script or other
 # stray argument ever lands in -Kernel again, fail here with a clear message
 # instead of letting QEMU boot it and print nothing at all.
@@ -625,13 +639,23 @@ function Start-UploadServer {
         to files avoids pipes entirely. #>
     param([string]$Root, [string]$StageDir)
     New-Item -ItemType Directory -Force -Path $StageDir | Out-Null
+    # Python's http.server is launched through Start-Process, which joins the
+    # argument list with spaces; a staging path containing spaces therefore
+    # arrives split.  Serve from a space-free temp copy instead.
+    $serveDir = $StageDir
+    if ($StageDir -match ' ') {
+        $serveDir = Join-Path $env:TEMP ('xk-stage-' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Force -Path $serveDir | Out-Null
+        Copy-Item -Path (Join-Path $StageDir '*') -Destination $serveDir -Recurse -Force
+    }
+    if ($serveDir -match ' ') { throw "upload stage path contains a space: $serveDir" }
     $stdout = Join-Path $Root 'uploadserver.log'
     $stderr = Join-Path $Root 'uploadserver.err.log'
     # Bound only for this run, and on all interfaces because slirp reaches the
     # host through its gateway address rather than loopback.
     $port = Get-FreePort
     $proc = Start-Process -FilePath $py `
-        -ArgumentList @('-m', 'http.server', "$port", '--bind', '0.0.0.0', '--directory', $StageDir) `
+        -ArgumentList @('-m', 'http.server', "$port", '--bind', '0.0.0.0', '--directory', $serveDir) `
         -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
     Start-Sleep -Milliseconds 1500
     if ($proc.HasExited) {
@@ -644,7 +668,7 @@ function Start-UploadServer {
     # invisible from the guest's side.  The canary file makes this check run even
     # when nothing has been staged yet -- otherwise the one case where the server
     # is broken is also the case where nothing verifies it.
-    $canary = Join-Path $StageDir '_server-canary.txt'
+    $canary = Join-Path $serveDir '_server-canary.txt'
     Set-Content -LiteralPath $canary -Value 'canary-ok' -Encoding ascii
     try {
         $resp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/_server-canary.txt" -UseBasicParsing -TimeoutSec 10
@@ -656,9 +680,9 @@ function Start-UploadServer {
         throw "upload server did not answer on 127.0.0.1:$port : $_  stderr=$why"
     }
     Remove-Item -LiteralPath $canary -Force -ErrorAction SilentlyContinue
-    $files = @(Get-ChildItem -LiteralPath $StageDir -File -ErrorAction SilentlyContinue)
+    $files = @(Get-ChildItem -LiteralPath $serveDir -File -ErrorAction SilentlyContinue)
     Write-Host "  staged for the guest ($($files.Count)): $(($files | Select-Object -ExpandProperty Name) -join ', ')" -ForegroundColor DarkGray
-    return [pscustomobject]@{ Proc = $proc; Port = $port; StageDir = $StageDir }
+    return [pscustomobject]@{ Proc = $proc; Port = $port; StageDir = $StageDir; ServeDir = $serveDir }
 }
 
 function Stop-UploadServer {

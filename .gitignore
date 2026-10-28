@@ -46,3 +46,7 @@ kernel/target/
 # Kernel binaries are GitHub Release assets, not repository content
 /artifacts/*.bin
 /release-assets/
+
+# Experiment raw logs stay local; commit only plan/decision summaries
+/experiments/**/run*/
+/experiments/**/raw/
