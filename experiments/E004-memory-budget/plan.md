@@ -45,3 +45,10 @@
 - 客机 HB 的 mem_mb 仍待 s10 开始后读取。
 
 已提供 tests/lowmem-smoke.ps1。
+
+## E002 中途读数（约 11 分钟）
+
+- 客机 HB：chrome=16、mem_mb=814（used，不含 cache/buffers）；
+- 宿主 QEMU 工作集：min 92.5 MB，max/plateau 2183.4 MB；
+- 两者差约 1.37 GB，不能排除 guest page cache / QEMU 映射页；
+- **口径未定**：如果 1.5G 指宿主 QEMU 工作集，需要再降约 0.7G；如果指客机 used，当前 814MB 已通过。E003 必须先固定口径，不能盲目优化。
