@@ -17,7 +17,7 @@ switch ($Variant) {
     'flags' { $win1 = 'guest\x4-win1-memflags.sh'; $win2 = 'guest\x5c-win2-memflags.sh' }
     default { $win1 = 'guest\x4-win1-lowmem.sh'; $win2 = 'guest\x5c-win2-lowmem.sh' }
 }
-$scripts = "guest\06-fetch-pages.sh;guest\x1-input.sh;guest\x2-xorg.sh;guest\y3-jwm-stock.sh;$win1;$win2;guest\y6-evidence.sh"
+$scripts = "guest\06-fetch-pages.sh;guest\x1-input.sh;guest\x2-xorg.sh;guest\y3-jwm-stock.sh;$win1;$win2;guest\y6-evidence.sh;guest\mem.sh"
 $keys = 'cmd=sh /tmp/xk-y6-evidence.sh;alt+tab@8;cmd=sh /tmp/xk-y6-evidence.sh;alt+tab@8;cmd=sh /tmp/xk-y6-evidence.sh'
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'host\xkwin.ps1') `
     -Tag ('E004-' + $Variant) -Disk $Disk -Kernel $Kernel -ServeManifest (Join-Path $root 'guest\serve-pages.txt') `

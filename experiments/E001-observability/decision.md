@@ -18,3 +18,10 @@
 
 - monitor 尚未与一次真实 QEMU 会话联调；
 - tests/run-finals.ps1 尚未实现（30min/load-loop/tabs/input/JS/CSS 编排）。
+
+## E002 联调（2026-10-29 01:39）
+
+- monitor 采样 136 次；
+- observe.py 原先把启动期增长误判为 LEAK；已加 --warmup-minutes 默认 5；
+- 复算 E002：NO_CRASH_HANG_LEAK，post-warmup 增长 -28.9MB、斜率 1.3MB/min；
+- 结论：三件工具已在真实 30 分钟会话上联调通过。

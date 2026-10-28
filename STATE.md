@@ -15,7 +15,8 @@
   - SHA-256 c915565ac145f95335088296edd93b7a9a7c097188781611eb48ba9d1e067785
 - 已知可用基线：GitHub Release finals-baseline 的 kernel-procfs.bin（5261ceb3…）
 - E000 验证：新构建 c915565… 启动通过（colors=892，两窗口，Alt+Tab 翻转）；**peak_ws≈2.15 GiB，未达 1.5G 资格线**
-- 下一步：E001 联调 monitor + run-finals；E003 性能基线时必须把内存资格线纳入
+- E002 通过：30 HB、双窗口、colors=892；guest used 816MB，QEMU peak 2.36GB
+- 下一步：E004 内存变体（disk/flags/combined），再 E003 性能 5 次
 
 ## 规则
 
@@ -29,9 +30,11 @@
 
 ## 当前优先级
 
-1. E000：已完成（通过，但 peak_ws 2.15 GiB 超 1.5G）。
-2. E001：观测工具 partial（observe/monitor/hb 已完成；待联调 + run-finals）。
-3. E002：s10-stability30.sh 已写，准备跑 30min + monitor。
+1. E000：已完成（通过；peak_ws 2.15 GiB）。
+2. E001：已完成（observe/monitor/hb/run-finals；warmup 修正）。
+3. E002：30min 稳定性通过；QEMU peak 2.36GB，guest used 816MB。
+4. E004：内存变体待跑。
+5. E003：性能 5 次待跑。
 3. E002：30 分钟稳定性 + 10 次负载循环。
 4. E003：性能基线 5 次（首帧、页面加载、renderer、峰值内存）。
 5. E004+：单变量性能/跨层实验，保留或回退。

@@ -67,7 +67,7 @@ def heartbeat_lines(console: str) -> list[dict[str, int]]:
     return rows
 
 
-def trend(session: pathlib.Path) -> dict[str, Any]:
+def trend(session: pathlib.Path, warmup_s: float = 0.0) -> dict[str, Any]:
     path = session / "observe.jsonl"
     samples: list[dict[str, float]] = []
     if path.is_file():
@@ -80,9 +80,11 @@ def trend(session: pathlib.Path) -> dict[str, Any]:
             except Exception:
                 continue
             if "elapsed_s" in row and "ws_mb" in row:
-                samples.append({"t": float(row["elapsed_s"]), "ws": float(row["ws_mb"])})
+                t = float(row["elapsed_s"])
+                if t >= warmup_s:
+                    samples.append({"t": t, "ws": float(row["ws_mb"])})
     if len(samples) < 3:
-        return {"samples": len(samples), "insufficient_data": True}
+        return {"samples": len(samples), "insufficient_data": True, "warmup_minutes": round(warmup_s / 60.0, 1)}
     xs = [p["t"] for p in samples]
     ys = [p["ws"] for p in samples]
     n = len(xs)
@@ -98,6 +100,7 @@ def trend(session: pathlib.Path) -> dict[str, Any]:
         "growth_mb": round(ys[-1] - ys[0], 1),
         "slope_mb_per_min": round(slope * 60.0, 2),
         "insufficient_data": False,
+        "warmup_minutes": round(warmup_s / 60.0, 1),
     }
 
 
@@ -105,6 +108,8 @@ def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("session", type=pathlib.Path)
     ap.add_argument("--expected-minutes", type=int, default=0)
+    ap.add_argument("--warmup-minutes", type=float, default=5.0,
+                    help="ignore startup growth before this many minutes (default 5)")
     ap.add_argument("--leak-mb", type=float, default=256.0)
     ap.add_argument("--leak-slope", type=float, default=2.0)
     ap.add_argument("--out", type=pathlib.Path)
@@ -160,7 +165,7 @@ def main(argv: list[str]) -> int:
         "final_stats": stats_name,
     }
 
-    tr = trend(session)
+    tr = trend(session, args.warmup_minutes * 60.0)
     leak_detected = False
     if not tr.get("insufficient_data"):
         leak_detected = tr["growth_mb"] >= args.leak_mb and tr["slope_mb_per_min"] >= args.leak_slope
