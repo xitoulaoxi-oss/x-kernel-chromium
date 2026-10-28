@@ -22,6 +22,9 @@
 
 - guest/x4-win1-lowmem.sh（E004a+b+c+d 组合）
 - guest/x5c-win2-lowmem.sh
+- guest/x4-win1-disk.sh、x5c-win2-disk.sh（仅 profile 到磁盘）
+- guest/x4-win1-memflags.sh、x5c-win2-memflags.sh（仅 flags）
+- tests/mem-variant.ps1 -Variant disk|flags|combined
 
 ## 判据
 
