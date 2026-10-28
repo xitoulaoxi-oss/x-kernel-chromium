@@ -7,6 +7,7 @@
 - `observe.ps1`：调用 `host/observe.py` 分析一个会话；
 - `stability30.ps1`：30 分钟稳定性；
 - `load-loop.ps1`：每 2 分钟 Ctrl+R 重载一次，共 10 次；
+- `lowmem-smoke.ps1`：E004 低内存 Chromium 变体的双窗口 smoke。
 - 崩溃/卡死/泄漏工具与判据见 [../docs/observability.md](../docs/observability.md)。
 
 以下场景仍待补：

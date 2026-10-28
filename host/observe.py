@@ -145,6 +145,8 @@ def main(argv: list[str]) -> int:
         hang_reasons.append("final frame is blank")
     elif isinstance(final_colors, (int, float)) and final_colors < 300:
         hang_reasons.append(f"final frame has only {final_colors} colours")
+    if args.expected_minutes and not hb:
+        hang_reasons.append("no heartbeat lines for a timed session")
     if hb:
         if args.expected_minutes and len(hb) < max(1, args.expected_minutes - 2):
             hang_reasons.append(f"heartbeat count {len(hb)} < expected ~{args.expected_minutes}")

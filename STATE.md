@@ -47,5 +47,20 @@
 - E000 run1：QEMU -kernel 路径空格失败；已修。
 - E000 run2：HTTP staging 路径空格失败；已修。
 - E000 run3：通过；日志 experiments/E000-baseline/run3/（已 gitignore）。
-- E001 待开始。
+- E001：observe/monitor/hb 已实现并提交 df5d108；待 run-finals 联调。
 - watchdog：pwsh-10509d1bc0c549b5。
+
+## E002 运行中
+
+- monitor job: pwsh-0c95cc4cb5a44573
+- xkwin job: pwsh-decee2b1e41940c2
+- 启动 2026-10-29 01:03；预计 30 分钟后结束。
+- 结束后用 python host/observe.py experiments/E002-stability30/run --expected-minutes 30 分析。
+
+## Round 2 进度
+
+- E001 工具已提交 df5d108；合成测试 CRASH/HANG/LEAK 命中。
+- tests/load-loop.ps1、tests/stability30.ps1 已提交 fc57b5e。
+- E002 30min 运行中：monitor pwsh-0c95cc4cb5a44573，xkwin pwsh-decee2b1e41940c2；预计 01:35 左右结束。
+
+- E004：低内存 Chromium 变体已写（x4/x5c-lowmem），待 E003 后测试。
