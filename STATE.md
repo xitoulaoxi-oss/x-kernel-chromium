@@ -67,3 +67,10 @@
 - E002 30min 运行中：monitor pwsh-0c95cc4cb5a44573，xkwin pwsh-decee2b1e41940c2；预计 01:35 左右结束。
 
 - E004：低内存 Chromium 变体已写（x4/x5c-lowmem），待 E003 后测试。
+
+## PAUSED（2026-10-29 01:45 左右，用户关机）
+
+- 所有 QEMU 已无进程；watchdog 已 kill；07:45/08:00 两个 schedule 已删除；goal 已 paused。
+- E000 通过；E001 通过；E002 30min 稳定通过；E004 combined 功能通过但内存口径未定；E003 第一次运行无效（0.4s/无指标）。
+- 本地有未推送提交；恢复时先读 STATE 与 experiments/INDEX.md。
+- 恢复后：先修 E003 harness 调用，再跑负载循环/性能；不要重复 E003 无效数据。

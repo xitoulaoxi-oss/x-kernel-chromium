@@ -1,0 +1,194 @@
+{
+  "schema": "xkwin-perf/2 (framebuffer first-frame + resource rates)",
+  "generated_utc": "2026-10-28T17:44:31Z",
+  "host": {
+    "os": "Windows 11 (10.0.26300)",
+    "machine": "AMD64",
+    "python": "3.12.10",
+    "logical_cpus": 16,
+    "memory_mb": 32657.0,
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+    "os_registry": "Windows 10 Pro 26H2 build 26300"
+  },
+  "qemu": "QEMU emulator version 11.0.92 (v11.1.0-rc2-12128-gc65ddfcd01)",
+  "qemu_config": {
+    "machine": "virt",
+    "cpu_model": "cortex-a72",
+    "accelerator": "tcg (pure software emulation, no KVM/HVF)",
+    "smp_cpus": null,
+    "guest_ram_mb": null
+  },
+  "guest_kernel": "artifacts\\kernel-procfs.bin",
+  "measurement_protocol": {
+    "repeats_per_metric": "each metric is measured once per run; the report requires n>=5",
+    "statistic": "median with min/max/spread, plus spread as % of median and the CV",
+    "first_frame": "QEMU screendump cadence from the instant the launch line is dispatched; painted = saturation>=0.06 in the page area, >=300 colours, not blank (colour count alone counts an empty browser window as a result); the reported value is the capture completion time (upper bound), bracketed by the previous frame",
+    "renderer": "guest monitor at 1 Hz, direct child of a --type=zygote process (this build does not rewrite the child argv)",
+    "resource_rates": "cpu_pct = cpu seconds / wall seconds; qemu_mem_pct = QEMU peak working set / host physical memory"
+  },
+  "metric_definitions": {
+    "xorg_s": {
+      "class": "startup",
+      "unit": "s",
+      "origin": "X server start (guest /tmp/perf.t0)",
+      "method": "guest wall clock until /tmp/.X11-unix/X0 exists",
+      "source": "guest console",
+      "resolution_s": 1.0,
+      "direction": "lower-is-better"
+    },
+    "jwm_s": {
+      "class": "startup",
+      "unit": "s",
+      "origin": "X server start",
+      "method": "guest wall clock until the window manager is spawned",
+      "source": "guest console",
+      "resolution_s": 1.0,
+      "direction": "lower-is-better"
+    },
+    "chrome_s": {
+      "class": "startup",
+      "unit": "s",
+      "origin": "X server start",
+      "method": "guest monitor: first second a chromium main process exists",
+      "source": "guest console",
+      "resolution_s": 1.0,
+      "direction": "lower-is-better"
+    },
+    "first_frame_s": {
+      "class": "page-load",
+      "unit": "s",
+      "origin": "launch line dispatched on the console",
+      "method": "QEMU screendump series; first frame whose page area carries content (saturation>=0.06 AND >=300 colours AND not blank).  Colour count alone was NOT enough: an empty browser window with a spinner measures 264 colours",
+      "source": "host framebuffer (frame-watch.json)",
+      "resolution_s": 2.0,
+      "direction": "lower-is-better"
+    },
+    "renderer_s": {
+      "class": "renderer-creation",
+      "unit": "s",
+      "origin": "X server start",
+      "method": "guest monitor at 1 Hz: first process whose PPid is a --type=zygote process",
+      "source": "guest console",
+      "resolution_s": 1.0,
+      "direction": "lower-is-better"
+    },
+    "peak_mem_mb": {
+      "class": "peak-memory",
+      "unit": "MB",
+      "origin": "whole QEMU process lifetime",
+      "method": "Process.PeakWorkingSet64 of qemu-system-aarch64 (OS high-water mark)",
+      "source": "host process metrics",
+      "resolution_s": null,
+      "direction": "lower-is-better"
+    },
+    "cpu_pct": {
+      "class": "cpu-usage",
+      "unit": "% of one logical CPU",
+      "origin": "whole QEMU process lifetime",
+      "method": "TotalProcessorTime / wall clock x 100 (host-side, from qemu-metrics.json)",
+      "source": "host process metrics",
+      "resolution_s": null,
+      "direction": "lower-is-better"
+    },
+    "cpu_pct_load": {
+      "class": "cpu-usage",
+      "unit": "% of one logical CPU",
+      "origin": "launch dispatch -> first painted frame",
+      "method": "QEMU CPU seconds consumed between the first and the first-frame capture, divided by that interval (both sampled with the frames)",
+      "source": "host framebuffer (frame-watch.json)",
+      "resolution_s": 2.0,
+      "direction": "lower-is-better"
+    },
+    "qemu_mem_pct": {
+      "class": "qemu-memory-rate",
+      "unit": "% of host physical memory",
+      "origin": "whole QEMU process lifetime",
+      "method": "PeakWorkingSet64 / host physical memory x 100 (GlobalMemoryStatusEx)",
+      "source": "host process metrics",
+      "resolution_s": null,
+      "direction": "lower-is-better"
+    }
+  },
+  "metric_classes": [
+    "cpu-usage",
+    "page-load",
+    "peak-memory",
+    "qemu-memory-rate",
+    "renderer-creation",
+    "startup"
+  ],
+  "samples": [
+    {
+      "peak_mem_mb": null,
+      "cpu_s": null,
+      "wall_s": null,
+      "cpu_pct": null,
+      "qemu_mem_pct": null,
+      "smp_cpus": null,
+      "guest_mem_mb": null,
+      "host_ram_mb": null,
+      "run": 1,
+      "evidence_dir": "e0031-20261028T174429Z",
+      "harness_wall_s": 0.4
+    },
+    {
+      "peak_mem_mb": null,
+      "cpu_s": null,
+      "wall_s": null,
+      "cpu_pct": null,
+      "qemu_mem_pct": null,
+      "smp_cpus": null,
+      "guest_mem_mb": null,
+      "host_ram_mb": null,
+      "run": 2,
+      "evidence_dir": "e0032-20261028T174430Z",
+      "harness_wall_s": 0.4
+    },
+    {
+      "peak_mem_mb": null,
+      "cpu_s": null,
+      "wall_s": null,
+      "cpu_pct": null,
+      "qemu_mem_pct": null,
+      "smp_cpus": null,
+      "guest_mem_mb": null,
+      "host_ram_mb": null,
+      "run": 3,
+      "evidence_dir": "e0033-20261028T174430Z",
+      "harness_wall_s": 0.4
+    },
+    {
+      "peak_mem_mb": null,
+      "cpu_s": null,
+      "wall_s": null,
+      "cpu_pct": null,
+      "qemu_mem_pct": null,
+      "smp_cpus": null,
+      "guest_mem_mb": null,
+      "host_ram_mb": null,
+      "run": 4,
+      "evidence_dir": "e0034-20261028T174430Z",
+      "harness_wall_s": 0.4
+    },
+    {
+      "peak_mem_mb": null,
+      "cpu_s": null,
+      "wall_s": null,
+      "cpu_pct": null,
+      "qemu_mem_pct": null,
+      "smp_cpus": null,
+      "guest_mem_mb": null,
+      "host_ram_mb": null,
+      "run": 5,
+      "evidence_dir": "e0035-20261028T174431Z",
+      "harness_wall_s": 0.4
+    }
+  ],
+  "summary": {},
+  "class_coverage": [],
+  "coverage_scoring": {
+    "classes_with_5_or_more_samples": 0,
+    "points_per_task_book": 0,
+    "rule": "2 classes = 1 point, 3 classes = 2 points, >= 4 classes = 4 points"
+  }
+}
