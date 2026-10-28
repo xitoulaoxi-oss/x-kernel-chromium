@@ -1,0 +1,578 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+// Note: Repeated-looking code in this file is mainly limited to register and
+// trap-context layout, syscall argument accessors, and context-switch save/
+// restore sequences. These similarities reflect common low-level kernel and
+// ABI conventions rather than source copying.
+
+//! RISC-V context structures for traps and task switching.
+
+use core::arch::naked_asm;
+
+use memaddr::VirtAddr;
+use riscv::register::sstatus::{self, FS};
+
+/// General registers of RISC-V.
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy)]
+pub struct GeneralRegisters {
+    /// Constant zero register x0.
+    pub zero: usize,
+    /// Return address register x1.
+    pub ra: usize,
+    /// Stack pointer register x2.
+    pub sp: usize,
+    /// Global pointer register x3.
+    pub gp: usize,
+    /// Thread pointer register x4.
+    pub tp: usize,
+    /// Temporary register x5.
+    pub t0: usize,
+    /// Temporary register x6.
+    pub t1: usize,
+    /// Temporary register x7.
+    pub t2: usize,
+    /// Saved register x8 (s0/fp).
+    pub s0: usize,
+    /// Saved register x9 (s1).
+    pub s1: usize,
+    /// Function argument / return register x10 (a0).
+    pub a0: usize,
+    /// Function argument register x11 (a1).
+    pub a1: usize,
+    /// Function argument register x12 (a2).
+    pub a2: usize,
+    /// Function argument register x13 (a3).
+    pub a3: usize,
+    /// Function argument register x14 (a4).
+    pub a4: usize,
+    /// Function argument register x15 (a5).
+    pub a5: usize,
+    /// Function argument register x16 (a6).
+    pub a6: usize,
+    /// Function argument register x17 (a7).
+    pub a7: usize,
+    /// Saved register x18 (s2).
+    pub s2: usize,
+    /// Saved register x19 (s3).
+    pub s3: usize,
+    /// Saved register x20 (s4).
+    pub s4: usize,
+    /// Saved register x21 (s5).
+    pub s5: usize,
+    /// Saved register x22 (s6).
+    pub s6: usize,
+    /// Saved register x23 (s7).
+    pub s7: usize,
+    /// Saved register x24 (s8).
+    pub s8: usize,
+    /// Saved register x25 (s9).
+    pub s9: usize,
+    /// Saved register x26 (s10).
+    pub s10: usize,
+    /// Saved register x27 (s11).
+    pub s11: usize,
+    /// Temporary register x28 (t3).
+    pub t3: usize,
+    /// Temporary register x29 (t4).
+    pub t4: usize,
+    /// Temporary register x30 (t5).
+    pub t5: usize,
+    /// Temporary register x31 (t6).
+    pub t6: usize,
+}
+
+/// Floating-point registers of RISC-V.
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct FpState {
+    /// the state of the RISC-V Floating-Point Unit (FPU)
+    pub fp: [u64; 32],
+    /// the floating-point control and status register
+    pub fcsr: usize,
+    /// the floating-point status (dirty, clean, off)
+    pub fs: FS,
+}
+
+impl Default for FpState {
+    fn default() -> Self {
+        Self {
+            fs: FS::Initial,
+            fp: [0; 32],
+            fcsr: 0,
+        }
+    }
+}
+
+#[cfg(feature = "fp-simd")]
+impl FpState {
+    /// Restores the floating-point registers from this FP state
+    #[inline]
+    pub fn restore(&self) {
+        // SAFETY: `FpState` layout is `repr(C)` with `fp: [u64; 32]` + `fcsr`, matching the register save format.
+        unsafe { restore_fp_registers(self) }
+    }
+
+    /// Saves the current floating-point registers to this FP state
+    #[inline]
+    pub fn save(&mut self) {
+        // SAFETY: `FpState` has valid alignment and size for FP register save.
+        unsafe { save_fp_registers(self) }
+    }
+
+    /// Clears all floating-point registers to zero
+    #[inline]
+    pub fn clear() {
+        // SAFETY: Naked function that writes zeros to FP registers; no memory interaction.
+        unsafe { clear_fp_registers() }
+    }
+
+    /// Handles floating-point state context switching
+    ///
+    /// Saves the current task's FP state (if needed) and restores the next task's FP state
+    pub fn switch_to(&mut self, next_fp_state: &FpState) {
+        // get the real FP state of the current task
+        let current_fs = sstatus::read().fs();
+        // save the current task's FP state
+        if current_fs == FS::Dirty {
+            // we need to save the current task's FP state
+            self.save();
+            // after saving, we set the FP state to clean
+            self.fs = FS::Clean;
+        }
+        // restore the next task's FP state
+        match next_fp_state.fs {
+            FS::Clean => next_fp_state.restore(), /* the next task's FP state is clean, we should restore it */
+            FS::Initial => FpState::clear(),      // restore the FP state as constant values(all 0)
+            FS::Off => {}                         // do nothing
+            FS::Dirty => unreachable!("FP state of the next task should not be dirty"),
+        }
+        // SAFETY: Writing the FS field in sstatus CSR to track FP state; standard CSR write.
+        unsafe { sstatus::set_fs(next_fp_state.fs) }; // set the FP state to the next task's FP state
+    }
+}
+
+/// Saved registers when a trap (interrupt or exception) occurs.
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct ExceptionContext {
+    /// All general registers.
+    pub regs: GeneralRegisters,
+    /// Supervisor Exception Program Counter.
+    pub sepc: usize,
+    /// Supervisor Status Register.
+    pub sstatus: sstatus::Sstatus,
+    /// Snapshot of a0 saved before syscall dispatch for SA_RESTART.
+    pub saved_syscall_arg0: usize,
+    /// Whether the most recent user trap was a syscall (`ecall`).
+    ///
+    /// Software-only; assembly does not touch this field. It prevents treating
+    /// a coincidental user `a0` value as a Linux restart code after IRQ/fault.
+    pub(crate) from_syscall: bool,
+}
+
+impl Default for ExceptionContext {
+    fn default() -> Self {
+        Self {
+            regs: GeneralRegisters::default(),
+            sepc: 0,
+            sstatus: sstatus::Sstatus::from_bits(0),
+            saved_syscall_arg0: 0,
+            from_syscall: false,
+        }
+    }
+}
+
+impl ExceptionContext {
+    /// Gets the 0th syscall argument.
+    pub const fn arg0(&self) -> usize {
+        self.regs.a0
+    }
+
+    /// Sets the 0th syscall argument.
+    pub const fn set_arg0(&mut self, a0: usize) {
+        self.regs.a0 = a0;
+    }
+
+    /// Gets the 1st syscall argument.
+    pub const fn arg1(&self) -> usize {
+        self.regs.a1
+    }
+
+    /// Sets the 1th syscall argument.
+    pub const fn set_arg1(&mut self, a1: usize) {
+        self.regs.a1 = a1;
+    }
+
+    /// Gets the 2nd syscall argument.
+    pub const fn arg2(&self) -> usize {
+        self.regs.a2
+    }
+
+    /// Sets the 2nd syscall argument.
+    pub const fn set_arg2(&mut self, a2: usize) {
+        self.regs.a2 = a2;
+    }
+
+    /// Gets the 3rd syscall argument.
+    pub const fn arg3(&self) -> usize {
+        self.regs.a3
+    }
+
+    /// Sets the 3rd syscall argument.
+    pub const fn set_arg3(&mut self, a3: usize) {
+        self.regs.a3 = a3;
+    }
+
+    /// Gets the 4th syscall argument.
+    pub const fn arg4(&self) -> usize {
+        self.regs.a4
+    }
+
+    /// Sets the 4th syscall argument.
+    pub const fn set_arg4(&mut self, a4: usize) {
+        self.regs.a4 = a4;
+    }
+
+    /// Gets the 5th syscall argument.
+    pub const fn arg5(&self) -> usize {
+        self.regs.a5
+    }
+
+    /// Sets the 5th syscall argument.
+    pub const fn set_arg5(&mut self, a5: usize) {
+        self.regs.a5 = a5;
+    }
+
+    /// Gets the syscall number.
+    pub const fn sysno(&self) -> usize {
+        self.regs.a7
+    }
+
+    /// Sets the syscall number.
+    pub const fn set_sysno(&mut self, a7: usize) {
+        self.regs.a7 = a7;
+    }
+
+    /// Gets the instruction pointer.
+    pub const fn ip(&self) -> usize {
+        self.sepc
+    }
+
+    /// Sets the instruction pointer.
+    pub const fn set_ip(&mut self, pc: usize) {
+        self.sepc = pc;
+    }
+
+    /// Gets the stack pointer.
+    pub const fn sp(&self) -> usize {
+        self.regs.sp
+    }
+
+    /// Sets the stack pointer.
+    pub const fn set_sp(&mut self, sp: usize) {
+        self.regs.sp = sp;
+    }
+
+    /// Gets the return value register.
+    pub const fn retval(&self) -> usize {
+        self.regs.a0
+    }
+
+    /// Sets the return value register.
+    pub const fn set_retval(&mut self, a0: usize) {
+        self.regs.a0 = a0;
+    }
+
+    /// Sets the return address.
+    pub const fn set_ra(&mut self, ra: usize) {
+        self.regs.ra = ra;
+    }
+
+    /// Gets the TLS area.
+    pub const fn tls(&self) -> usize {
+        self.regs.tp
+    }
+
+    /// Sets the TLS area.
+    pub const fn set_tls(&mut self, tls_area: usize) {
+        self.regs.tp = tls_area;
+    }
+
+    /// Returns whether the most recent user trap was a syscall entry.
+    pub const fn is_from_syscall(&self) -> bool {
+        self.from_syscall
+    }
+
+    /// Records whether the trap that just left user space was a syscall.
+    pub(crate) fn set_from_syscall(&mut self, from_syscall: bool) {
+        self.from_syscall = from_syscall;
+    }
+
+    /// Snapshot a0 before syscall dispatch so that [`Self::rollback_syscall`] can
+    /// restore it after the return value overwrites it.
+    pub fn save_syscall_args(&mut self) {
+        self.saved_syscall_arg0 = self.regs.a0;
+    }
+
+    /// Rewind PC and restore a0 so the syscall is re-executed with the
+    /// original arguments.
+    pub fn rollback_syscall(&mut self) {
+        if !self.is_from_syscall() {
+            return;
+        }
+        self.sepc = self.sepc.wrapping_sub(4); // `ecall` is 4 bytes
+        self.regs.a0 = self.saved_syscall_arg0;
+    }
+
+    /// Replace syscall number and rewind PC (used by ERESTART_RESTARTBLOCK).
+    pub fn restart_with_syscall(&mut self, sysno: usize) {
+        if !self.is_from_syscall() {
+            return;
+        }
+        self.rollback_syscall();
+        self.set_sysno(sysno);
+    }
+
+    /// If the last syscall set a Linux restart error as its return value,
+    /// returns that error; otherwise `None`.
+    pub fn syscall_restart_error(&self) -> Option<kerrno::LinuxError> {
+        use kerrno::LinuxError;
+        if !self.is_from_syscall() {
+            return None;
+        }
+        let retval = self.retval() as isize;
+        [
+            LinuxError::ERESTARTSYS,
+            LinuxError::ERESTARTNOINTR,
+            LinuxError::ERESTARTNOHAND,
+            LinuxError::ERESTART_RESTARTBLOCK,
+        ]
+        .into_iter()
+        .find(|err| retval == -(err.into_raw() as isize))
+    }
+
+    /// Unwind the stack and get the backtrace.
+    pub fn backtrace(&self) -> backtrace::Backtrace {
+        backtrace::Backtrace::capture_trap(self.regs.s0 as _, self.sepc as _, self.regs.ra as _)
+    }
+}
+
+/// Saved hardware states of a task.
+///
+/// The context usually includes:
+///
+/// - Callee-saved registers
+/// - Stack pointer register
+/// - FP/SIMD registers
+///
+/// On context switch, current task saves its context from CPU to memory,
+/// and the next task restores its context from memory to CPU.
+#[repr(C)]
+#[derive(Debug, Default)]
+pub struct TaskContext {
+    /// Return address (x1).
+    pub ra: usize,
+    /// Stack pointer (x2).
+    pub sp: usize,
+
+    /// Callee-saved register s0 (x8/fp).
+    pub s0: usize,
+    /// Callee-saved register s1 (x9).
+    pub s1: usize,
+
+    /// Callee-saved register s2 (x18).
+    pub s2: usize,
+    /// Callee-saved register s3 (x19).
+    pub s3: usize,
+    /// Callee-saved register s4 (x20).
+    pub s4: usize,
+    /// Callee-saved register s5 (x21).
+    pub s5: usize,
+    /// Callee-saved register s6 (x22).
+    pub s6: usize,
+    /// Callee-saved register s7 (x23).
+    pub s7: usize,
+    /// Callee-saved register s8 (x24).
+    pub s8: usize,
+    /// Callee-saved register s9 (x25).
+    pub s9: usize,
+    /// Callee-saved register s10 (x26).
+    pub s10: usize,
+    /// Callee-saved register s11 (x27).
+    pub s11: usize,
+    /// The `satp` register value, i.e., the page table root.
+    pub satp: karch::HwPageTableRoot,
+    #[cfg(feature = "fp-simd")]
+    pub fp_state: FpState,
+}
+
+impl TaskContext {
+    /// Creates a dummy context for a new task.
+    ///
+    /// Note the context is not initialized, it will be filled by [`switch_to`]
+    /// (for initial tasks) and [`init`] (for regular tasks) methods.
+    ///
+    /// [`init`]: TaskContext::init
+    /// [`switch_to`]: TaskContext::switch_to
+    pub fn new() -> Self {
+        Self {
+            satp: karch::read_kernel_page_table(),
+            ..Default::default()
+        }
+    }
+
+    /// Initializes the context for a new task, with the given entry point and
+    /// kernel stack.
+    pub fn init(&mut self, entry: usize, kstack_top: VirtAddr) {
+        self.sp = kstack_top.as_usize();
+        self.ra = entry;
+    }
+
+    /// Changes the page table root in this context.
+    ///
+    /// The hardware register for page table root (`satp` for riscv64) will be
+    /// updated to the next task's after [`Self::switch_to`].
+    pub fn set_page_table_root(&mut self, satp: karch::HwPageTableRoot) {
+        self.satp = satp;
+    }
+
+    /// Switches to another task.
+    ///
+    /// It first saves the current task's context from CPU to this place, and then
+    /// restores the next task's context from `next_ctx` to CPU.
+    ///
+    /// Publishes `next_task` immediately before the low-level stack switch.
+    /// This function does not acquire or release task references.
+    ///
+    /// # Safety
+    ///
+    /// Exclude normal IRQs, migration and concurrent execution of either
+    /// context. `self` must be the running context; `next_ctx` must be a
+    /// distinct, initialized context belonging to the live `next_task`.
+    /// Retain both tasks and stacks through the switch and keep the incoming
+    /// task owned while current. Release the outgoing owner on the incoming
+    /// stack, not on the suspended continuation. Local NMI observers must
+    /// finish before interrupted execution resumes.
+    pub unsafe fn switch_to(&mut self, next_ctx: &Self, next_task: *const ()) {
+        debug_assert!(!karch::local_irq_enabled());
+        debug_assert!(!next_task.is_null());
+        if self.satp != next_ctx.satp {
+            // SAFETY: `satp` value comes from `HwPageTableRoot` set via `set_page_table_root()`, guaranteed valid by the page table subsystem.
+            unsafe { karch::write_user_page_table(next_ctx.satp) };
+            karch::flush_tlb(None); // currently flush the entire TLB
+        }
+        #[cfg(feature = "fp-simd")]
+        {
+            self.fp_state.switch_to(&next_ctx.fp_state);
+        }
+
+        // SAFETY: the scheduler retains both tasks across publication and
+        // excludes migration; next_task belongs to the incoming context.
+        unsafe { super::set_current_task_ptr(next_task) };
+        // SAFETY: Naked function that saves/restores callee-saved registers (ra, s0-s11, sp) and swaps stack pointers.
+        unsafe { context_switch(self, next_ctx) }
+    }
+}
+
+/// # Safety
+///
+/// Floating-point access must be enabled on this CPU. Prevent task switches
+/// while saving so all registers belong to the same task; the destination
+/// state must remain exclusively borrowed for the assembly writes.
+#[cfg(feature = "fp-simd")]
+#[unsafe(naked)]
+unsafe extern "C" fn save_fp_registers(fp_state: &mut FpState) {
+    naked_asm!(
+        include_fp_asm_macros!(),
+        "
+        PUSH_FLOAT_REGS a0
+        frcsr t0
+        STR t0, a0, 32
+        ret"
+    )
+}
+
+/// # Safety
+///
+/// Floating-point access must be enabled on this CPU, and the source must
+/// contain valid saved or initial FP state. Prevent task switches and ensure
+/// no live kernel FP values depend on the registers replaced by this call.
+#[cfg(feature = "fp-simd")]
+#[unsafe(naked)]
+unsafe extern "C" fn restore_fp_registers(fp_state: &FpState) {
+    naked_asm!(
+        include_fp_asm_macros!(),
+        "
+        POP_FLOAT_REGS a0
+        LDR t0, a0, 32
+        fscsr x0, t0
+        ret"
+    )
+}
+
+/// # Safety
+///
+/// Floating-point access must be enabled on this hart. Prevent task
+/// switches, and save any previous task's live FP state before clearing
+/// registers. No live kernel FP values may depend on those registers.
+#[cfg(feature = "fp-simd")]
+#[unsafe(naked)]
+unsafe extern "C" fn clear_fp_registers() {
+    naked_asm!(
+        include_fp_asm_macros!(),
+        "
+        CLEAR_FLOAT_REGS
+        ret"
+    )
+}
+
+/// # Safety
+///
+/// The scheduler must exclude interrupts and concurrent execution of either
+/// context. The next context must contain a valid, aligned kernel stack and
+/// resume address established by `TaskContext::init` or an earlier switch.
+/// Keep both contexts and stacks live until their saved continuations finish;
+/// FP state and address-space state must already match the next task.
+#[unsafe(naked)]
+unsafe extern "C" fn context_switch(_current_task: &mut TaskContext, _next_task: &TaskContext) {
+    naked_asm!(
+        include_asm_macros!(),
+        "
+        // save old context (callee-saved registers)
+        STR     ra, a0, 0
+        STR     sp, a0, 1
+        STR     s0, a0, 2
+        STR     s1, a0, 3
+        STR     s2, a0, 4
+        STR     s3, a0, 5
+        STR     s4, a0, 6
+        STR     s5, a0, 7
+        STR     s6, a0, 8
+        STR     s7, a0, 9
+        STR     s8, a0, 10
+        STR     s9, a0, 11
+        STR     s10, a0, 12
+        STR     s11, a0, 13
+
+        // restore new context
+        LDR     s11, a1, 13
+        LDR     s10, a1, 12
+        LDR     s9, a1, 11
+        LDR     s8, a1, 10
+        LDR     s7, a1, 9
+        LDR     s6, a1, 8
+        LDR     s5, a1, 7
+        LDR     s4, a1, 6
+        LDR     s3, a1, 5
+        LDR     s2, a1, 4
+        LDR     s1, a1, 3
+        LDR     s0, a1, 2
+        LDR     sp, a1, 1
+        LDR     ra, a1, 0
+
+        ret",
+    )
+}

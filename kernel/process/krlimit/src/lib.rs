@@ -1,0 +1,123 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! Process resource-limit values, Linux-indexed tables, and kernel defaults.
+//!
+//! Use [`Rlimits::new`] for a process table and [`Rlimit::new`] for a pair.
+//! Callers own validation, synchronization, and enforcement.
+//!
+//! # Example
+//!
+//! ```
+//! use krlimit::{Rlimit, Rlimits};
+//! use linux_raw_sys::general::RLIMIT_NOFILE;
+//! let mut limits = Rlimits::new(512 * 1024);
+//! limits[RLIMIT_NOFILE] = Rlimit::new(128, 256);
+//! assert_eq!(limits[RLIMIT_NOFILE].current, 128);
+//! ```
+
+#![no_std]
+
+use core::ops::{Index, IndexMut};
+
+use linux_raw_sys::general::{
+    RLIM_NLIMITS, RLIMIT_CORE, RLIMIT_MEMLOCK, RLIMIT_MSGQUEUE, RLIMIT_NICE, RLIMIT_NOFILE,
+    RLIMIT_NPROC, RLIMIT_RTPRIO, RLIMIT_SIGPENDING, RLIMIT_STACK,
+};
+
+const RLIM_INFINITY: u64 = u64::MAX;
+const MLOCK_LIMIT_BYTES: u64 = 8 * 1024 * 1024;
+const MSGQUEUE_LIMIT_BYTES: u64 = 819_200;
+
+/// The maximum number of open files supported by the current fd table.
+pub const FILE_LIMIT: usize = 1024;
+
+/// The limit for a specific resource.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Rlimit {
+    /// The current limit for the resource (soft).
+    pub current: u64,
+    /// The maximum limit for the resource (hard).
+    pub max: u64,
+}
+
+impl Rlimit {
+    /// The unlimited soft/hard limit pair.
+    pub const INFINITY: Self = Self::new(RLIM_INFINITY, RLIM_INFINITY);
+
+    /// Creates a new `Rlimit` with the specified soft and hard limits.
+    ///
+    /// The values are accepted without checking `soft <= hard`; callers applying
+    /// resource policy must validate the pair before storing it.
+    pub const fn new(soft: u64, hard: u64) -> Self {
+        Self {
+            current: soft,
+            max: hard,
+        }
+    }
+}
+
+impl From<u64> for Rlimit {
+    fn from(value: u64) -> Self {
+        Self {
+            current: value,
+            max: value,
+        }
+    }
+}
+
+/// A fixed table indexed by Linux resource numbers.
+///
+/// Indexing or mutably indexing with a value at least `RLIM_NLIMITS` panics.
+/// Entries and constructors do not enforce soft/hard policy; callers must
+/// validate indices and updates before using the indexing traits.
+pub struct Rlimits([Rlimit; RLIM_NLIMITS as usize]);
+
+impl Rlimits {
+    /// Creates a new limit table with Linux-like defaults.
+    ///
+    /// `user_stack_size` is the configured stack capacity in bytes and sets
+    /// both stack limits. The file-count defaults use [`FILE_LIMIT`].
+    pub fn new(user_stack_size: usize) -> Self {
+        let mut result = Self([Rlimit::INFINITY; RLIM_NLIMITS as usize]);
+
+        // x-kernel currently maps a fixed-size user stack and uses a fixed-capacity
+        // fd table, so keep those hard caps at the kernel-supported maximum instead
+        // of Linux's larger growable defaults.
+        //
+        // If stack growth or a resizable fd table is added, revisit these two
+        // entries and align their hard limits with the defaults reported
+        // through `prlimit64`.
+        //
+        // Keep `RLIMIT_NPROC` unlimited: musl `sysconf(_SC_CHILD_MAX)` returns
+        // `rlim_cur`, and a soft limit of 0 makes bash leave `bgpids.storage`
+        // unallocated then crash on `true & wait` (NULL+8 in `pshash_delindex`).
+        result[RLIMIT_STACK] = (user_stack_size as u64).into();
+        result[RLIMIT_CORE] = Rlimit::new(0, RLIM_INFINITY);
+        result[RLIMIT_NPROC] = Rlimit::INFINITY;
+        result[RLIMIT_NOFILE] = (FILE_LIMIT as u64).into();
+        result[RLIMIT_MEMLOCK] = Rlimit::new(MLOCK_LIMIT_BYTES, MLOCK_LIMIT_BYTES);
+        result[RLIMIT_MSGQUEUE] = Rlimit::new(MSGQUEUE_LIMIT_BYTES, MSGQUEUE_LIMIT_BYTES);
+        result[RLIMIT_SIGPENDING] = Rlimit::new(0, 0);
+        result[RLIMIT_NICE] = Rlimit::new(0, 0);
+        result[RLIMIT_RTPRIO] = Rlimit::new(0, 0);
+        result
+    }
+}
+
+impl Index<u32> for Rlimits {
+    type Output = Rlimit;
+
+    fn index(&self, index: u32) -> &Self::Output {
+        &self.0[index as usize]
+    }
+}
+
+impl IndexMut<u32> for Rlimits {
+    fn index_mut(&mut self, index: u32) -> &mut Self::Output {
+        &mut self.0[index as usize]
+    }
+}
+
+unittest::path_mod_test!(tests, "../ut-tests/lib.rs");

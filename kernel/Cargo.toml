@@ -1,0 +1,319 @@
+[workspace]
+resolver = "2"
+members = [
+    "arch/kcpu_slot",
+    # kernel entry
+    "entry",
+    # boot and loader
+    "boot/*",
+    "task/kworkng/crates/kworkerpool_ng",
+    "task/kworkng/crates/kworkqueue_ng",
+    "task/kworkng",
+    "task/ktimer-core",
+    "tee/tee_crypto",
+    "tee/xdice",
+]
+exclude = [
+    # Preserved upstream crate, with its own standalone host test workspace.
+    "third_party/flatten_objects",
+    # platform-specific boot code that is not intended to be built as part of the main workspace
+    "boot/x86_64-linuxboot",
+    # build config tools (std crates, not part of the no_std kernel workspace)
+    "xtask/*",
+    # standalone host lint tools (not part of the no_std kernel workspace)
+    "tools/*",
+    # TEE user-space apps (built separately with std toolchain)
+    "tee_apps/*",
+    # Standalone DRM userspace ABI regression workspace.
+    "io/drmdevice/tests",
+]
+
+[workspace.metadata.cargo-shear]
+ignored = ["unittest"]
+ignored-paths = ["**/ut-tests/*.rs", "**/host-tests/*.rs"]
+
+[workspace.package]
+version = "0.3.0-dev"
+edition = "2024"
+license = "Apache-2.0"
+
+authors = ["KylinSoft Co., Ltd. <https://www.kylinos.cn/>"]
+homepage = "https://gitee.com/openkylin/x-kernel"
+repository = "https://gitee.com/openkylin/x-kernel"
+documentation = "https://gitee.com/openkylin/x-kernel"
+keywords = ["kylin-x-kernel", "kernel"]
+categories = ["os", "no-std"]
+
+# Lint levels; lint parameters live in clippy.toml.
+[workspace.lints.rust]
+unreachable_pub = "warn"
+unsafe_op_in_unsafe_fn = "deny"
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(unittest)"] }
+
+[workspace.lints.clippy]
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+disallowed_methods = "warn"
+fn_params_excessive_bools = "warn"
+missing_safety_doc = "deny"
+multiple_unsafe_ops_per_block = "deny"
+todo = "deny"
+undocumented_unsafe_blocks = "deny" # moved from xkmake
+unimplemented = "deny"
+used_underscore_binding = "warn"
+linkedlist = "warn"
+too_many_lines = "warn"
+excessive_nesting = "warn"
+upper_case_acronyms = "warn"
+unused_result_ok = "warn"
+panic = "warn"
+unwrap_used = "warn"
+expect_used = "warn"
+
+[workspace.dependencies]
+# Internal: API and core services
+kfeat = { path = "api/kfeat" }
+ksignal = { path = "process/ksignal" }
+ksyscall = { path = "core/ksyscall" }
+
+# Internal: architecture and platform support
+karch = { path = "arch/karch" }
+kcpu = { path = "arch/kcpu" }
+kcpu_id_map = { path = "arch/kcpu_id_map" }
+kcpu_slot = { path = "arch/kcpu_slot" }
+khal = { path = "arch/khal" }
+kirq = { path = "arch/kirq" }
+kipi = { path = "arch/kipi" }
+kplat = { path = "platforms/kplat" }
+
+# Internal: boot and loader
+# Normal kernel consumers inherit boot-info with its cfg(unittest) test module
+# enabled. Standalone boot helpers use explicit path dependencies without this
+# feature because Cargo does not allow member manifests to disable inherited
+# workspace dependency features.
+boot_info = { path = "boot/boot-info", package = "boot-info", features = ["unittest"] }
+firmware_handoff = { path = "boot/firmware-handoff", package = "firmware-handoff" }
+kernel_boot = { path = "boot/kernel-boot", package = "kernel-boot" }
+kernel-elf-parser = { path = "boot/kernel_elf_parser" }
+kernel_elf_loader = { path = "boot/kernel-elf-loader", package = "kernel-elf-loader" }
+x86_boot_common = { path = "boot/x86-boot-common", package = "x86-boot-common" }
+
+# Internal: core runtime and services
+kcred = { path = "process/kcred" }
+kruntime = { path = "core/kruntime" }
+klazy = { path = "util/klazy" }
+ktime_types = { path = "util/ktime_types" }
+ktime = { path = "core/ktime" }
+entropy = { path = "util/entropy" }
+
+# Internal: tracing and debugging
+ktracing = { path = "core/ktracing" }
+kbpf = { path = "core/kbpf" }
+kuaccess = { path = "core/kuaccess" }
+
+# Internal: task scheduling and synchronization
+kpoll = { path = "task/kpoll" }
+krcu = { path = "task/krcu" }
+kspin = { path = "task/kspin" }
+ksync = { path = "task/ksync" }
+kworkerpool_ng = { path = "task/kworkng/crates/kworkerpool_ng" }
+kworkqueue_ng = { path = "task/kworkng/crates/kworkqueue_ng" }
+kworkng = { path = "task/kworkng" }
+ktask = { path = "task/ktask" }
+ktimer_core = { path = "task/ktimer-core", package = "ktimer-core" }
+ksched = { path = "task/ksched" }
+linked_list_r4l = "0.3"
+intrusive-collections = { version = "=0.10.2", default-features = false, features = ["alloc", "nightly"] }
+
+# Internal: process management
+kfutex = { path = "process/kfutex" }
+fs_context = { path = "process/fs_context" }
+kfd = { path = "process/kfd" }
+kfd_objects = { path = "process/kfd_objects" }
+kexec = { path = "process/kexec" }
+krlimit = { path = "process/krlimit" }
+kresources = { path = "process/kresources" }
+kcgroup = { path = "process/kcgroup" }
+kns = { path = "process/kns" }
+ktimer = { path = "process/ktimer" }
+kprocess = { path = "process/kprocess" }
+osvm = { path = "process/osvm" }
+
+# Internal: POSIX ABI compatibility
+posix-ipc = { path = "posix/ipc" }
+posix-fs = { path = "posix/fs" }
+posix-mm = { path = "posix/mm" }
+posix-net = { path = "posix/net" }
+posix-process = { path = "posix/process" }
+posix-types = { path = "posix/types" }
+posix-bpf = { path = "posix/bpf" }
+
+# Internal: memory and filesystem
+alloc-engine = { path = "mm/alloc-engine" }
+kvfs = { path = "fs/kvfs" }
+anon_inodefs = { path = "fs/filesystems/anon_inodefs" }
+bpffs = { path = "fs/filesystems/bpffs" }
+memfs = { path = "fs/filesystems/memfs" }
+kaddr_layout = { path = "mm/kaddr_layout" }
+kalloc = { path = "mm/kalloc" }
+fat = { path = "fs/filesystems/fat" }
+fs_block = { path = "fs/block" }
+fs_boot = { path = "fs/boot" }
+procfs = { path = "fs/filesystems/procfs" }
+sysfs = { path = "fs/filesystems/sysfs" }
+pipefs = { path = "fs/filesystems/pipefs" }
+cgroup2fs = { path = "fs/filesystems/cgroup2fs" }
+devfs = { path = "fs/filesystems/devfs" }
+p9 = { path = "net/9p", default-features = false }
+v9fs = { path = "fs/filesystems/9p" }
+memaddr = { path = "mm/memaddr" }
+anon = { path = "mm/anon" }
+memspace = { path = "mm/memspace" }
+filemap = { path = "mm/filemap" }
+pagecache = { path = "mm/pagecache" }
+page_table = { path = "mm/page_table" }
+vmobj = { path = "mm/vmobj" }
+kext4 = { path = "fs/filesystems/kext4", default-features = false }
+
+# Internal: IO and network subsystem
+fbdevice = { path = "io/fbdevice" }
+drmdevice = { path = "io/drmdevice" }
+inputdev = { path = "io/inputdev" }
+kdma = { path = "io/kdma" }
+kio = { path = "io/kio" }
+iov_iter = { path = "io/iov_iter" }
+knet = { path = "net/knet" }
+ktty = { path = "io/ktty" }
+watchdog = { path = "io/watchdog" }
+
+# Internal: driver contracts and model
+block = { path = "drivers/contracts/block" }
+hwrng = { path = "drivers/contracts/hwrng" }
+char_driver = { path = "drivers/contracts/char" }
+display = { path = "drivers/contracts/display" }
+driver_base = { path = "drivers/contracts/driver_base" }
+device_res = { path = "drivers/contracts/device-res", package = "device-res" }
+kclass = { path = "drivers/contracts/kclass" }
+kdevice = { path = "drivers/contracts/kdevice" }
+input = { path = "drivers/contracts/input" }
+net = { path = "drivers/contracts/net" }
+vsock = { path = "drivers/contracts/vsock" }
+
+# Internal: portable concrete drivers
+virtio = { path = "drivers/devices/virtio" }
+
+# Internal: driver adapters and integration
+device_res_xkernel = { path = "drivers/adapters/xkernel/device-res", package = "device-res-xkernel" }
+kdriver = { path = "drivers/integration/kdriver" }
+kdevice_uevent = { path = "drivers/integration/kdevice-uevent", package = "kdevice-uevent" }
+
+# Internal: platform, firmware, and host driver support
+aarch64-pmuv3 = { path = "drivers/platform/aarch64-pmuv3" }
+console_driver = { path = "drivers/platform/console", package = "console-driver" }
+pci = { path = "drivers/platform/pci" }
+rs_fdtree = { path = "drivers/platform/rs-fdtree" }
+acpi = { path = "drivers/platform/acpi" }
+of = { path = "drivers/platform/of" }
+dice_driver = { path = "drivers/platform/dice", package = "dice-driver" }
+irq_driver = { path = "drivers/platform/irq", package = "irq-driver" }
+rtc_driver = { path = "drivers/platform/rtc", package = "rtc-driver" }
+timer_driver = { path = "drivers/platform/timer", package = "timer-driver" }
+x86_apic = { path = "drivers/platform/x86-apic", package = "x86-apic" }
+
+# Internal: platform variants
+kplat-aarch64 = { path = "platforms/kplat-aarch64", default-features = false }
+kplat-loongarch64 = { path = "platforms/kplat-loongarch64" }
+kplat-riscv64 = { path = "platforms/kplat-riscv64" }
+kplat-x86_64 = { path = "platforms/kplat-x86_64" }
+
+# Internal: tee
+tee_crypto = { version = "=0.1.4", default-features = false }
+tee_kernel = { path = "tee/tee_kernel" }
+tee_raw_sys = { path = "tee/tee_raw_sys" }
+tee_task_iface = { path = "tee/tee_task_iface" }
+tasign = { version = "=0.2.4", default-features = false }
+xdice = { path = "tee/xdice", default-features = false, features = ["nostd"] }
+
+# Internal: virtualization
+kvmm = { path = "virt/kvmm" }
+kvmm-api = { path = "virt/kvmm-api" }
+vdev-core = { path = "virt/vdev/core" }
+vdev-test-mmio = { path = "virt/vdev/test-mmio" }
+vdev-uart16550 = { path = "virt/vdev/uart16550" }
+vdev-virtio = { path = "virt/vdev/virtio" }
+vdev-virtio-blk = { path = "virt/vdev/virtio-blk" }
+vdev-virtio-net = { path = "virt/vdev/virtio-net" }
+vdev-vpl011 = { path = "virt/vdev/vpl011" }
+
+# Internal: Trusty IPC
+tipc = { path = "tee/tipc" }
+tipc_handle = { path = "tee/tipc_handle" }
+
+# Internal: utilities and tooling
+backtrace = { path = "util/backtrace" }
+kbuild_config = { path = "util/kbuild_config" }
+kernel-image-metadata = { path = "boot/kernel-image-metadata" }
+kerrno = { path = "util/kerrno" }
+kiface = { path = "util/kiface" }
+kidentity = { path = "process/kidentity" }
+klogger = { path = "util/klogger" }
+macros = { path = "util/macros" }
+unittest = { path = "util/unittest" }
+unittest_support = { path = "util/unittest_support" }
+xcover = { path = "util/xcover" }
+klockstat = { path = "util/klockstat" }
+klockstat-macros = { path = "util/klockstat-macros" }
+
+# External crates
+aarch64-cpu = "10.0"
+arm-gic-driver = "0.17.13"
+bitflags = "2.10"
+ringbuf = { version = "0.4.8", default-features = false, features = ["alloc"] }
+bytemuck = { version = "1.23", features = ["unsound_ptr_pod_impl"] }
+cfg-if = "1.0"
+zerocopy = { version = "0.8", features = ["derive"] }
+zeroize = { version = "1.9", default-features = false }
+uuid = { version = "0.8", default-features = false }
+chrono = { version = "0.4", default-features = false }
+crate_interface = { version = "0.3", features = ["weak_default"] }
+enum_dispatch = "0.3"
+etherparse = { version = "0.20.2", default-features = false }
+event-listener = { version = "=5.4.1", default-features = false }
+extern-trait = "0.2"
+fatfs = { version = "0.1.0-pre.0", default-features = false, package = "axfatfs" }
+hashbrown = "0.16"
+lazyinit = "0.2"
+linux-raw-sys = { version = "0.11", default-features = false, features = [
+    "no_std",
+    "general",
+    "net",
+    "prctl",
+    "system",
+] }
+linux_sysno = { path = "api/linux_sysno", default-features = false }
+linkme = "0.3.33"
+lock_api = { version = "0.4", default-features = false }
+log = "0.4"
+int_ratio = "0.1"
+ouroboros = { version = "0.18.5", default-features = false }
+paste = "1.0"
+proc-macro2 = "1.0"
+quote = "1.0"
+rand_chacha = { version = "0.3", default-features = false }
+
+safe-mmio = "0.3.0"
+slab = { version = "0.4.9", default-features = false }
+smallvec = { version = "1.15", default-features = false, features = ["const_generics", "const_new", "union"] }
+smoltcp = { version = "=0.13.0", default-features = false }
+smccc = "0.2.3"
+strum = { version = "0.27", default-features = false, features = ["derive"] }
+syn = { version = "2.0", features = ["full"] }
+virtio-drivers = { version = "0.13.4", default-features = false, package = "kvirtiodrivers" }
+# Pinned: 0.15.5's `nightly`->`step_trait` (pulled in by `x2apic`) needs Step methods absent from rustc 1.95.0; bump after nightly-2026-07-10+.
+x86_64 = { version = "=0.15.4", features = ["instructions"] }
+ktracepoint = "0.5"
+static-keys = "0.8"
+flatten_objects = { path = "third_party/flatten_objects" }
+weak-map = "0.1.1"
+tock-registers = "0.10.1"
+xmas-elf = { version = "0.9", default-features = false }

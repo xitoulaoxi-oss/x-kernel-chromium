@@ -1,0 +1,26 @@
+[package]
+name = "kfd"
+description = "Process file descriptor runtime for X-Kernel"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+
+[dependencies]
+anon_inodefs.workspace = true
+flatten_objects.workspace = true
+kvfs.workspace = true
+ktime_types.workspace = true
+kerrno.workspace = true
+kcred.workspace = true
+kpoll.workspace = true
+krlimit.workspace = true
+ksync.workspace = true
+linux-raw-sys = { workspace = true, features = ["general"] }
+unittest.workspace = true
+
+[lints]
+workspace = true

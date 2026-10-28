@@ -1,0 +1,9 @@
+sh /tmp/xk-x1-input.sh 2>&1
+X1
+X2 /sys/class/input/event0 c13:64 [QEMU Virtio Keyboard]
+X2 /sys/class/input/event1 c13:65 [QEMU Virtio Mouse]
+X3 events=2 udevdb=c13:64 c13:65 
+X4
+kylin-x:~# echo __XK6537269__rc=$?
+__XK6537269__rc=0
+kylin-x:~# [6n

@@ -1,0 +1,31 @@
+[package]
+name = "posix-ipc"
+description = "POSIX IPC syscall implementations"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+
+[dependencies]
+filemap = { workspace = true }
+kcred = { workspace = true }
+kerrno = { workspace = true }
+khal = { workspace = true }
+ktime.workspace = true
+klogger = { workspace = true }
+kprocess = { workspace = true }
+ksync = { workspace = true }
+kvfs = { workspace = true }
+linux-raw-sys = { workspace = true }
+memaddr = { workspace = true }
+memfs = { workspace = true }
+osvm = { workspace = true }
+posix-types = { workspace = true }
+bitflags = { workspace = true }
+unittest.workspace = true
+
+[lints]
+workspace = true

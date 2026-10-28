@@ -1,0 +1,263 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+use alloc::{boxed::Box, ffi::CString};
+use core::ffi::{c_uint, c_ulong, c_void};
+
+use osvm::MemError;
+use posix_types::{UserConstPtr, UserPtr};
+use tee_raw_sys::{
+    TEE_ERROR_BAD_PARAMETERS, TEE_ERROR_ITEM_NOT_FOUND, TEE_ERROR_SHORT_BUFFER, TEE_Identity,
+    TEE_PROPSET_CURRENT_CLIENT, TEE_PROPSET_CURRENT_TA, TEE_PROPSET_TEE_IMPLEMENTATION,
+    TEE_PropSetHandle, TEE_UUID,
+};
+
+use crate::tee::{TeeResult, tee_session::with_tee_session_ctx};
+
+fn map_user_mem_error(err: MemError) -> u32 {
+    match err {
+        MemError::InvalidAddr | MemError::NoAccess => TEE_ERROR_BAD_PARAMETERS,
+        _ => tee_raw_sys::TEE_ERROR_GENERIC,
+    }
+}
+
+/// Trait representing a TA property.
+trait TeeProps {
+    fn name(&self) -> CString;
+    fn prop_type(&self) -> PropType;
+    fn get(&self, buf: *mut c_void, blen: &mut u32) -> TeeResult;
+}
+
+/// Represents a TEE property set according to the TEE Internal API.
+/// The property set is a collection of properties that can be
+/// queried from the TEE. The property set is identified by a
+/// handle, which is a pointer to a TEE_PropSetHandle structure.
+enum PropertySet {
+    CurrentClient,
+    CurrentTa,
+    TeeImplementation,
+}
+
+impl PropertySet {
+    fn from_raw(raw: c_ulong) -> TeeResult<Self> {
+        let handle = raw as usize as TEE_PropSetHandle;
+        match handle {
+            TEE_PROPSET_CURRENT_CLIENT => Ok(PropertySet::CurrentClient),
+            TEE_PROPSET_CURRENT_TA => Ok(PropertySet::CurrentTa),
+            TEE_PROPSET_TEE_IMPLEMENTATION => Ok(PropertySet::TeeImplementation),
+            _ => Err(TEE_ERROR_BAD_PARAMETERS),
+        }
+    }
+}
+
+#[allow(dead_code)]
+enum PropType {
+    Bool,        // bool
+    U32,         // uint32_t
+    Uuid,        // TEE_UUID
+    Identity,    // TEE_Identity
+    String,      // zero terminated string of char
+    Binaryblock, // zero terminated base64 coded string
+    U64,         // uint64_t
+    Invalid,     // invalid value
+}
+
+impl PropType {
+    fn as_raw(&self) -> c_uint {
+        match self {
+            PropType::Bool => 0,
+            PropType::U32 => 1,
+            PropType::Uuid => 2,
+            PropType::Identity => 3,
+            PropType::String => 4,
+            PropType::Binaryblock => 5,
+            PropType::U64 => 6,
+            PropType::Invalid => 7,
+        }
+    }
+}
+
+// Properties of the set TEE_PROPSET_CURRENT_CLIENT
+struct ClientIdentity;
+struct ClientEndian;
+
+impl TeeProps for ClientIdentity {
+    fn name(&self) -> CString {
+        c"gpd.client.identity".into()
+    }
+
+    fn prop_type(&self) -> PropType {
+        PropType::Identity
+    }
+
+    fn get(&self, buf: *mut c_void, blen: &mut u32) -> TeeResult {
+        let prop_size = size_of::<TEE_Identity>() as u32;
+        if *blen < prop_size {
+            *blen = prop_size;
+            return Err(TEE_ERROR_SHORT_BUFFER);
+        }
+        *blen = prop_size;
+        let clnt_id = with_tee_session_ctx(|ctx| Ok(ctx.clnt_id))?;
+        UserPtr::<TEE_Identity>::from(buf.cast::<TEE_Identity>())
+            .write_vm(clnt_id)
+            .map_err(map_user_mem_error)
+    }
+}
+
+impl TeeProps for ClientEndian {
+    fn name(&self) -> CString {
+        c"gpd.client.endian".into()
+    }
+
+    fn prop_type(&self) -> PropType {
+        PropType::U32
+    }
+
+    fn get(&self, buf: *mut c_void, blen: &mut u32) -> TeeResult {
+        let endian: u32 = 0;
+        let prop_size = size_of::<u32>() as u32;
+        if *blen < prop_size {
+            *blen = prop_size;
+            return Err(TEE_ERROR_SHORT_BUFFER);
+        }
+        *blen = prop_size;
+        UserPtr::<u32>::from(buf.cast::<u32>())
+            .write_vm(endian)
+            .map_err(map_user_mem_error)
+    }
+}
+
+// Properties of the set TEE_PROPSET_CURRENT_TA
+struct TaAppId;
+
+impl TeeProps for TaAppId {
+    fn name(&self) -> CString {
+        c"gpd.ta.appID".into()
+    }
+
+    fn prop_type(&self) -> PropType {
+        PropType::Uuid
+    }
+
+    fn get(&self, buf: *mut c_void, blen: &mut u32) -> TeeResult {
+        let prop_size = size_of::<TEE_UUID>() as u32;
+        if *blen < prop_size {
+            *blen = prop_size;
+            return Err(TEE_ERROR_SHORT_BUFFER);
+        }
+        *blen = prop_size;
+        let uuid = with_tee_session_ctx(|ctx| Ok(ctx.clnt_id))?.uuid;
+        UserPtr::<TEE_UUID>::from(buf.cast::<TEE_UUID>())
+            .write_vm(uuid)
+            .map_err(map_user_mem_error)
+    }
+}
+
+fn get_prop_struct(prop_set: PropertySet, index: c_ulong) -> TeeResult<Box<dyn TeeProps>> {
+    match prop_set {
+        PropertySet::CurrentClient => match index {
+            0 => Ok(Box::new(ClientIdentity)),
+            1 => Ok(Box::new(ClientEndian)),
+            _ => Err(TEE_ERROR_ITEM_NOT_FOUND),
+        },
+        PropertySet::CurrentTa => match index {
+            0 => Ok(Box::new(TaAppId)),
+            _ => Err(TEE_ERROR_ITEM_NOT_FOUND),
+        },
+        PropertySet::TeeImplementation => Err(TEE_ERROR_ITEM_NOT_FOUND),
+    }
+}
+
+fn get_prop_index(name: &str) -> TeeResult<u32> {
+    match name {
+        // TEE_PROPSET_CURRENT_CLIENT
+        "gpd.client.identity" => Ok(0),
+        "gpd.client.endian" => Ok(1),
+        // TEE_PROPSET_CURRENT_TA
+        "gpd.ta.appID" => Ok(0),
+        _ => Err(TEE_ERROR_ITEM_NOT_FOUND),
+    }
+}
+
+/// Get a TEE property from a property set by index
+pub(super) fn sys_tee_scn_get_property(
+    prop_set: c_ulong,
+    index: c_ulong,
+    name: *mut c_void,
+    name_len: *mut c_uint,
+    buf: *mut c_void,
+    blen: *mut c_uint,
+    prop_type: *mut c_uint,
+) -> TeeResult {
+    let prop = get_prop_struct(PropertySet::from_raw(prop_set)?, index)?;
+
+    // Get the property type
+    if !prop_type.is_null() {
+        let raw_type = prop.prop_type().as_raw();
+        UserPtr::<c_uint>::from(prop_type)
+            .write_vm(raw_type)
+            .map_err(map_user_mem_error)?;
+    }
+
+    // Get the property
+    if !buf.is_null() && !blen.is_null() {
+        let user_blen = UserPtr::<c_uint>::from(blen);
+        let mut klen = user_blen.read_vm().map_err(map_user_mem_error)?;
+
+        prop.get(buf, &mut klen)?;
+        user_blen.write_vm(klen).map_err(map_user_mem_error)?;
+    }
+
+    // Get the property name
+    if !name.is_null() && !name_len.is_null() {
+        let prop_name = prop.name();
+        let prop_name_bytes = prop_name.to_bytes_with_nul();
+        let prop_name_len = prop_name_bytes.len() as u32;
+
+        let user_name_len = UserPtr::<c_uint>::from(name_len);
+        let mut klen = user_name_len.read_vm().map_err(map_user_mem_error)?;
+
+        if klen < prop_name_len {
+            klen = prop_name_len;
+            user_name_len.write_vm(klen).map_err(map_user_mem_error)?;
+            return Err(TEE_ERROR_SHORT_BUFFER);
+        }
+
+        UserPtr::<u8>::from(name.cast::<u8>())
+            .write_vm_slice(prop_name_bytes)
+            .map_err(map_user_mem_error)?;
+
+        klen = prop_name_len;
+        user_name_len.write_vm(klen).map_err(map_user_mem_error)?;
+    }
+
+    Ok(())
+}
+
+/// Convert a TEE property name to its index
+pub(super) fn sys_tee_scn_get_property_name_to_index(
+    _prop_set: c_ulong,
+    name: *mut c_void,
+    name_len: c_ulong,
+    index: *mut c_uint,
+) -> TeeResult {
+    if name_len == 0 {
+        return Err(TEE_ERROR_BAD_PARAMETERS);
+    }
+
+    let kname_buf = UserConstPtr::<u8>::from(name.cast_const().cast::<u8>())
+        .load_vm_vec(name_len as usize)
+        .map_err(map_user_mem_error)?;
+    let kname = match core::str::from_utf8(&kname_buf[..(name_len as usize - 1)]) {
+        Ok(kname) => kname,
+        Err(_) => return Err(TEE_ERROR_BAD_PARAMETERS),
+    };
+
+    let prop_index = get_prop_index(kname)?;
+    UserPtr::<c_uint>::from(index)
+        .write_vm(prop_index)
+        .map_err(map_user_mem_error)?;
+
+    Ok(())
+}

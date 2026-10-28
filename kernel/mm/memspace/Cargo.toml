@@ -1,0 +1,33 @@
+[package]
+name = "memspace"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[features]
+default = []
+smp = ["page_table/smp"]
+
+[dependencies]
+anon = { workspace = true }
+kalloc = { workspace = true }
+kcpu_id_map = { workspace = true }
+kerrno = { workspace = true }
+khal = { workspace = true }
+kplat = { workspace = true }
+ksync = { workspace = true }
+kspin = { workspace = true }
+lazyinit = { workspace = true }
+log = { workspace = true }
+memaddr = { workspace = true }
+page_table = { workspace = true, features = ["copy-from"]}
+unittest.workspace = true
+kbuild_config = { workspace = true }
+karch = { workspace = true }
+kaddr_layout = { workspace = true }
+vmobj = { workspace = true }
+
+[lints]
+workspace = true

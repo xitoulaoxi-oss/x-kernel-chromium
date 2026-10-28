@@ -1,0 +1,13 @@
+sh /tmp/xk-x6-layout.sh 2>&1
+L0 -rw-r--r--    1 root     root         11444 Oct 19 02:12 /usr/share/kiosk/official/layout.html
+L1 started
+[37m[ 38.068524 0:71 ksyscall::dispatch:885] [33mUnimplemented syscall: landlock_create_ruleset (tid=71)[m
+[mL2 t=15 procs=5 log=764 wins=0
+L2 t=30 procs=8 log=1583 wins=0
+L2 t=45 procs=11 log=9568 wins=1
+L2 t=60 procs=11 log=10030 wins=1
+L3 _NET_CLIENT_LIST(WINDOW): window id # 0x400003
+L4
+kylin-x:~# echo __XK7819919__rc=$?
+__XK7819919__rc=0
+kylin-x:~# [6n

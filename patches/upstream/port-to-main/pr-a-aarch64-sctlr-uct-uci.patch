@@ -1,0 +1,48 @@
+diff --git a/boot/kernel-boot/src/arch/aarch64/mmu.rs b/boot/kernel-boot/src/arch/aarch64/mmu.rs
+--- a/boot/kernel-boot/src/arch/aarch64/mmu.rs
++++ b/boot/kernel-boot/src/arch/aarch64/mmu.rs
+@@ -334,13 +334,27 @@
+     barrier::isb(barrier::SY);
+ }
+ 
+-#[unsafe(link_section = ".idmap.text")]
++/// # EL0 system-register policy established here
++///
++/// Besides enabling translation, this is the one place every CPU passes through
++/// during bring-up, so the EL0 access policy for cache-related system registers
++/// is set here rather than per CPU. `SCTLR_EL1.UCT` and `SCTLR_EL1.UCI` are
++/// cleared at reset, which traps EL0 reads of `CTR_EL0` and EL0 cache
++/// maintenance to EL1. Linux user space relies on both: compiler and libgcc
++/// cache-synchronisation helpers read `CTR_EL0` and then issue `DC CVAU` /
++/// `IC IVAU`. A trapped access that no handler claims is delivered as SIGILL,
++/// so leaving the reset values makes conforming user space crash.
++///
++/// The VHE configuration is excluded: with HCR_EL2.{E2H,TGE} = {1,1} the same
++/// control bits live in SCTLR_EL2, so that case needs its own decision.
++///
+ /// # Safety
+ ///
+ /// The boot page tables rooted at `BOOT_PT_L0_TTBR0` and `BOOT_PT_L0_TTBR1`
+ /// must already be fully initialized for the current boot image, and the
+ /// caller must ensure enabling the MMU will keep the current execution path
+ /// and required data mapped.
++#[unsafe(link_section = ".idmap.text")]
+ pub(super) unsafe fn init_mmu() {
+     let ttbr0_root_pa = phys_addr_of!(BOOT_PT_L0_TTBR0);
+     let ttbr1_root_pa = phys_addr_of!(BOOT_PT_L0_TTBR1);
+@@ -368,6 +382,15 @@
+     karch::flush_tlb(None);
+ 
+     SCTLR_EL1.modify(SCTLR_EL1::M::Enable + SCTLR_EL1::C::Cacheable + SCTLR_EL1::I::Cacheable);
++    // Linux user space synchronizes caches from EL0: libgcc reads CTR_EL0 and
++    // then issues DC CVAU / IC IVAU. Leaving UCT and UCI at their reset values
++    // traps those accesses, and an unhandled system-register trap reaches user
++    // space as SIGILL - which is how a Chromium renderer died here. This is the
++    // shared primary/secondary CPU path, so the policy applies to every CPU.
++    // VHE aliases SCTLR_EL1 to SCTLR_EL2, whose EL0 controls need a separate
++    // audit, so the VMM configuration keeps the trapping behaviour.
++    #[cfg(not(feature = "vmm"))]
++    SCTLR_EL1.modify(SCTLR_EL1::UCT::DontTrap + SCTLR_EL1::UCI::DontTrap);
+     SCTLR_EL1.set(SCTLR_EL1.get() | (1 << 23));
+     barrier::isb(barrier::SY);
+     super::serial::activate_boot_map();

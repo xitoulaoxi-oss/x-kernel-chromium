@@ -1,0 +1,29 @@
+diff --git a/posix/net/src/opt.rs b/posix/net/src/opt.rs
+index 1f8d8a7a..7443ed51 100644
+--- a/posix/net/src/opt.rs
++++ b/posix/net/src/opt.rs
+@@ -281,7 +281,23 @@ macro_rules! call_dispatch {
+                     dispatch!($which $(as $conv)?);
+                 }
+             )*
+-            _ => return Err(KError::from(LinuxError::ENOPROTOOPT)),
++            _ => {
++                // Log the rejected option rather than silently mapping it.
++                //
++                // Why: one unsupported socket option is enough to make a client
++                // abandon an otherwise-working connection.  Chromium does exactly
++                // that with the X11 socket -- it connects (verified: the xcb client
++                // `xkbcomp` succeeds here with rc=0), then reports "X connection
++                // error received" and exits.  Without knowing which option was
++                // refused, that is indistinguishable from the server being
++                // unreachable, which cost several rounds of investigation here.
++                //
++                // `$in` is logged rather than the caller's variable names, because a
++                // macro arm has no binding for them; this expands at the call site,
++                // so `level` and `optname` are still in scope there.
++                warn!("sockopt rejected: {:?}", $in);
++                return Err(KError::from(LinuxError::ENOPROTOOPT));
++            }
+         }
+     }
+ }

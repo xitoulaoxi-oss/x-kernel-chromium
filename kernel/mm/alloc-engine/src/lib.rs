@@ -1,0 +1,260 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! Various allocator algorithms with a unified interface.
+//!
+//! The crate exposes three allocator classes:
+//!
+//! - [`ByteAllocator`]: Byte-granularity memory allocator. (e.g.,
+//!   `BuddyByteAllocator`, `SlabByteAllocator`)
+//! - [`PageAllocator`]: Page-granularity memory allocator. (e.g.,
+//!   [`BuddyPageAllocator`])
+//! - [`IdAllocator`]: Used to allocate unique IDs.
+
+#![no_std]
+#![allow(
+    clippy::unwrap_used,
+    reason = "CG-021-no-panic-on-reachable-failure: case (b): 10 legacy diagnostic sites need \
+              individual failure-contract review; new code remains subject to the \
+              no-legitimate-failure-panic rule"
+)]
+#![cfg_attr(feature = "allocator_api", feature(allocator_api))]
+
+#[cfg(any(test, unittest))]
+extern crate alloc;
+
+// ---------------------------------------------------------------------------
+// Internal algorithm modules
+// ---------------------------------------------------------------------------
+
+mod buddy_alloc;
+mod slab_heap;
+pub mod slab_trait;
+
+// ---------------------------------------------------------------------------
+// Allocator adapters (algorithm → trait)
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "buddy-page")]
+mod buddy_page;
+#[cfg(feature = "buddy-page")]
+pub use buddy_page::BuddyPageAllocator;
+
+#[cfg(feature = "buddy")]
+mod buddy;
+#[cfg(feature = "buddy")]
+pub use buddy::BuddyByteAllocator;
+
+#[cfg(feature = "slab")]
+mod slab;
+#[cfg(feature = "slab")]
+pub use slab::SlabByteAllocator;
+
+#[cfg(feature = "tlsf")]
+mod tlsf;
+// ---------------------------------------------------------------------------
+// Common types
+// ---------------------------------------------------------------------------
+use core::{alloc::Layout, fmt, ptr::NonNull};
+
+// ---------------------------------------------------------------------------
+// Re-exports from internal modules
+// ---------------------------------------------------------------------------
+pub use buddy_alloc::{BuddyAllocator, PageFlags, split_to_chunks};
+#[cfg(feature = "kerrno")]
+use kerrno::KError;
+pub use slab_heap::SlabHeap;
+pub use slab_trait::{
+    SIZE_CLASS_COUNT, SLAB_MAX_SIZE, SizeClass, SlabAllocResult, SlabDeallocResult,
+    SlabPoolDeallocResult, SlabPoolTrait, SlabTrait,
+};
+#[cfg(feature = "tlsf")]
+pub use tlsf::TlsfByteAllocator;
+
+/// The error type used for allocation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AllocError {
+    /// Invalid `size` or `align_pow2`. (e.g. unaligned)
+    InvalidInput,
+    /// The allocator has already been initialized.
+    AlreadyInitialized,
+    /// Memory added by `add_region` overlapped with existing memory.
+    MemoryOverlap,
+    /// No enough memory to allocate.
+    NoMemory,
+    /// Deallocate an unallocated memory region.
+    NotAllocated,
+    /// The allocator has not been initialized yet.
+    NotInitialized,
+    /// Requested address not found in any managed region.
+    NotFound,
+}
+
+impl fmt::Display for AllocError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidInput => write!(f, "invalid input"),
+            Self::AlreadyInitialized => write!(f, "allocator already initialized"),
+            Self::MemoryOverlap => write!(f, "memory regions overlap"),
+            Self::NoMemory => write!(f, "out of memory"),
+            Self::NotAllocated => write!(f, "memory not allocated"),
+            Self::NotInitialized => write!(f, "allocator not initialized"),
+            Self::NotFound => write!(f, "not found"),
+        }
+    }
+}
+
+#[cfg(feature = "kerrno")]
+impl From<AllocError> for KError {
+    fn from(value: AllocError) -> Self {
+        match value {
+            AllocError::NoMemory => KError::NoMemory,
+            _ => KError::InvalidInput,
+        }
+    }
+}
+
+/// A [`Result`] type with [`AllocError`] as the error type.
+pub type AllocResult<T = ()> = Result<T, AllocError>;
+
+// ---------------------------------------------------------------------------
+// Allocator traits
+// ---------------------------------------------------------------------------
+
+/// The base allocator inherited by other allocators.
+pub trait BaseAllocator {
+    /// Initialize the allocator with a free memory region.
+    fn init_region(&mut self, base: usize, size: usize);
+
+    /// Add a free memory region to the allocator.
+    fn add_region(&mut self, base: usize, size: usize) -> AllocResult;
+}
+
+/// Byte-granularity allocator.
+pub trait ByteAllocator: BaseAllocator {
+    /// Allocate memory with the given size (in bytes) and alignment.
+    fn allocate(&mut self, layout: Layout) -> AllocResult<NonNull<u8>>;
+
+    /// Deallocate memory at the given position, size, and alignment.
+    fn deallocate(&mut self, ptr: NonNull<u8>, layout: Layout);
+
+    /// Returns total memory size in bytes.
+    fn total_bytes(&self) -> usize;
+
+    /// Returns allocated memory size in bytes.
+    fn used_bytes(&self) -> usize;
+
+    /// Returns available memory size in bytes.
+    fn available_bytes(&self) -> usize;
+}
+
+/// Page-granularity allocator.
+pub trait PageAllocator: BaseAllocator {
+    /// The size of a memory page.
+    const PAGE_SIZE: usize;
+
+    /// Allocate contiguous memory pages with given count and alignment.
+    fn allocate_pages(&mut self, num_pages: usize, align_pow2: usize) -> AllocResult<usize>;
+
+    /// Deallocate contiguous memory pages with given position and count.
+    fn deallocate_pages(&mut self, base: usize, num_pages: usize);
+
+    /// Allocate contiguous memory pages with given base address, count and alignment.
+    fn allocate_pages_at(
+        &mut self,
+        base: usize,
+        num_pages: usize,
+        align_pow2: usize,
+    ) -> AllocResult<usize>;
+
+    /// Returns the total number of memory pages.
+    fn total_pages(&self) -> usize;
+
+    /// Returns the number of allocated memory pages.
+    fn used_pages(&self) -> usize;
+
+    /// Returns the number of available memory pages.
+    fn available_pages(&self) -> usize;
+}
+
+/// Used to allocate unique IDs (e.g., thread ID).
+pub trait IdAllocator: BaseAllocator {
+    /// Allocate contiguous IDs with given count and alignment.
+    fn allocate_ids(&mut self, count: usize, align_pow2: usize) -> AllocResult<usize>;
+
+    /// Deallocate contiguous IDs with given position and count.
+    fn deallocate_ids(&mut self, start_id: usize, count: usize);
+
+    /// Whether the given `id` was allocated.
+    fn is_allocated(&self, id: usize) -> bool;
+
+    /// Mark the given `id` has been allocated and cannot be reallocated.
+    fn reserve_id(&mut self, id: usize) -> AllocResult;
+
+    /// Returns the maximum number of supported IDs.
+    fn size(&self) -> usize;
+
+    /// Returns the number of allocated IDs.
+    fn used(&self) -> usize;
+
+    /// Returns the number of available IDs.
+    fn available(&self) -> usize;
+}
+
+#[cfg(feature = "allocator_api")]
+mod allocator_api {
+    extern crate alloc;
+
+    use alloc::rc::Rc;
+    use core::{
+        alloc::{AllocError, Allocator, Layout},
+        cell::RefCell,
+        ptr::NonNull,
+    };
+
+    use super::ByteAllocator;
+
+    /// A byte-allocator wrapped in [`Rc<RefCell>`] that implements [`core::alloc::Allocator`].
+    pub struct AllocatorRc<A: ByteAllocator>(Rc<RefCell<A>>);
+
+    impl<A: ByteAllocator> AllocatorRc<A> {
+        /// Creates a new allocator with the given memory pool.
+        pub fn new(mut inner: A, pool: &mut [u8]) -> Self {
+            inner.init_region(pool.as_mut_ptr() as usize, pool.len());
+            Self(Rc::new(RefCell::new(inner)))
+        }
+    }
+
+    // SAFETY: `AllocatorRc` serializes allocator access through `RefCell` and
+    // forwards allocation/deallocation to the wrapped `ByteAllocator` with the
+    // same pointer/layout pairs it received from the `Allocator` API.
+    unsafe impl<A: ByteAllocator> Allocator for AllocatorRc<A> {
+        fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
+            match layout.size() {
+                0 => Ok(NonNull::slice_from_raw_parts(NonNull::dangling(), 0)),
+                size => {
+                    let raw_addr = self
+                        .0
+                        .borrow_mut()
+                        .allocate(layout)
+                        .map_err(|_| AllocError)?;
+                    Ok(NonNull::slice_from_raw_parts(raw_addr, size))
+                }
+            }
+        }
+
+        unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
+            self.0.borrow_mut().deallocate(ptr, layout)
+        }
+    }
+
+    impl<A: ByteAllocator> Clone for AllocatorRc<A> {
+        fn clone(&self) -> Self {
+            Self(self.0.clone())
+        }
+    }
+}
+
+#[cfg(feature = "allocator_api")]
+pub use allocator_api::AllocatorRc;

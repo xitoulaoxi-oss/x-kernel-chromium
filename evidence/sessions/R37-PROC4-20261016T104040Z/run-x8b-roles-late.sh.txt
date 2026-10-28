@@ -1,0 +1,23 @@
+sh /tmp/xk-x8b-roles-late.sh 2>&1
+Q1
+Q2 log=14247 wins=1
+Q3 pid=1 ppid=0 threads= rss_kb= [/bin/sh --login ]
+Q3 pid=117 ppid=1 threads= rss_kb= [/usr/lib/chromium/chromi]
+Q3 pid=123 ppid=1 threads= rss_kb= [/usr/lib/chromium/chrome]
+Q3 pid=126 ppid=1 threads= rss_kb= [/usr/lib/chromium/chrome]
+Q3 pid=128 ppid=117 threads= rss_kb= [--type=zygote]
+Q3 pid=129 ppid=117 threads= rss_kb= [--type=zygote]
+Q3 pid=156 ppid=128 threads= rss_kb= [--type=zygote]
+Q3 pid=206 ppid=129 threads= rss_kb= [--type=zygote]
+Q3 pid=223 ppid=129 threads= rss_kb= [--type=zygote]
+Q3 pid=252 ppid=117 threads= rss_kb= [--type=utility]
+Q3 pid=253 ppid=129 threads= rss_kb= [--type=zygote]
+Q3 pid=291 ppid=1 threads= rss_kb= [sh /tmp/xk-x8b-roles-lat]
+Q3 pid=293 ppid=128 threads= rss_kb= [--type=zygote]
+Q3 pid=70 ppid=1 threads= rss_kb= [/usr/libexec/Xorg :0 vt1]
+Q3 pid=90 ppid=1 threads= rss_kb= [jwm ]
+Q4 procdirs=17
+Q5
+kylin-x:~# echo __XK5478639__rc=$?
+__XK5478639__rc=0
+kylin-x:~# [6n

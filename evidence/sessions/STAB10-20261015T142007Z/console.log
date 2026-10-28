@@ -1,0 +1,406 @@
+[37m[  0.650558 0:18446462599824926736 knet:203] [33m  No vsock device found![m
+[march = aarch64
+platform = kplat-aarch64
+target = aarch64-unknown-none-softfloat
+build_mode = release
+build_machine = xitoulaoxi@xitoulaoxi-desktop
+build_time = 2026-10-15T14:15:22.367523586Z
+log_level = warn
+backtrace = false
+nr_cpus_max = 4
+vmm = off
+config_sha256 = c27d8b2b3414d219359808f56611284945306fd50a28dbed81a9b252807d955c
+git_commit = d3a6ec95a9dded154db2c1aadd4fef44eadb1612
+git_dirty = true
+build_id = 548801ef4a0f8c1f7323ae65416e378cf87769fb028750ecfc635f711fad9fbe
+smp = 4
+Welcome to [96m[1mKylin X[0m!
+SHLVL=1
+HOME=/root
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PWD=/
+
+Use [1m[3mapt[0m to install packages.
+
+init: handing off to /sbin/init (inittab present, /dev/console present)
+init: must be run as PID 1
+init: /sbin/init exited immediately; falling back to an interactive shell
+kylin-x:~# [6n
+kylin-x:~# [6nexport XK_HTTP=http://10.0.2.2:60178; echo XK_HTTP=http://10.0.2.2:60178
+XK_HTTP=http://10.0.2.2:60178
+kylin-x:~# echo __XK1502685__rc=$?
+__XK1502685__rc=0
+kylin-x:~# [6ncat > /tmp/xk-06-fetch-pages.sh.xtmp <<'XK_H_EOF_b04b289d'
+> #!/bin/sh
+> # Guest-side: install the committee pages and point the kiosk at one.
+> #
+> # Why this replaces the 7 KB embedded installer: tools/xkwin.ps1 now serves
+> # staged files over HTTP and exports XK_HTTP, and it verifies its own server
+> # from the guest's view before any script runs.  Pulling three files plus
+> # sha256 verification fits the 1.8 KB console ceiling, an embedded copy does
+> # not.  Every byte is checked, so a truncated download cannot pass.
+> set -u
+> D=/usr/share/kiosk/official
+> mkdir -p "$D"
+> ok=0; bad=0
+> for n in index interaction layout; do
+>   if wget -q -O "$D/$n.html" "$XK_HTTP/$n.html" 2>/dev/null; then
+>     b=$(wc -c < "$D/$n.html")
+>     s=$(sha256sum "$D/$n.html" | cut -c1-16)
+>     echo "P $n bytes=$b sha=$s"
+>     case "$n:$b:$s" in
+>       index:5730:831cf28f3748940b) ok=$((ok+1));;
+>       interaction:10991:58130daa4a2f426f) ok=$((ok+1));;
+>       layout:11444:a1b04f9aba81b4b7) ok=$((ok+1));;
+>       *) bad=$((bad+1));;
+>     esac
+>   else
+>     echo "P $n FETCH-FAILED"
+>     bad=$((bad+1))
+>   fi
+> done
+> echo "P1 ok=$ok bad=$bad"
+> echo -n file://$D/index.html > /etc/kiosk/url
+> echo "P2 url=$(cat /etc/kiosk/url)"
+> ls -l "$D"
+> echo P3
+> 
+> XK_H_EOF_b04b289d
+kylin-x:~# head -c 1135 /tmp/xk-06-fetch-pages.sh.xtmp > /tmp/xk-06-fetch-pages.sh; rm -f /tmp/xk-06-fetch-pag
+es.sh.xtmp
+kylin-x:~# echo __XK2338108__rc=$?
+__XK2338108__rc=0
+kylin-x:~# [6nchmod +x /tmp/xk-06-fetch-pages.sh; wc -l < /tmp/xk-06-fetch-pages.sh
+33
+kylin-x:~# echo __XK1251512__rc=$?
+__XK1251512__rc=0
+kylin-x:~# [6necho FPSTART
+FPSTART
+kylin-x:~# wc -c "/tmp/xk-06-fetch-pages.sh" 2>/dev/null
+1135 /tmp/xk-06-fetch-pages.sh
+kylin-x:~# cksum "/tmp/xk-06-fetch-pages.sh" 2>/dev/null
+3767101691 1135 /tmp/xk-06-fetch-pages.sh
+kylin-x:~# echo FPEND
+FPEND
+kylin-x:~# echo __XK9568465__rc=$?
+__XK9568465__rc=0
+kylin-x:~# [6necho FPSTART
+FPSTART
+kylin-x:~# wc -c "/tmp/xk-06-fetch-pages.sh" 2>/dev/null
+1135 /tmp/xk-06-fetch-pages.sh
+kylin-x:~# cksum "/tmp/xk-06-fetch-pages.sh" 2>/dev/null
+3767101691 1135 /tmp/xk-06-fetch-pages.sh
+kylin-x:~# echo FPEND
+FPEND
+kylin-x:~# echo __XK1714581__rc=$?
+__XK1714581__rc=0
+kylin-x:~# [6nsh /tmp/xk-06-fetch-pages.sh 2>&1
+P index bytes=5730 sha=831cf28f3748940b
+P interaction bytes=10991 sha=58130daa4a2f426f
+P layout bytes=11444 sha=a1b04f9aba81b4b7
+P1 ok=3 bad=0
+P2 url=file:///usr/share/kiosk/official/index.html
+total 0
+-rw-r--r--    1 root     root          5730 Oct 15 14:20 [0;0mindex.html[m
+-rw-r--r--    1 root     root         10991 Oct 15 14:20 [0;0minteraction.html[m
+-rw-r--r--    1 root     root         11444 Oct 15 14:20 [0;0mlayout.html[m
+P3
+kylin-x:~# echo __XK2648449__rc=$?
+__XK2648449__rc=0
+kylin-x:~# [6ncat > /tmp/xk-95-x.sh.xtmp <<'XK_H_EOF_dafb1c7c'
+> #!/bin/sh
+> # Guest-side A: X server + window manager.  Under 1.8 KB (console ceiling).
+> set -u
+> A=/run/x11/auth
+> echo "A1"
+> pkill -x jwm 2>/dev/null; pkill -x Xorg 2>/dev/null; sleep 2
+> rm -f /tmp/.X0-lock /tmp/.X11-unix/X0 /tmp/xo.log
+> mkdir -p /etc/X11/xorg.conf.d
+> printf 'Section "Device"\n Identifier "x"\n Driver "modesetting"\n Option "AccelMethod" "none"\nEndSection\n
+' > /etc/X11/xorg.conf.d/10-xk.conf
+> C="$(hexdump -n 16 -v -e '4/4 "%08x" 1 ""' /dev/urandom)"
+> xauth -q -f "$A" add :0 . "$C" 2>/dev/null; chmod 644 "$A"
+> Xorg :0 vt1 -nolisten tcp -auth "$A" -logfile /tmp/xo2.log -verbose 6 >/tmp/xo.out 2>&1 &
+> w=0; while [ ! -S /tmp/.X11-unix/X0 ] && [ "$w" -lt 120 ]; do sleep 0.5; w=$((w+1)); done
+> echo "A2 xsock=$([ -S /tmp/.X11-unix/X0 ] && echo yes || echo NO)"
+> su kiosk -s /bin/sh -c "DISPLAY=:0 XAUTHORITY=$A exec jwm" >/tmp/jw.log 2>&1 &
+> sleep 3
+> echo "A3 jwm=$(ps w | grep -c '[j]wm') reach=$(su kiosk -s /bin/sh -c "DISPLAY=:0 XAUTHORITY=$A xrandr --cur
+rent 2>&1 | head -1")"
+> echo "A4"
+> 
+> XK_H_EOF_dafb1c7c
+kylin-x:~# head -c 996 /tmp/xk-95-x.sh.xtmp > /tmp/xk-95-x.sh; rm -f /tmp/xk-95-x.sh.xtmp
+kylin-x:~# echo __XK8854760__rc=$?
+__XK8854760__rc=0
+kylin-x:~# [6nchmod +x /tmp/xk-95-x.sh; wc -l < /tmp/xk-95-x.sh
+18
+kylin-x:~# echo __XK5414493__rc=$?
+__XK5414493__rc=0
+kylin-x:~# [6necho FPSTART
+FPSTART
+kylin-x:~# wc -c "/tmp/xk-95-x.sh" 2>/dev/null
+996 /tmp/xk-95-x.sh
+kylin-x:~# cksum "/tmp/xk-95-x.sh" 2>/dev/null
+1671334510 996 /tmp/xk-95-x.sh
+kylin-x:~# echo FPEND
+FPEND
+kylin-x:~# echo __XK5456562__rc=$?
+__XK5456562__rc=0
+kylin-x:~# [6necho FPSTART
+FPSTART
+kylin-x:~# wc -c "/tmp/xk-95-x.sh" 2>/dev/null
+996 /tmp/xk-95-x.sh
+kylin-x:~# cksum "/tmp/xk-95-x.sh" 2>/dev/null
+1671334510 996 /tmp/xk-95-x.sh
+kylin-x:~# echo FPEND
+FPEND
+kylin-x:~# echo __XK5234470__rc=$?
+__XK5234470__rc=0
+kylin-x:~# [6nsh /tmp/xk-95-x.sh 2>&1
+A1
+A2 xsock=yes
+A3 jwm=1 reach=Screen 0: minimum 320 x 200, current 1280 x 800, maximum 1280 x 800
+A4
+kylin-x:~# echo __XK7608197__rc=$?
+__XK7608197__rc=0
+kylin-x:~# [6ncat > /tmp/xk-a3-root.sh.xtmp <<'XK_H_EOF_7224b172'
+> #!/bin/sh
+> # Guest-side: launch Chromium WITHOUT `su`.
+> #
+> # Why: in the previous run the launcher left one process in state R with a single
+> # thread and 3 fds -- that is `su kiosk` itself burning CPU, and /tmp/w.log was 0
+> # bytes, so Chromium was never exec'd at all.  `su` is therefore not a neutral
+> # wrapper here; it can fail to launch anything.
+> #
+> # Running as root is acceptable for this test: /dev/dri/card0 is mode 666 and the
+> # session has no seat/login management, so the only thing `kiosk` provided was a
+> # uid.  Removing `su` also removes a variable that has been silently confounding
+> # every earlier attempt.
+> set -u
+> A=/run/x11/auth
+> P=/tmp/pr
+> U=/usr/share/kiosk/official/index.html
+> echo "R1"
+> rm -rf "$P"; mkdir -p "$P"
+> rm -f /home/kiosk/.config/chromium/Singleton* 2>/dev/null
+> echo "R2 xsock=$([ -S /tmp/.X11-unix/X0 ] && echo y || echo n) xorg=$(ps w | grep -c '[X]org')"
+> export LIBGL_ALWAYS_SOFTWARE=1
+> export GALLIUM_DRIVER=llvmpipe
+> export DISPLAY=:0
+> export XAUTHORITY=$A
+> setsid chromium --ozone-platform=x11 --no-sandbox --use-gl=angle --use-angle=gl --disable-vulkan --disable-f
+eatures=Vulkan --user-data-dir=$P --enable-logging=stderr file://$U >/tmp/w.log 2>&1 &
+> echo "R3 started"
+> sleep 25
+> echo "R4 procs=$(ps w | grep -c '[c]hromium') rend=$(ps w | grep -c '[-]-type=renderer') gpu=$(ps w | grep -
+c '[-]-type=gpu') log=$(wc -c < /tmp/w.log 2>/dev/null)"
+> echo "R5-window"
+> xprop -root _NET_CLIENT_LIST 2>&1 | head -2
+> echo "R6"
+> tail -10 /tmp/w.log 2>/dev/null
+> echo "R7"
+> 
+> XK_H_EOF_7224b172
+kylin-x:~# head -c 1482 /tmp/xk-a3-root.sh.xtmp > /tmp/xk-a3-root.sh; rm -f /tmp/xk-a3-root.sh.xtmp
+kylin-x:~# echo __XK4554955__rc=$?
+__XK4554955__rc=0
+kylin-x:~# [6nchmod +x /tmp/xk-a3-root.sh; wc -l < /tmp/xk-a3-root.sh
+33
+kylin-x:~# echo __XK9255646__rc=$?
+__XK9255646__rc=0
+kylin-x:~# [6necho FPSTART
+FPSTART
+kylin-x:~# wc -c "/tmp/xk-a3-root.sh" 2>/dev/null
+1482 /tmp/xk-a3-root.sh
+kylin-x:~# cksum "/tmp/xk-a3-root.sh" 2>/dev/null
+2709001180 1482 /tmp/xk-a3-root.sh
+kylin-x:~# echo FPEND
+FPEND
+kylin-x:~# echo __XK7430950__rc=$?
+__XK7430950__rc=0
+kylin-x:~# [6necho FPSTART
+FPSTART
+kylin-x:~# wc -c "/tmp/xk-a3-root.sh" 2>/dev/null
+1482 /tmp/xk-a3-root.sh
+kylin-x:~# cksum "/tmp/xk-a3-root.sh" 2>/dev/null
+2709001180 1482 /tmp/xk-a3-root.sh
+kylin-x:~# echo FPEND
+FPEND
+kylin-x:~# echo __XK9104291__rc=$?
+__XK9104291__rc=0
+kylin-x:~# [6nsh /tmp/xk-a3-root.sh 2>&1
+R1
+R2 xsock=y xorg=1
+R3 started
+[37m[ 37.766728 0:83 ksyscall::dispatch:885] [33mUnimplemented syscall: landlock_create_ruleset (tid=83)[m
+[mR4 procs=8 rend=0 gpu=0 log=1777
+R5-window
+_NET_CLIENT_LIST(WINDOW): window id # 
+R6
+[83:100:1015/142046.369383:ERROR:base/files/file_path_watcher_inotify.cc:923] Failed to read /proc/sys/fs/inotify/max_user_watches
+[83:101:1015/142046.397984:ERROR:dbus/bus.cc:408] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[83:101:1015/142056.156900:ERROR:dbus/bus.cc:408] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[83:101:1015/142056.172588:ERROR:dbus/bus.cc:408] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[83:101:1015/142056.179341:ERROR:dbus/bus.cc:408] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[83:99:1015/142056.164815:ERROR:net/base/address_tracker_linux.cc:242] Could not bind NETLINK socket: Not supported (95)
+[83:101:1015/142059.152790:ERROR:dbus/bus.cc:408] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[83:101:1015/142103.255817:ERROR:dbus/bus.cc:408] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[83:101:1015/142103.832617:ERROR:dbus/bus.cc:408] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[83:101:1015/142103.834160:ERROR:dbus/bus.cc:408] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+R7
+kylin-x:~# echo __XK5999666__rc=$?
+__XK5999666__rc=0
+kylin-x:~# [6ncat > /tmp/xk-07-stability.sh.xtmp <<'XK_H_EOF_2cb03bb9'
+> #!/bin/sh
+> # Guest-side: hold the rendered page for 10 minutes and sample the session.
+> #
+> # Why a settle loop instead of one sleep: the acceptance criterion is that the
+> # compositor does not exit for at least 10 minutes, and a single long sleep
+> # cannot distinguish 'still running' from 'already dead'.  Each sample is
+> # printed so a failure is localised to a time window, and the harness takes
+> # screendumps at both ends of the window.
+> set -u
+> A=/run/x11/auth
+> export DISPLAY=:0 XAUTHORITY=$A
+> echo "S1 start=$(date +%s)"
+> t=0
+> while [ "$t" -lt 600 ]; do
+>   sleep 60
+>   t=$((t+60))
+>   xo=$(ps w | grep -c '[X]org')
+>   jm=$(ps w | grep -c '[j]wm')
+>   ch=$(ps w | grep -c '[c]hromium')
+>   rd=$(ps w | grep -c '[-]-type=renderer')
+>   gp=$(ps w | grep -c '[-]-type=gpu')
+>   echo "S t=$t xorg=$xo jwm=$jm chrome=$ch rend=$rd gpu=$gp"
+> done
+> echo "S2 proc=$([ -S /tmp/.X11-unix/X0 ] && echo sock-ok || echo SOCK-GONE)"
+> echo "S3 xrandr=$(xrandr --current 2>&1 | head -1)"
+> echo "S4 rs=$(xprop -root _NET_SUPPORTING_WM_CHECK 2>&1 | head -1)"
+> echo "S5 cl=$(xprop -root _NET_CLIENT_LIST 2>&1 | head -1)"
+> echo "S6 log=$(wc -c < /tmp/w.log 2>/dev/null)"
+> echo S7
+> 
+> XK_H_EOF_2cb03bb9
+mp/xk-07-stability.sh.xtmp
+kylin-x:~# head -c 1133 /tmp/xk-07-stability.sh.xtmp > /tmp/xk-07-stability.sh; rm -f /tmp/xk-07-stability.sh.
+xtmp
+kylin-x:~# echo __XK7144346__rc=$?
+__XK7144346__rc=0
+kylin-x:~# [6nchmod +x /tmp/xk-07-stability.sh; wc -l < /tmp/xk-07-stability.sh
+29
+kylin-x:~# echo __XK2634812__rc=$?
+__XK2634812__rc=0
+kylin-x:~# [6necho FPSTART
+FPSTART
+kylin-x:~# wc -c "/tmp/xk-07-stability.sh" 2>/dev/null
+1133 /tmp/xk-07-stability.sh
+kylin-x:~# cksum "/tmp/xk-07-stability.sh" 2>/dev/null
+3943730459 1133 /tmp/xk-07-stability.sh
+kylin-x:~# echo FPEND
+FPEND
+kylin-x:~# echo __XK6816279__rc=$?
+__XK6816279__rc=0
+kylin-x:~# [6necho FPSTART
+FPSTART
+kylin-x:~# wc -c "/tmp/xk-07-stability.sh" 2>/dev/null
+1133 /tmp/xk-07-stability.sh
+kylin-x:~# cksum "/tmp/xk-07-stability.sh" 2>/dev/null
+3943730459 1133 /tmp/xk-07-stability.sh
+kylin-x:~# echo FPEND
+FPEND
+kylin-x:~# echo __XK6043804__rc=$?
+__XK6043804__rc=0
+kylin-x:~# [6nsh /tmp/xk-07-stability.sh 2>&1
+S1 start=1792074068
+[37m[ 62.023411 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 62.111026 3:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 62.723658 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 63.718601 3:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 63.890047 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 63.985458 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 64.152878 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 64.278805 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 64.292235 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 65.068036 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 65.155683 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 67.684940 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 67.947627 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 68.501216 3:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=60 xorg=1 jwm=1 chrome=10 rend=0 gpu=0
+[37m[121.702045 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[122.478676 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[123.929043 2:125 posix_net::opt:466] [33msockopt rejected: (0, 13)[m
+[m[37m[138.738047 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[139.216086 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[139.226522 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[142.720887 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[143.217896 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[156.391125 3:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[156.408561 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[156.414664 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[164.215342 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[164.243394 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[164.783364 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[165.393482 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[175.840936 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=120 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+[37m[191.687927 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[191.701752 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[191.709501 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[191.768163 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[191.777477 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[191.783440 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[197.067238 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[197.097183 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[197.722484 3:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=180 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+[37m[244.362925 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[266.746833 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[266.759249 3:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[266.768487 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=240 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+[37m[343.161092 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[343.422989 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=300 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+[37m[364.885818 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[365.148334 3:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[365.426897 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[365.684154 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[418.519048 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[418.525097 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=360 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+[37m[440.136396 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[440.142837 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[440.847718 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[440.853025 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=420 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+[37m[496.761871 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[497.021751 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[531.905588 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[532.170249 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=480 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+[37m[568.155154 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[568.416085 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[572.219169 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[572.714697 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=540 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+[37m[607.417071 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[607.423508 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[643.145180 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[643.629982 3:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[654.908291 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[655.176702 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=600 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+S2 proc=sock-ok
+S3 xrandr=Screen 0: minimum 320 x 200, current 1280 x 800, maximum 1280 x 800
+S4 rs=_NET_SUPPORTING_WM_CHECK(WINDOW): window id # 0x200001
+S5 cl=_NET_CLIENT_LIST(WINDOW): window id # 0x400003
+S6 log=40035
+S7
+kylin-x:~# echo __XK2781648__rc=$?
+__XK2781648__rc=0
+kylin-x:~# [6n[37m[685.165800 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[685.429013 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m

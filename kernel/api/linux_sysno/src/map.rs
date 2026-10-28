@@ -1,0 +1,349 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+use core::{fmt, mem::MaybeUninit};
+
+use super::Sysno;
+use crate::{SysnoSet, set::SysnoSetIter};
+
+type DataArray<T> = [MaybeUninit<T>; Sysno::table_size()];
+
+#[inline]
+const fn uninit_data_array<T>() -> DataArray<T> {
+    [const { MaybeUninit::uninit() }; Sysno::table_size()]
+}
+
+/// A map of syscalls to a type `T`.
+///
+/// This provides constant-time lookup of syscalls within a static array.
+/// Storage grows with the target table's numeric span and `size_of::<T>()`,
+/// including gaps. Iteration visits occupied keys in numeric order.
+///
+/// # Panics
+///
+/// Indexing with an absent key panics; use [`Self::get`] for optional lookup.
+/// Clearing or dropping the map runs each occupied value's destructor. Values
+/// used here must not panic in `Drop`: `clear` clears membership only after all
+/// destructors return, so unwinding does not leave a reusable map.
+///
+/// # Examples
+///
+/// ```
+/// # use linux_sysno::{Sysno, SysnoMap};
+/// struct Point {
+///     x: i32,
+///     y: i32,
+/// }
+///
+/// let mut map = SysnoMap::new();
+/// map.insert(Sysno::openat, Point { x: 1, y: 2 });
+/// assert!(map.get(Sysno::openat).is_some());
+/// ```
+///
+/// Use function callbacks:
+/// ```
+/// # use linux_sysno::{Sysno, SysnoMap};
+/// let mut map = SysnoMap::<fn() -> i32>::new();
+/// map.insert(Sysno::openat, || 1);
+/// map.insert(Sysno::close, || -1);
+/// assert_eq!(map.get(Sysno::openat).unwrap()(), 1);
+/// assert_eq!(map.get(Sysno::close).unwrap()(), -1);
+/// ```
+///
+/// ```
+/// # use linux_sysno::{Sysno, SysnoMap};
+/// let mut syscalls = SysnoMap::from_iter([(Sysno::openat, 0), (Sysno::close, 42)]);
+///
+/// assert!(!syscalls.is_empty());
+/// assert_eq!(syscalls.remove(Sysno::openat), Some(0));
+/// assert_eq!(syscalls.insert(Sysno::close, 4), Some(42));
+/// assert!(syscalls.contains_key(Sysno::close));
+/// assert_eq!(syscalls.get(Sysno::close), Some(&4));
+/// assert_eq!(syscalls.insert(Sysno::close, 11), Some(4));
+/// assert_eq!(syscalls.count(), 1);
+/// assert_eq!(syscalls.remove(Sysno::close), Some(11));
+/// assert!(syscalls.is_empty());
+/// ```
+pub struct SysnoMap<T> {
+    is_set: SysnoSet,
+    data: DataArray<T>,
+}
+
+/// Get internal data index based on sysno value
+#[inline]
+const fn get_idx(sysno: Sysno) -> usize {
+    (sysno.id() as usize) - (Sysno::first().id() as usize)
+}
+
+impl<T> Default for SysnoMap<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T> SysnoMap<T> {
+    /// Initializes an empty syscall map.
+    pub const fn new() -> Self {
+        Self {
+            is_set: SysnoSet::empty(),
+            data: uninit_data_array(),
+        }
+    }
+
+    /// Returns true if the map contains the given syscall.
+    pub const fn contains_key(&self, sysno: Sysno) -> bool {
+        self.is_set.contains(sysno)
+    }
+
+    /// Clears the map, removing all syscalls.
+    pub fn clear(&mut self) {
+        for sysno in &self.is_set {
+            // SAFETY: `is_set` only contains syscalls whose corresponding slot
+            // has been initialized with a `T`.
+            unsafe { self.data[get_idx(sysno)].assume_init_drop() }
+        }
+        self.is_set.clear();
+    }
+
+    /// Returns true if the map is empty. Athough this is an O(1) operation
+    /// (because the total number of syscalls is always constant), it must
+    /// always iterate over the whole map to determine if it is empty or not.
+    /// Thus, this may have a large, constant overhead.
+    pub fn is_empty(&self) -> bool {
+        self.is_set.is_empty()
+    }
+
+    /// Returns the number of syscalls in the map. Although This is an O(1)
+    /// operation (because the total number of syscalls is always constant), it
+    /// must always iterate over the whole map to determine how many items it
+    /// has. Thus, this may have a large, constant overhead.
+    pub fn count(&self) -> usize {
+        self.is_set.count()
+    }
+
+    /// Inserts a value, returning the previous value if the key was present.
+    ///
+    /// Returns `None` for a newly occupied slot; a replaced value is transferred
+    /// to the caller rather than dropped by the map.
+    pub fn insert(&mut self, sysno: Sysno, value: T) -> Option<T> {
+        let uninit = &mut self.data[get_idx(sysno)];
+        if self.is_set.insert(sysno) {
+            // Was not already in the set.
+            uninit.write(value);
+            None
+        } else {
+            // Was already in the set.
+            let old = core::mem::replace(uninit, MaybeUninit::new(value));
+            // SAFETY: the slot was already marked initialized in `is_set`, so
+            // replacing it yields a previously initialized `T`.
+            Some(unsafe { old.assume_init() })
+        }
+    }
+
+    /// Removes the given syscall from the map. Returns old value if the syscall
+    /// was in the map.
+    pub fn remove(&mut self, sysno: Sysno) -> Option<T> {
+        if self.is_set.remove(sysno) {
+            let old = core::mem::replace(&mut self.data[get_idx(sysno)], MaybeUninit::uninit());
+            // SAFETY: removing from `is_set` only succeeds for initialized
+            // slots, so `old` contains a live `T`.
+            Some(unsafe { old.assume_init() })
+        } else {
+            None
+        }
+    }
+
+    /// Returns a reference to the value corresponding to `sysno`. Returns
+    /// `None` if the syscall is not in the map.
+    pub fn get(&self, sysno: Sysno) -> Option<&T> {
+        if self.is_set.contains(sysno) {
+            // SAFETY: membership in `is_set` proves the slot was initialized
+            // and has not been removed since this shared borrow began.
+            Some(unsafe { self.data[get_idx(sysno)].assume_init_ref() })
+        } else {
+            None
+        }
+    }
+
+    /// Returns a mutable reference to the value corresponding to `sysno`.
+    /// Returns `None` if the syscall is not in the map.
+    pub fn get_mut(&mut self, sysno: Sysno) -> Option<&mut T> {
+        if self.is_set.contains(sysno) {
+            // SAFETY: membership in `is_set` proves the slot was initialized,
+            // and `&mut self` guarantees exclusive access to that slot.
+            Some(unsafe { self.data[get_idx(sysno)].assume_init_mut() })
+        } else {
+            None
+        }
+    }
+
+    /// Returns an iterator that iterates over the syscalls contained in the map.
+    pub fn iter(&self) -> SysnoMapIter<'_, T> {
+        SysnoMapIter {
+            iter: self.is_set.iter(),
+            data: &self.data,
+        }
+    }
+
+    /// Returns an iterator that iterates over all enabled values contained in
+    /// the map.
+    pub fn values(&self) -> SysnoMapValues<'_, T> {
+        SysnoMapValues(self.is_set.iter(), &self.data)
+    }
+}
+
+impl<T: Copy> SysnoMap<T> {
+    /// Initialize a syscall map from the given slice. Note that `T` must be
+    /// `Copy` due to `const fn` limitations.
+    ///
+    /// This is useful for constructing a static callback table. For duplicate
+    /// keys, the last entry wins.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use linux_sysno::{Sysno, SysnoMap};
+    ///
+    /// static CALLBACKS: SysnoMap<fn() -> i32> =
+    ///     SysnoMap::from_slice(&[(Sysno::openat, || 42), (Sysno::close, || 43)]);
+    ///
+    /// static DESCRIPTIONS: SysnoMap<&'static str> = SysnoMap::from_slice(&[
+    ///     (Sysno::openat, "open and possibly create a file"),
+    ///     (Sysno::close, "close a file descriptor"),
+    /// ]);
+    ///
+    /// assert_eq!(CALLBACKS[Sysno::openat](), 42);
+    /// assert_eq!(DESCRIPTIONS[Sysno::close], "close a file descriptor");
+    /// ```
+    pub const fn from_slice(slice: &[(Sysno, T)]) -> Self {
+        let mut data = uninit_data_array();
+
+        let mut is_set = SysnoSet::empty();
+
+        // Use while-loop because for-loops are not yet allowed in const-fns.
+        // https://github.com/rust-lang/rust/issues/87575
+        let mut i = 0;
+        while i < slice.len() {
+            let sysno = slice[i].0;
+            let (idx, mask) = SysnoSet::get_idx_mask(sysno);
+            is_set.data[idx] |= mask;
+            data[get_idx(sysno)] = MaybeUninit::new(slice[i].1);
+            i += 1;
+        }
+
+        Self { is_set, data }
+    }
+}
+
+impl<T: Clone> SysnoMap<T> {
+    /// Initializes all possible syscalls in the map with the given default
+    /// value.
+    pub fn init_all(default: &T) -> Self {
+        SysnoSet::all()
+            .iter()
+            .map(|v| (v, default.clone()))
+            .collect()
+    }
+}
+
+impl<T> Drop for SysnoMap<T> {
+    fn drop(&mut self) {
+        self.clear();
+    }
+}
+
+/// An iterator over the syscall (number, value) pairs contained in a
+/// [`SysnoMap`].
+pub struct SysnoMapIter<'a, T> {
+    iter: SysnoSetIter<'a>,
+    data: &'a DataArray<T>,
+}
+
+impl<'a, T> Iterator for SysnoMapIter<'a, T> {
+    type Item = (Sysno, &'a T);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|sysno| {
+            // SAFETY: the iterator only yields syscalls present in the
+            // underlying `SysnoSet`, which correspond to initialized slots.
+            let value = unsafe { self.data[get_idx(sysno)].assume_init_ref() };
+            (sysno, value)
+        })
+    }
+}
+
+/// An iterator over the syscall values contained in a [`SysnoMap`].
+pub struct SysnoMapValues<'a, T>(SysnoSetIter<'a>, &'a DataArray<T>);
+
+impl<'a, T> Iterator for SysnoMapValues<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0
+            .next()
+            // SAFETY: the iterator only yields syscalls present in the
+            // underlying `SysnoSet`, which correspond to initialized slots.
+            .map(|sysno| unsafe { self.1[get_idx(sysno)].assume_init_ref() })
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for SysnoMap<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_map().entries(self.iter()).finish()
+    }
+}
+
+impl<T> Extend<(Sysno, T)> for SysnoMap<T> {
+    fn extend<I: IntoIterator<Item = (Sysno, T)>>(&mut self, iter: I) {
+        for (sysno, value) in iter {
+            self.insert(sysno, value);
+        }
+    }
+}
+
+impl<T> FromIterator<(Sysno, T)> for SysnoMap<T> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = (Sysno, T)>,
+    {
+        let mut map = SysnoMap::new();
+        map.extend(iter);
+        map
+    }
+}
+
+impl<'a, T> IntoIterator for &'a SysnoMap<T> {
+    type IntoIter = SysnoMapIter<'a, T>;
+    type Item = (Sysno, &'a T);
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<T> core::ops::Index<Sysno> for SysnoMap<T> {
+    type Output = T;
+
+    fn index(&self, sysno: Sysno) -> &T {
+        #[expect(
+            clippy::expect_used,
+            reason = "CG-021-no-panic-on-reachable-failure: Index requires an occupied syscall \
+                      entry; optional lookups use get or get_mut"
+        )]
+        self.get(sysno).expect("no entry found for key")
+    }
+}
+
+impl<T> core::ops::IndexMut<Sysno> for SysnoMap<T> {
+    fn index_mut(&mut self, sysno: Sysno) -> &mut T {
+        #[expect(
+            clippy::expect_used,
+            reason = "CG-021-no-panic-on-reachable-failure: Index requires an occupied syscall \
+                      entry; optional lookups use get or get_mut"
+        )]
+        self.get_mut(sysno).expect("no entry found for key")
+    }
+}
+
+unittest::path_mod_test!(tests, "../ut-tests/map.rs");

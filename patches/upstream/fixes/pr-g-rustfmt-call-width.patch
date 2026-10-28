@@ -1,0 +1,48 @@
+diff --git a/io/drmdevice/src/card0.rs b/io/drmdevice/src/card0.rs
+--- a/io/drmdevice/src/card0.rs
++++ b/io/drmdevice/src/card0.rs
+@@ -1137,7 +1137,14 @@
+     let mut state = dev.state.lock();
+     let mut proposed = *state;
+     let mut new_mode_blob: Option<Option<Arc<Vec<u8>>>> = None;
+-    if !dev.apply_prop(obj_type, obj_id, prop_id, value, &mut proposed, &mut new_mode_blob)? {
++    if !dev.apply_prop(
++        obj_type,
++        obj_id,
++        prop_id,
++        value,
++        &mut proposed,
++        &mut new_mode_blob,
++    )? {
+         return Err(VfsError::NotFound);
+     }
+     let current_fb = proposed.plane_fb_id;
+diff --git a/io/drmdevice/src/drm.rs b/io/drmdevice/src/drm.rs
+--- a/io/drmdevice/src/drm.rs
++++ b/io/drmdevice/src/drm.rs
+@@ -225,9 +225,9 @@
+ /// `struct drm_mode_obj_set_property`, the object-typed setter.
+ ///
+ /// `value` at 0, `prop_id` at 8, `obj_id` at 12, `obj_type` at 16, padded to 24
+-/// because the structure aligns to 8.  The asserts below keep that true: the size
+-/// is part of the command word, so a layout change that goes unnoticed would leave
+-/// the handler registered under a number no client sends.
++/// because the structure aligns to 8.  The size pins below keep that true: the
++/// size is part of the command word, so a layout change that went unnoticed would
++/// leave the handler registered under a number no client sends.
+ #[repr(C)]
+ #[derive(Debug, Default, Clone, Copy, AnyBitPattern, UserRead, UserWrite)]
+ pub(crate) struct DrmModeObjSetProperty {
+@@ -237,8 +237,10 @@
+     pub obj_type: u32,
+ }
+ 
+-const _: () = assert!(core::mem::size_of::<DrmModeConnectorSetProperty>() == 16);
+-const _: () = assert!(core::mem::size_of::<DrmModeObjSetProperty>() == 24);
++// Pinned by matching array lengths rather than `assert!`: a mismatch is a type
++// error, so it needs no exception to the workspace's `-D warnings` policy.
++const _: [(); 16] = [(); core::mem::size_of::<DrmModeConnectorSetProperty>()];
++const _: [(); 24] = [(); core::mem::size_of::<DrmModeObjSetProperty>()];
+ 
+ #[repr(C)]
+ #[derive(Debug, Default, Clone, Copy, AnyBitPattern, UserRead, UserWrite)]

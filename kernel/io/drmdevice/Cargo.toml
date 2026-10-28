@@ -1,0 +1,30 @@
+[package]
+name = "drmdevice"
+description = "DRM (Direct Rendering Manager) device subsystem"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+
+[dependencies]
+kcred.workspace = true
+bytemuck.workspace = true
+display.workspace = true
+kalloc.workspace = true
+kclass = { workspace = true, features = ["display"] }
+khal.workspace = true
+ktime_types.workspace = true
+kpoll.workspace = true
+ksync.workspace = true
+ktask.workspace = true
+kvfs.workspace = true
+log.workspace = true
+memaddr.workspace = true
+posix-types.workspace = true
+macros.workspace = true
+
+[lints]
+workspace = true

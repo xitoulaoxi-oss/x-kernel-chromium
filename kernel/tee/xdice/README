@@ -1,0 +1,23 @@
+# xdice
+
+## A note about licensing
+
+This crate is based on the upstream `open-dice` repository (https://android.googlesource.com/platform/external/open-dice/).
+
+## build
+
+```bash
+cargo build
+cargo build --target aarch64-unknown-linux-musl
+cargo build --target x86_64-unknown-linux-musl
+cargo build --no-default-features --features std --target aarch64-unknown-linux-musl
+cargo build --features nostd --target aarch64-unknown-linux-musl
+```
+
+## test
+
+Unit tests run on the host with the standard Cargo test harness:
+
+```bash
+cargo test
+```

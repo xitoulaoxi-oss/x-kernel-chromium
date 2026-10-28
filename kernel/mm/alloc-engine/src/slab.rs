@@ -1,0 +1,119 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! Slab-based memory allocation.
+//!
+//! This module wraps `slab_allocator::Heap` for byte-granularity allocation.
+
+use core::{alloc::Layout, ptr::NonNull};
+
+use super::{AllocError, AllocResult, BaseAllocator, ByteAllocator};
+use crate::slab_heap::SlabHeap;
+
+/// A byte-granularity memory allocator based on the slab allocator.
+pub struct SlabByteAllocator {
+    heap: Option<SlabHeap>,
+}
+
+impl SlabByteAllocator {
+    /// Creates a new empty `SlabByteAllocator`.
+    pub const fn new() -> Self {
+        Self { heap: None }
+    }
+
+    fn inner_mut(&mut self) -> &mut SlabHeap {
+        self.heap.as_mut().unwrap()
+    }
+
+    fn inner(&self) -> &SlabHeap {
+        self.heap.as_ref().unwrap()
+    }
+}
+
+impl Default for SlabByteAllocator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl BaseAllocator for SlabByteAllocator {
+    fn init_region(&mut self, start: usize, size: usize) {
+        // SAFETY: The caller provides a valid backing region at
+        // `[start, start + size)` for constructing the slab heap.
+        self.heap = unsafe { Some(SlabHeap::new(start, size)) };
+    }
+
+    fn add_region(&mut self, start: usize, size: usize) -> AllocResult {
+        // SAFETY: The caller provides a valid backing region at
+        // `[start, start + size)` to extend the slab heap.
+        unsafe { self.inner_mut().add_memory(start, size) }
+    }
+}
+
+// Note: This trait implementation acts as a standard thin wrapper for the slab allocator.
+// The method delegations and unsafe pointer conversions follow idiomatic Rust patterns
+// for memory management APIs, and should not be interpreted as literal duplication.
+impl ByteAllocator for SlabByteAllocator {
+    fn allocate(&mut self, layout: Layout) -> AllocResult<NonNull<u8>> {
+        self.inner_mut()
+            .allocate(layout)
+            // SAFETY: `Heap::allocate` only returns non-null allocation
+            // addresses on success.
+            .map(|addr| unsafe { NonNull::new_unchecked(addr as *mut u8) })
+            .map_err(|_| AllocError::NoMemory)
+    }
+
+    fn deallocate(&mut self, ptr: NonNull<u8>, layout: Layout) {
+        // SAFETY: `ptr` and `layout` come from a previous successful
+        // allocation from this heap.
+        unsafe { self.inner_mut().deallocate(ptr.as_ptr() as usize, layout) }
+    }
+
+    fn total_bytes(&self) -> usize {
+        self.inner().total_bytes()
+    }
+
+    fn used_bytes(&self) -> usize {
+        self.inner().used_bytes()
+    }
+
+    fn available_bytes(&self) -> usize {
+        self.inner().available_bytes()
+    }
+}
+
+#[cfg(feature = "slab")]
+#[unittest::mod_test]
+pub(crate) mod tests_slab {
+    use core::alloc::Layout;
+
+    use unittest::def_test;
+
+    use super::SlabByteAllocator;
+    use crate::{BaseAllocator, ByteAllocator};
+
+    #[def_test]
+    fn test_slab_allocate_deallocate() {
+        let mut alloc = SlabByteAllocator::new();
+        let mut heap = alloc::vec![0u8; 64 * 1024].into_boxed_slice();
+        let base = heap.as_mut_ptr() as usize;
+        let size = heap.len();
+        alloc.init_region(base, size);
+        let layout = Layout::from_size_align(32, 8).unwrap();
+        let ptr = alloc.allocate(layout).unwrap();
+        assert!(alloc.used_bytes() >= 32);
+        alloc.deallocate(ptr, layout);
+        assert!(alloc.used_bytes() <= alloc.total_bytes());
+    }
+
+    #[def_test]
+    fn test_slab_available_bytes() {
+        let mut alloc = SlabByteAllocator::new();
+        let mut heap = alloc::vec![0u8; 64 * 1024].into_boxed_slice();
+        let base = heap.as_mut_ptr() as usize;
+        let size = heap.len();
+        alloc.init_region(base, size);
+        assert_eq!(alloc.total_bytes(), alloc.available_bytes());
+    }
+}

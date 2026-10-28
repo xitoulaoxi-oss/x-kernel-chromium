@@ -1,0 +1,25 @@
+[package]
+name = "kio"
+description = "`std::io` for `no_std` environment"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[features]
+alloc = []
+default = []
+
+[dependencies]
+kerrno.workspace = true
+heapless = "0.9"
+memchr = { version = "2", default-features = false }
+unittest = { workspace = true }
+
+[build-dependencies]
+autocfg = "1"
+
+[lints]
+workspace = true

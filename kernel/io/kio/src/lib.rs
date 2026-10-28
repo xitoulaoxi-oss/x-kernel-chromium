@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+#![doc = include_str!("../README.md")]
+#![no_std]
+#![feature(core_io_borrowed_buf)]
+#![feature(min_specialization)]
+#![feature(maybe_uninit_fill)]
+#![cfg_attr(not(maybe_uninit_slice), feature(maybe_uninit_slice))]
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
+#[doc(no_inline)]
+pub use kerrno::{KError as Error, KErrorKind as ErrorKind, KResult as Result};
+
+/// Default buffer size for I/O operations.
+pub const DEFAULT_BUF_SIZE: usize = 1024 * 2;
+
+mod buffered;
+mod iobuf;
+pub mod prelude;
+mod read;
+mod seek;
+mod utils;
+mod write;
+
+#[path = "../ut-tests/cursor.rs"]
+mod test_cursor;
+#[path = "../ut-tests/iobuf.rs"]
+mod test_iobuf;
+#[path = "../ut-tests/read_write.rs"]
+mod test_read_write;
+#[path = "../ut-tests/seek.rs"]
+mod test_seek;
+
+pub use self::{buffered::*, iobuf::*, read::*, seek::*, utils::*, write::*};
+
+/// I/O poll results.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct PollState {
+    /// Object can be read now.
+    pub readable: bool,
+    /// Object can be written now.
+    pub writable: bool,
+}

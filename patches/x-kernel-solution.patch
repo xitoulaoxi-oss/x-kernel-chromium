@@ -1,0 +1,3289 @@
+diff --git a/boot/kernel-boot/src/arch/aarch64/mmu.rs b/boot/kernel-boot/src/arch/aarch64/mmu.rs
+--- a/boot/kernel-boot/src/arch/aarch64/mmu.rs
++++ b/boot/kernel-boot/src/arch/aarch64/mmu.rs
+@@ -334,13 +334,27 @@
+     barrier::isb(barrier::SY);
+ }
+ 
+-#[unsafe(link_section = ".idmap.text")]
++/// # EL0 system-register policy established here
++///
++/// Besides enabling translation, this is the one place every CPU passes through
++/// during bring-up, so the EL0 access policy for cache-related system registers
++/// is set here rather than per CPU. `SCTLR_EL1.UCT` and `SCTLR_EL1.UCI` are
++/// cleared at reset, which traps EL0 reads of `CTR_EL0` and EL0 cache
++/// maintenance to EL1. Linux user space relies on both: compiler and libgcc
++/// cache-synchronisation helpers read `CTR_EL0` and then issue `DC CVAU` /
++/// `IC IVAU`. A trapped access that no handler claims is delivered as SIGILL,
++/// so leaving the reset values makes conforming user space crash.
++///
++/// The VHE configuration is excluded: with HCR_EL2.{E2H,TGE} = {1,1} the same
++/// control bits live in SCTLR_EL2, so that case needs its own decision.
++///
+ /// # Safety
+ ///
+ /// The boot page tables rooted at `BOOT_PT_L0_TTBR0` and `BOOT_PT_L0_TTBR1`
+ /// must already be fully initialized for the current boot image, and the
+ /// caller must ensure enabling the MMU will keep the current execution path
+ /// and required data mapped.
++#[unsafe(link_section = ".idmap.text")]
+ pub(super) unsafe fn init_mmu() {
+     let ttbr0_root_pa = phys_addr_of!(BOOT_PT_L0_TTBR0);
+     let ttbr1_root_pa = phys_addr_of!(BOOT_PT_L0_TTBR1);
+@@ -368,6 +382,15 @@
+     karch::flush_tlb(None);
+ 
+     SCTLR_EL1.modify(SCTLR_EL1::M::Enable + SCTLR_EL1::C::Cacheable + SCTLR_EL1::I::Cacheable);
++    // Linux user space synchronizes caches from EL0: libgcc reads CTR_EL0 and
++    // then issues DC CVAU / IC IVAU. Leaving UCT and UCI at their reset values
++    // traps those accesses, and an unhandled system-register trap reaches user
++    // space as SIGILL - which is how a Chromium renderer died here. This is the
++    // shared primary/secondary CPU path, so the policy applies to every CPU.
++    // VHE aliases SCTLR_EL1 to SCTLR_EL2, whose EL0 controls need a separate
++    // audit, so the VMM configuration keeps the trapping behaviour.
++    #[cfg(not(feature = "vmm"))]
++    SCTLR_EL1.modify(SCTLR_EL1::UCT::DontTrap + SCTLR_EL1::UCI::DontTrap);
+     SCTLR_EL1.set(SCTLR_EL1.get() | (1 << 23));
+     barrier::isb(barrier::SY);
+     super::serial::activate_boot_map();
+diff --git a/core/ksyscall/Cargo.toml b/core/ksyscall/Cargo.toml
+--- a/core/ksyscall/Cargo.toml
++++ b/core/ksyscall/Cargo.toml
+@@ -20,6 +20,10 @@
+ ]
+ tee_ta_sign = ["tee_task_iface?/tee_ta_sign"]
+ ebpf = ["dep:posix-bpf", "posix-bpf/ebpf"]
++# Per-syscall invocation counters, for diagnosing a user process that spins in the
++# kernel.  Off by default: a diagnostic, not a shipping feature.  Enable with
++# `--features ksyscall/syscall-counter`.  See `src/syscall_counter.rs`.
++syscall-counter = []
+ 
+ [dependencies]
+ pipefs.workspace = true
+diff --git a/core/ksyscall/src/dispatch.rs b/core/ksyscall/src/dispatch.rs
+--- a/core/ksyscall/src/dispatch.rs
++++ b/core/ksyscall/src/dispatch.rs
+@@ -91,6 +91,10 @@
+     };
+ 
+     trace!("Syscall {sysno:?}");
++    #[cfg(feature = "syscall-counter")]
++    crate::syscall_counter::record(sysno);
++    // One relaxed load after the first syscall; see `crate::notify`.
++    crate::notify::install_fs_notifier();
+ 
+     let result = match sysno {
+         // fs ctl
+@@ -413,6 +417,23 @@
+         // event
+         Sysno::eventfd2 => sys_eventfd2(uctx.arg0() as _, uctx.arg1() as _),
+ 
++        // inotify
++        //
++        // Moved out of the `dummy fds` group below.  Returning ENOSYS here is not
++        // a safe "probe and fall back" failure the way it is for `fsopen` or
++        // `io_uring_setup`: Chromium's `base::FilePathWatcher` has no equivalent
++        // fallback, so it reports `inotify_init() failed: Function not
++        // implemented (38)` and its browser process then never finishes starting
++        // up (no renderer is forked, no window is created, the log stops at
++        // 764 bytes).  See `kfd_objects::inotify` for the object.
++        Sysno::inotify_init1 => sys_inotify_init1(uctx.arg0() as _),
++        Sysno::inotify_add_watch => sys_inotify_add_watch(
++            uctx.arg0() as _,
++            uctx.arg1().into(),
++            uctx.arg2() as _,
++        ),
++        Sysno::inotify_rm_watch => sys_inotify_rm_watch(uctx.arg0() as _, uctx.arg1() as _),
++
+         // pidfd
+         Sysno::pidfd_open => sys_pidfd_open(uctx.arg0() as _, uctx.arg1() as _),
+         Sysno::pidfd_getfd => sys_pidfd_getfd(uctx.arg0() as _, uctx.arg1() as _, uctx.arg2() as _),
+@@ -812,7 +833,6 @@
+ 
+         // dummy fds
+         Sysno::fanotify_init
+-        | Sysno::inotify_init1
+         | Sysno::userfaultfd
+         | Sysno::perf_event_open
+         | Sysno::io_uring_setup
+diff --git a/core/ksyscall/src/ipc/inotify.rs b/core/ksyscall/src/ipc/inotify.rs
+new file mode 100644
+--- /dev/null
++++ b/core/ksyscall/src/ipc/inotify.rs
+@@ -0,0 +1,75 @@
++// SPDX-License-Identifier: Apache-2.0
++// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
++// See LICENSES for license details.
++
++//! Inotify syscalls.
++//!
++//! The instance object lives in `kfd_objects::inotify`; this module is the
++//! syscall ABI adapter. `inotify_init1` therefore returns a real descriptor
++//! instead of a sentinel, which matters because `0` names the caller's stdin
++//! and a browser that treats it as an inotify instance will close or poll it.
++
++use alloc::vec::Vec;
++use core::ffi::c_char;
++
++use bitflags::bitflags;
++use kerrno::KResult;
++use kfd_objects::inotify::{INOTIFY_PATH_MAX, Inotify};
++use linux_raw_sys::general::{IN_CLOEXEC, IN_NONBLOCK};
++use posix_types::UserConstPtr;
++
++bitflags! {
++    /// Flags accepted by `inotify_init1`.
++    #[derive(Debug, Clone, Copy, Default)]
++    pub struct InotifyInitFlags: u32 {
++        /// Create a non-blocking instance.
++        const NONBLOCK = IN_NONBLOCK;
++        /// Set close-on-exec on the new descriptor.
++        const CLOEXEC = IN_CLOEXEC;
++    }
++}
++
++/// Creates an inotify instance and returns its new file descriptor.
++pub(crate) fn sys_inotify_init1(flags: u32) -> KResult<isize> {
++    let flags = InotifyInitFlags::from_bits(flags).ok_or(kerrno::KError::InvalidInput)?;
++    debug!("sys_inotify_init1 <= flags: {flags:?}");
++
++    // 与 eventfd 一致：匿名 inode 文件只消费 O_NONBLOCK，
++    // O_CLOEXEC 交给下面的 add_file 处理，避免 OpenFlags::from_bits 拒绝它。
++    let file = Inotify::new_file(flags.bits() & IN_NONBLOCK, kprocess::current_cred())?;
++    kprocess::current_resources()
++        .add_file(file, flags.contains(InotifyInitFlags::CLOEXEC))
++        .map(|fd| fd as isize)
++}
++
++/// Loads the watch path from user memory with a `PATH_MAX` bound.
++///
++/// Non-UTF-8 bytes are preserved: the kernel treats the name as an opaque byte
++/// sequence, and the object compares it byte-for-byte.
++fn load_watch_path(path: UserConstPtr<c_char>) -> KResult<Vec<u8>> {
++    path.load_bytes_with_max_len(INOTIFY_PATH_MAX)
++}
++
++/// Adds a watch and returns its watch descriptor.
++pub(crate) fn sys_inotify_add_watch(
++    fd: i32,
++    path: UserConstPtr<c_char>,
++    mask: u32,
++) -> KResult<isize> {
++    let inotify = kprocess::current_resources().get_file_private::<Inotify>(fd)?;
++    let path = load_watch_path(path)?;
++    debug!(
++        "sys_inotify_add_watch <= fd: {fd}, path_len: {}, mask: {mask:#x}",
++        path.len()
++    );
++
++    inotify.add_watch(&path, mask).map(|wd| wd as isize)
++}
++
++/// Removes the watch registered under `wd`.
++pub(crate) fn sys_inotify_rm_watch(fd: i32, wd: i32) -> KResult<isize> {
++    let inotify = kprocess::current_resources().get_file_private::<Inotify>(fd)?;
++    debug!("sys_inotify_rm_watch <= fd: {fd}, wd: {wd}");
++
++    inotify.remove_watch(wd).map(|()| 0)
++}
+diff --git a/core/ksyscall/src/ipc/mod.rs b/core/ksyscall/src/ipc/mod.rs
+--- a/core/ksyscall/src/ipc/mod.rs
++++ b/core/ksyscall/src/ipc/mod.rs
+@@ -5,6 +5,7 @@
+ //! IPC-related syscall adapters.
+ 
+ mod eventfd;
++mod inotify;
+ mod pipe;
+ 
+-pub(crate) use self::{eventfd::*, pipe::*};
++pub(crate) use self::{eventfd::*, inotify::*, pipe::*};
+diff --git a/core/ksyscall/src/lib.rs b/core/ksyscall/src/lib.rs
+--- a/core/ksyscall/src/lib.rs
++++ b/core/ksyscall/src/lib.rs
+@@ -25,8 +25,11 @@
+ mod dispatch;
+ mod io_mpx;
+ mod ipc;
++mod notify;
+ mod sync;
+ mod sys;
++#[cfg(feature = "syscall-counter")]
++mod syscall_counter;
+ mod task;
+ mod time;
+ mod vfs;
+diff --git a/core/ksyscall/src/notify.rs b/core/ksyscall/src/notify.rs
+new file mode 100644
+--- /dev/null
++++ b/core/ksyscall/src/notify.rs
+@@ -0,0 +1,34 @@
++// SPDX-License-Identifier: Apache-2.0
++// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
++// See LICENSES for license details.
++
++//! Wiring between the filesystem crate and the inotify object crate.
++//!
++//! `posix_fs` needs to report directory-entry changes, and `kfd_objects::inotify`
++//! knows which watches care about them.  Neither can depend on the other:
++//! `kfd_objects` already depends on `kvfs`, so `posix_fs -> kfd_objects` would close
++//! a cycle.  `posix_fs` therefore exposes an injectable function pointer, and this
++//! module -- in the one crate that already depends on both -- installs it.
++//!
++//! Kept separate from `dispatch` so the one-time cost is obviously one-time.
++
++use core::sync::atomic::{AtomicBool, Ordering};
++
++/// Whether the notifier has been installed.
++static INSTALLED: AtomicBool = AtomicBool::new(false);
++
++/// Installs the filesystem notifier exactly once.
++///
++/// Called from the syscall entry point rather than from a start-up hook because
++/// `entry` only depends on this crate, and adding a kernel start-up callback for one
++/// pointer would mean touching a layer that gains nothing from it.  The `swap`
++/// short-circuits every call after the first, so the cost on the syscall path is one
++/// relaxed load once the flag is set.
++pub fn install_fs_notifier() {
++    if INSTALLED.swap(true, Ordering::AcqRel) {
++        return;
++    }
++    // The signatures match exactly: `notify_path(&[u8], u32, &[u8])`.
++    posix_fs::notify::set_entry_notifier(kfd_objects::inotify::notify_path);
++    debug!("filesystem entry notifier installed");
++}
+diff --git a/core/ksyscall/src/syscall_counter.rs b/core/ksyscall/src/syscall_counter.rs
+new file mode 100644
+--- /dev/null
++++ b/core/ksyscall/src/syscall_counter.rs
+@@ -0,0 +1,100 @@
++// SPDX-License-Identifier: Apache-2.0
++// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
++// See LICENSES for license details.
++
++//! Per-syscall invocation counters, for diagnosing a spinning user process.
++//!
++//! Why this exists: Chromium's browser process on this kernel reaches a state where
++//! `/proc/<pid>/stat` field 3 is `R`, `wchan` is empty, its cumulative CPU time does
++//! not advance, and its log stops at exactly 764 bytes -- the signature of a loop
++//! that re-enters the kernel and returns immediately.  `/proc/<pid>/syscall` is not
++//! provided by this kernel, and `wchan` is empty precisely because the task is
++//! on-CPU rather than sleeping, so nothing outside the kernel can name the syscall.
++//!
++//! The counter answers it directly: read the table twice a few seconds apart while
++//! the process is stuck, and the entries whose counts grow fastest are the loop.
++//!
++//! The cost is one relaxed atomic increment per syscall, and the whole facility is
++//! behind the `syscall-counter` feature so it does not ship in a submitted build.
++
++use core::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
++
++use linux_sysno::Sysno;
++
++/// Highest syscall number tracked.  Linux aarch64 uses the generic table, which is
++/// well under 512; anything above is accumulated in [`OVERFLOW`].
++const MAX_SYSNO: usize = 512;
++
++/// Invocation count per syscall number.
++static COUNTERS: [AtomicU32; MAX_SYSNO] = [const { AtomicU32::new(0) }; MAX_SYSNO];
++
++/// Calls to syscall numbers at or above [`MAX_SYSNO`].
++static OVERFLOW: AtomicU32 = AtomicU32::new(0);
++
++/// Total calls observed, used to pace the periodic dump.
++static TOTAL: AtomicUsize = AtomicUsize::new(0);
++
++/// How many syscalls between automatic dumps.
++///
++/// Deliberately small.  The first value tried (200_000) produced no output at all
++/// while a browser was stuck, which is itself ambiguous: it could mean the loop is
++/// not in the kernel, or that the dump simply never triggered.  A low threshold
++/// removes that ambiguity -- if the counter works, one boot proves it, and the
++/// number can be raised afterwards.
++const DUMP_EVERY: usize = 2_000;
++
++/// How many of the busiest syscalls to report per dump.
++const TOP_N: usize = 8;
++
++/// Records one invocation of `sysno`.
++///
++/// Called from `handle_syscall` for every syscall, so it must stay allocation-free
++/// and bounded: two relaxed atomics on the common path, no locking.
++pub fn record(sysno: Sysno) {
++    let n = sysno as usize;
++    if n < MAX_SYSNO {
++        COUNTERS[n].fetch_add(1, Ordering::Relaxed);
++    } else {
++        OVERFLOW.fetch_add(1, Ordering::Relaxed);
++    }
++
++    if TOTAL.fetch_add(1, Ordering::Relaxed) % DUMP_EVERY == DUMP_EVERY - 1 {
++        dump();
++    }
++}
++
++/// Logs the busiest syscalls seen so far, highest first.
++///
++/// Deliberately selection-sorts `TOP_N` times over a fixed 512-entry array rather
++/// than allocating a vector: this runs inside the syscall path.
++pub fn dump() {
++    // `taken` marks entries already reported.  A separate array rather than
++    // checking membership of the output array: holding a mutable borrow of the
++    // output while also reading it inside the same loop does not borrow-check.
++    let mut taken = [false; MAX_SYSNO];
++    for _ in 0..TOP_N {
++        let mut best = usize::MAX;
++        let mut best_count = 0u32;
++        for (n, counter) in COUNTERS.iter().enumerate() {
++            if taken[n] {
++                continue;
++            }
++            let count = counter.load(Ordering::Relaxed);
++            if count > best_count {
++                best_count = count;
++                best = n;
++            }
++        }
++        if best == usize::MAX || best_count == 0 {
++            break;
++        }
++        taken[best] = true;
++        // Only numbers with a name are worth printing; a bare integer would still
++        // identify the loop, but the name is what makes it actionable.
++        match Sysno::new(best) {
++            Some(name) => warn!("syscall-count {name:?}={best_count}"),
++            None => warn!("syscall-count #{best}={best_count}"),
++        }
++    }
++    warn!("syscall-count total={}", TOTAL.load(Ordering::Relaxed));
++}
+diff --git a/entry/src/init.sh b/entry/src/init.sh
+--- a/entry/src/init.sh
++++ b/entry/src/init.sh
+@@ -14,12 +14,45 @@
+ 
+ cd ~
+ 
+-# Hand off to a real init only when an init system is actually installed.
++# Hand off to a real init system when the root filesystem actually has one.
++#
++# The original test recognised only OpenRC (`command -v openrc`). That excludes
++# BusyBox init, which is what minimal images ship: Alpine's `/sbin/init` is a
++# symlink to `/bin/busybox` and there is no `openrc` binary at all, so the test
++# was always false and PID 1 stayed an interactive shell. On such an image
++# `/etc/inittab` was therefore never read and every service it defines --
++# serial getty, and a kiosk or display-manager session on a VT -- silently
++# never ran.
++#
++# Every init handoff needs `/etc/inittab` (that is the file they read to decide
++# what to start) and a console to attach to. Requiring both keeps the original
++# intent -- do not exec an init that has nothing to run and no console to run it
++# on -- while admitting BusyBox alongside OpenRC.
++#
+ # /sbin/init (e.g. openrc) assumes a full console subsystem: the reboot
+ # syscall, VT ioctls, and /dev/tty1-N for getty. On a minimal rootfs without
+-# those, execing /sbin/init just spews errors, so keep an interactive shell.
+-if [ -x /sbin/init ] && command -v openrc >/dev/null 2>&1; then
+-    exec /sbin/init
++# those, execing /sbin/init just spews errors, so keep an interactive shell
++# unless the handoff is actually viable.
++if [ -x /sbin/init ] && [ -r /etc/inittab ] && [ -e /dev/console ]; then
++    # Run the init in this shell first instead of exec'ing it blind: an init
++    # that dies immediately would otherwise take PID 1 down with it, and the
++    # console would show nothing at all. If it survives long enough to be
++    # meaningful it has taken over, and the shell never reaches the next line.
++    echo "init: handing off to /sbin/init (inittab present, /dev/console present)"
++    /sbin/init &
++    init_pid=$!
++    sleep 5
++    if kill -0 "$init_pid" 2>/dev/null; then
++        wait "$init_pid"
++        echo "init: /sbin/init exited; falling back to an interactive shell"
++    else
++        wait "$init_pid" 2>/dev/null
++        echo "init: /sbin/init exited immediately; falling back to an interactive shell"
++    fi
++fi
++
++if [ -x /sbin/init ] && [ ! -r /etc/inittab ]; then
++    echo "init: /sbin/init exists but /etc/inittab is unreadable; staying as a shell"
+ fi
+ 
+ # PID 1 inherited console file descriptions opened by the kernel bootstrap,
+diff --git a/fs/boot/src/lib.rs b/fs/boot/src/lib.rs
+--- a/fs/boot/src/lib.rs
++++ b/fs/boot/src/lib.rs
+@@ -266,6 +266,17 @@
+             TMPFS_MOUNT_FLAGS,
+         )
+         .expect("Failed to mount /dev/shm");
++        // POSIX shared memory is a world-writable sticky directory on Linux
++        // (/dev/shm is 1777). It must be set on the mounted tmpfs root, not on
++        // the covered mountpoint, and without it an unprivileged process cannot
++        // create a segment: Chromium's own children run as the desktop user and
++        // silently fail to allocate the shared memory they are built on.
++        #[expect(
++            clippy::expect_used,
++            reason = "CG-021-no-panic-on-reachable-failure: Fatal boot: /dev/shm mounted but its                       permissions could not be set; filesystem startup has no error return or                       recovery"
++        )]
++        self.set_mode_path("/dev/shm", 0o1777)
++            .expect("Failed to set /dev/shm permissions");
+         #[expect(
+             clippy::expect_used,
+             reason = "CG-021-no-panic-on-reachable-failure: Fatal boot: failed to create /tmp \
+@@ -286,6 +297,18 @@
+             TMPFS_MOUNT_FLAGS,
+         )
+         .expect("Failed to mount /tmp");
++        // /tmp is 1777 on Linux for the same reason as /dev/shm: every process
++        // gets its own scratch space, and the sticky bit stops one process from
++        // removing another's files. Chromium's fallback shared-memory path writes
++        // here when /dev/shm is unusable.
++        #[expect(
++            clippy::expect_used,
++            reason = "CG-021-no-panic-on-reachable-failure: Fatal boot: /tmp mounted but its \
++                      permissions could not be set; filesystem startup has no error return or \
++                      recovery"
++        )]
++        self.set_mode_path("/tmp", 0o1777)
++            .expect("Failed to set /tmp permissions");
+         #[expect(
+             clippy::expect_used,
+             reason = "CG-021-no-panic-on-reachable-failure: Fatal boot: failed to create /proc \
+@@ -415,6 +438,18 @@
+                 &cred,
+             )
+             .map(|_| ())
++    }
++
++    /// Applies permission bits to a path.
++    ///
++    /// Only for mount points this module creates itself during early boot, where
++    /// the kernel is the owner and the mode has to match what user space expects
++    /// from Linux. `mkdir_at` creates directories with 0o755, which is right for
++    /// a private directory and wrong for the world-writable ones.
++    fn set_mode_path(&self, path: &str, mode: u16) -> kvfs::VfsResult<()> {
++        let cred = kcred::initial_cred();
++        let target = self.lookup(path)?;
++        target.chmod(NodePermission::from_bits_truncate(mode), &cred)
+     }
+ 
+     fn ensure_directory_path(&self, path: &str) -> kvfs::VfsResult<()> {
+diff --git a/fs/filesystems/memfs/Cargo.toml b/fs/filesystems/memfs/Cargo.toml
+--- a/fs/filesystems/memfs/Cargo.toml
++++ b/fs/filesystems/memfs/Cargo.toml
+@@ -10,6 +10,7 @@
+ 
+ [dependencies]
+ iov_iter.workspace = true
++kalloc.workspace = true
+ kcred.workspace = true
+ kerrno.workspace = true
+ kvfs.workspace = true
+diff --git a/fs/filesystems/memfs/src/lib.rs b/fs/filesystems/memfs/src/lib.rs
+--- a/fs/filesystems/memfs/src/lib.rs
++++ b/fs/filesystems/memfs/src/lib.rs
+@@ -190,8 +190,25 @@
+     fn statfs(&self, super_block: &SuperBlock) -> VfsResult<StatFs> {
+         let fs = super_block.private::<Arc<MemoryFs>>()?;
+         let mut stat = simple_statfs(fs.fs_type);
+-        stat.block_size =
++        let block_size =
+             u32::try_from(super_block.block_size()).map_err(|_| VfsError::InvalidInput)?;
++        stat.block_size = block_size;
++        // A memory filesystem's capacity is the memory it can still obtain, and
++        // callers size their own allocations from these fields rather than from
++        // a mount option.  Reporting zero made every tmpfs mount look full:
++        // Chromium reads /dev/shm's free space before it allocates the shared
++        // memory its renderer and gpu children need, and refused to create them.
++        // Linux's shmem_statfs reports real numbers here, so this is parity, not
++        // a special case.  The value is a snapshot taken without holding any
++        // allocator lock across the rest of the call.
++        let allocator = kalloc::global_allocator();
++        let used_pages = allocator.used_pages() as u64;
++        let free_pages = allocator.available_pages() as u64;
++        let block_pages = used_pages + free_pages;
++        let blocks_per_page = (memaddr::PAGE_SIZE_4K as u64) / u64::from(block_size.max(1));
++        stat.blocks = block_pages.saturating_mul(blocks_per_page);
++        stat.blocks_free = free_pages.saturating_mul(blocks_per_page);
++        stat.blocks_available = stat.blocks_free;
+         Ok(stat)
+     }
+ }
+@@ -926,6 +943,30 @@
+         assert_eq!(fs.stat().unwrap().block_size, memaddr::PAGE_SIZE_4K as u32);
+     }
+ 
++    // A tmpfs mount reporting zero blocks looks full to anything that sizes
++    // itself from statfs, which is how Chromium decides whether it may allocate
++    // the shared memory for its renderer and gpu children.  Linux reports real
++    // numbers here, so a zero must never come back.
++    #[def_test]
++    fn tmpfs_reports_available_capacity() {
++        let fs = MemoryFs::new();
++
++        let stat = fs.stat().unwrap();
++        assert!(
++            stat.blocks > 0,
++            "tmpfs reported no total blocks; statfs-driven callers see a full filesystem"
++        );
++        assert!(
++            stat.blocks_free > 0,
++            "tmpfs reported no free blocks; statfs-driven callers see a full filesystem"
++        );
++        assert!(
++            stat.blocks_free <= stat.blocks,
++            "free blocks must not exceed total blocks"
++        );
++        assert_eq!(stat.blocks_available, stat.blocks_free);
++    }
++
+     #[def_test]
+     fn tmpfs_readonly_policy_can_be_reconfigured() {
+         let fs = shmem::new_tmpfs(SuperBlockFlags::RDONLY);
+diff --git a/fs/filesystems/procfs/docs/design.md b/fs/filesystems/procfs/docs/design.md
+--- a/fs/filesystems/procfs/docs/design.md
++++ b/fs/filesystems/procfs/docs/design.md
+@@ -43,7 +43,13 @@
+ 
+ Task `status` renders UID/GID columns from one immutable objective credential
+ snapshot of the selected thread (`Thread::real_cred`), in real, effective,
+-saved-set, and filesystem order. The process leader and per-thread paths share
++saved-set, and filesystem order. `State`, `PPid` and `Threads` are taken from
++the same `TaskStat` snapshot `/proc/<pid>/stat` renders, and `VmSize` from
++`Process::virtual_memory_size` -- the sum over the VMA list `/proc/<pid>/maps`
++already prints -- so the three files cannot disagree about one process.
++Reading `VmSize` takes the MM mutex, so a status read is not a lock-free
++operation; `VmRSS` is absent rather than zero-filled because the MM keeps no
++resident-page accounting (see the limitations below). The process leader and per-thread paths share
+ this iterator; neither substitutes the reader's credentials. Cloning the
+ credential `Arc` releases its read lock before formatting. The existing
+ `SeqFile` buffer generates one status record on first read, then serves its
+@@ -169,8 +175,11 @@
+ 
+ Maps retains an O(VMA-count) copied list and clones path strings while holding
+ the MM mutex. Addresses use a minimum width of 12 hex digits and device numbers
+-are rendered as `00:00`. Several status/memory fields and non-cgroup namespace
+-identities are placeholders. Mount reporting uses synthetic device identities
++are rendered as `00:00`. Non-cgroup namespace identities are placeholders, and
++resident memory is not reported at all: `status` has no `VmRSS` line and
++`stat` leaves field 24 at 0, because the MM does not count resident pages per
++address space. Field 23 (`vsize`) is real and shares its source with
++`VmSize`. Mount reporting uses synthetic device identities
+ and is not a globally frozen namespace snapshot. `printk` uses X-Kernel log-level
+ values, not Linux console-loglevel semantics.
+ 
+diff --git a/fs/filesystems/procfs/src/task_nodes/root.rs b/fs/filesystems/procfs/src/task_nodes/root.rs
+--- a/fs/filesystems/procfs/src/task_nodes/root.rs
++++ b/fs/filesystems/procfs/src/task_nodes/root.rs
+@@ -122,21 +122,53 @@
+     let thread = task.as_thread();
+     // One objective snapshot belongs to the selected task, not the reader.
+     let cred = thread.real_cred();
++    let process = thread.process();
++    // State, parent and thread count are already derived for /proc/<pid>/stat.
++    // Taking them from that same snapshot is what keeps the two files from
++    // disagreeing about one process; a second derivation here would be a second
++    // answer that no test compares.
++    let stat = TaskStat::from_thread(task).ok();
++    let vm_size = process.virtual_memory_size();
+     format_task_status(
+         &task.name(),
+-        thread.process().pid(),
++        process.pid(),
+         thread.tid() as u64,
+         &cred,
++        stat.as_ref(),
++        vm_size,
+     )
+ }
+ 
+-fn format_task_status(name: &str, tgid: u32, pid: u64, cred: &Cred) -> String {
++fn format_task_status(
++    name: &str,
++    tgid: u32,
++    pid: u64,
++    cred: &Cred,
++    stat: Option<&TaskStat>,
++    vm_size: Option<u64>,
++) -> String {
++    // Linux prints "S (sleeping)": parsers key on the letter and the wording is
++    // for whoever reads the file, so both are emitted as in fs/proc/array.c.
++    let state = stat.map_or('?', |stat| stat.state);
++    let state_name = match state {
++        'R' => "running",
++        'S' => "sleeping",
++        'Z' => "zombie",
++        _ => "unknown",
++    };
++    let ppid = stat.map_or(0, |stat| stat.ppid);
++    let threads = stat.map_or(0, |stat| stat.num_threads);
++    let vm_size_kb = vm_size.unwrap_or(0) / 1024;
+     format!(
+-        "Name:\t{}\nTgid:\t{}\nPid:\t{}\nUid:\t{} {} {} {}\nGid:\t{} {} {} \
+-         {}\nCpus_allowed:\t1\nCpus_allowed_list:\t0\nMems_allowed:\t1\nMems_allowed_list:\t0\n",
++        "Name:\t{}\nState:\t{} ({})\nTgid:\t{}\nPid:\t{}\nPPid:\t{}\nUid:\t{} {} {} \
++         {}\nGid:\t{} {} {} {}\nCpus_allowed:\t1\nCpus_allowed_list:\t0\nMems_allowed:\t1\n\
++         Mems_allowed_list:\t0\nVmSize:\t{} kB\nThreads:\t{}\n",
+         name,
++        state,
++        state_name,
+         tgid,
+         pid,
++        ppid,
+         cred.ruid(),
+         cred.euid(),
+         cred.suid(),
+@@ -144,7 +176,9 @@
+         cred.rgid(),
+         cred.egid(),
+         cred.sgid(),
+-        cred.fsgid()
++        cred.fsgid(),
++        vm_size_kb,
++        threads
+     )
+ }
+ 
+@@ -1072,11 +1106,32 @@
+ 
+     #[def_test]
+     fn test_task_status_includes_process_name() {
+-        let status = format_task_status("test-bin", 12, 34, &kcred::Cred::root());
++        let status = format_task_status("test-bin", 12, 34, &kcred::Cred::root(), None, None);
+ 
+         assert!(status.contains("Name:\ttest-bin\n"));
+         assert!(status.contains("Tgid:\t12\n"));
+         assert!(status.contains("Pid:\t34\n"));
++    }
++
++    #[def_test]
++    fn test_task_status_without_snapshot_still_parses() {
++        // A detached process has no stat snapshot and no address space. The
++        // lines must still be well formed with a value after the colon: an
++        // empty field makes the whole file unparsable for readers that split
++        // on whitespace, which is worse than an explicitly unknown state.
++        let status = format_task_status(
++            "test-bin",
++            12,
++            34,
++            &kcred::Cred::root(),
++            None,
++            Some(8 * 1024 * 1024),
++        );
++
++        assert!(status.contains("State:\t? (unknown)\n"));
++        assert!(status.contains("PPid:\t0\n"));
++        assert!(status.contains("VmSize:\t8192 kB\n"));
++        assert!(status.contains("Threads:\t0\n"));
+     }
+ 
+     // These fixtures publish targets but never activate them. Reader credentials
+diff --git a/io/drmdevice/docs/design.md b/io/drmdevice/docs/design.md
+--- a/io/drmdevice/docs/design.md
++++ b/io/drmdevice/docs/design.md
+@@ -122,6 +122,15 @@
+ `poll` reports `POLLERR|POLLHUP`. Dumb-buffer pages remain retained while a
+ mapping can reference them.
+ 
++An unknown identifier is reported with the error Linux uses for that specific
++request, because callers branch on the difference rather than only on success.
++`DRM_IOCTL_MODE_DIRTYFB` follows `drm_mode_dirtyfb_ioctl`, which resolves the
++identifier through `drm_framebuffer_lookup` and therefore answers `ENOENT`. A
++probe that distinguishes "the request exists but that framebuffer does not"
++from "malformed argument" keeps its damage tracking enabled, and a client that
++loses that distinction silently stops publishing new framebuffer content to the
++scanout.
++
+ ## Design decisions
+ 
+ - Bind every instance to one class handle, allowing independent state for
+diff --git a/io/drmdevice/src/card0.rs b/io/drmdevice/src/card0.rs
+--- a/io/drmdevice/src/card0.rs
++++ b/io/drmdevice/src/card0.rs
+@@ -182,7 +182,33 @@
+ impl DrmIoctl for DrmSetClientCap {
+     const CMD: u32 = iow::<DrmSetClientCap>(DRM_TYPE, 0x0d);
+ 
+-    fn handle(_dev: &DrmCard, _file: &Arc<DrmFile>, _cap: &mut Self) -> VfsResult<usize> {
++    fn handle(_dev: &DrmCard, file: &Arc<DrmFile>, cap: &mut Self) -> VfsResult<usize> {
++        // Mirror Linux `drm_setclientcap()`: reject an unknown capability with
++        // EOPNOTSUPP and an out-of-range boolean with EINVAL, then remember what
++        // was granted.
++        //
++        // Answering Ok(0) to everything - which is what this used to do - turns
++        // every "does the driver support X?" probe into a false positive, and
++        // leaves `atomic`/`universal_planes` with no observable effect. Clients
++        // legitimately branch on this: a libdrm client that is told `atomic` was
++        // accepted will go on to issue atomic commits.
++        match cap.capability {
++            DRM_CLIENT_CAP_STEREO_3D
++            | DRM_CLIENT_CAP_UNIVERSAL_PLANES
++            | DRM_CLIENT_CAP_ATOMIC => {}
++            _ => return Err(VfsError::OperationNotSupported),
++        }
++        if cap.value > 1 {
++            return Err(VfsError::InvalidInput);
++        }
++        // Capability values are small and defined above, so the shift is in
++        // range by construction.
++        let bit = 1u64 << cap.capability;
++        if cap.value == 1 {
++            file.client_caps.fetch_or(bit, Ordering::Relaxed);
++        } else {
++            file.client_caps.fetch_and(!bit, Ordering::Relaxed);
++        }
+         Ok(0)
+     }
+ }
+@@ -208,10 +234,13 @@
+     const CMD: u32 = iowr::<DrmModeDirtyFb>(DRM_TYPE, 0xB1);
+ 
+     fn handle(dev: &DrmCard, _file: &Arc<DrmFile>, dirty: &mut Self) -> VfsResult<usize> {
+-        // Linux's drm_mode_dirtyfb_ioctl() rejects an unknown fb_id with
+-        // -EINVAL; present_fb is best-effort, so validate before calling it.
++        // Linux's drm_mode_dirtyfb_ioctl() reports an unknown fb_id as -ENOENT
++        // (drm_framebuffer_lookup), and callers distinguish the two: Xorg keeps
++        // its damage tracking enabled only when the generic path answers with
++        // ENOENT rather than EINVAL. present_fb is best-effort, so validate the
++        // identifier before calling it.
+         if !dev.fbs.lock().contains_key(&dirty.fb_id) {
+-            return Err(VfsError::InvalidInput);
++            return Err(VfsError::NotFound);
+         }
+         dev.present_fb(dirty.fb_id);
+         Ok(0)
+@@ -359,6 +388,13 @@
+ struct DrmFile {
+     masters: Arc<Mutex<MasterState>>,
+     binding: Mutex<MasterBinding>,
++    /// Capabilities granted through `DRM_IOCTL_SET_CLIENT_CAP`, as a bitmask
++    /// indexed by the Linux `DRM_CLIENT_CAP_*` value.
++    ///
++    /// Linux keeps this on `drm_file`, i.e. per open file description, and so
++    /// does this driver: two clients of the same card must not share the
++    /// `atomic` / `universal_planes` bits they negotiated independently.
++    client_caps: AtomicU64,
+ }
+ 
+ impl Drop for DrmFile {
+@@ -539,6 +575,7 @@
+                 master: master.clone(),
+                 is_master,
+             }),
++            client_caps: AtomicU64::new(0),
+         });
+         if is_master {
+             masters.active = Some(ActiveMaster {
+@@ -753,6 +790,18 @@
+                 let user_ptr = UserPtr::<DrmModeGetBlob>::from(arg);
+                 <DrmModeGetBlob as DrmIoctl>::handle_raw(self, &state, user_ptr)
+             }
++            <DrmModeCursor as DrmIoctl>::CMD => {
++                let user_ptr = UserPtr::<DrmModeCursor>::from(arg);
++                <DrmModeCursor as DrmIoctl>::handle_raw(self, &state, user_ptr)
++            }
++            <DrmModeCursor2 as DrmIoctl>::CMD => {
++                let user_ptr = UserPtr::<DrmModeCursor2>::from(arg);
++                <DrmModeCursor2 as DrmIoctl>::handle_raw(self, &state, user_ptr)
++            }
++            <DrmModeFbCmd as DrmIoctl>::CMD => {
++                let user_ptr = UserPtr::<DrmModeFbCmd>::from(arg);
++                <DrmModeFbCmd as DrmIoctl>::handle_raw(self, &state, user_ptr)
++            }
+             <DrmModeFbCmd2 as DrmIoctl>::CMD => {
+                 let user_ptr = UserPtr::<DrmModeFbCmd2>::from(arg);
+                 <DrmModeFbCmd2 as DrmIoctl>::handle_raw(self, &state, user_ptr)
+@@ -936,10 +985,17 @@
+     const CMD: u32 = iowr::<DrmModeCreateDumb>(DRM_TYPE, 0xB2);
+ 
+     fn handle(dev: &DrmCard, _file: &Arc<DrmFile>, c: &mut Self) -> VfsResult<usize> {
+-        // Only BGRA8888 (32bpp) is supported, so the bpp == 0 / bpp > 64 /
+-        // multiple-of-8 checks are subsumed by the bpp != 32 comparison and
+-        // bytes_per_pixel is constant.
+-        if c.width == 0 || c.height == 0 || c.bpp != 32 || c.flags != 0 {
++        // The backing store is always BGRA8888 (32bpp) and `bytes_per_pixel` is
++        // therefore constant, but 24bpp requests must still be accepted: Linux's
++        // generic dumb-buffer ioctl accepts them, and libdrm-based clients on
++        // the non-atomic path (Xorg's modesetting driver) ask for 24bpp and then
++        // hand that same value back to `ADDFB`. Rejecting it fails their
++        // initialisation before any framebuffer exists.
++        //
++        // `bpp == 0`, `bpp > 64` and the multiple-of-8 rule are still enforced,
++        // because the depth comes from user space and an unknown depth cannot be
++        // described to the scanout device.
++        if c.width == 0 || c.height == 0 || c.flags != 0 || !matches!(c.bpp, 24 | 32) {
+             return Err(VfsError::InvalidInput);
+         }
+         if c.width > 16384 || c.height > 16384 {
+@@ -1272,6 +1328,59 @@
+     }
+ }
+ 
++impl DrmIoctl for DrmModeCursor {
++    const CMD: u32 = iowr::<DrmModeCursor>(DRM_TYPE, 0xA3);
++
++    fn handle(dev: &DrmCard, _file: &Arc<DrmFile>, cursor: &mut Self) -> VfsResult<usize> {
++        dev.set_cursor(cursor.crtc_id, cursor.flags, cursor.x, cursor.y, cursor.handle)
++    }
++}
++
++impl DrmIoctl for DrmModeCursor2 {
++    const CMD: u32 = iowr::<DrmModeCursor2>(DRM_TYPE, 0xBB);
++
++    fn handle(dev: &DrmCard, _file: &Arc<DrmFile>, cursor: &mut Self) -> VfsResult<usize> {
++        // The hotspot is only meaningful to a hardware cursor plane, which this
++        // driver does not expose; validating it would reject requests the device
++        // is happy to treat as a plain move.
++        dev.set_cursor(cursor.crtc_id, cursor.flags, cursor.x, cursor.y, cursor.handle)
++    }
++}
++
++impl DrmIoctl for DrmModeFbCmd {
++    const CMD: u32 = iowr::<DrmModeFbCmd>(DRM_TYPE, 0xAE);
++
++    fn handle(dev: &DrmCard, file: &Arc<DrmFile>, f: &mut Self) -> VfsResult<usize> {
++        // Legacy ADDFB. Translate the request into the modern form and reuse
++        // that implementation, so the two entry points cannot drift apart.
++        //
++        // bpp 24 is accepted on purpose: `DrmModeCreateDumb` backs every request
++        // with a 32bpp BGRA buffer and reports `pitch = width * 4`, and callers
++        // hand that same bpp straight back here.
++        //
++        // Unlike ADDFB2 there is no pixel_format field; the legacy ABI implies
++        // XRGB8888 for depth 24, which is what the driver implements.
++        if f.handle == 0 || !matches!(f.bpp, 24 | 32) || f.depth == 0 || f.depth > 32 {
++            return Err(VfsError::InvalidInput);
++        }
++        let mut modern = DrmModeFbCmd2 {
++            fb_id: f.fb_id,
++            width: f.width,
++            height: f.height,
++            pixel_format: DRM_FORMAT_XRGB8888,
++            flags: 0,
++            handles: [f.handle, 0, 0, 0],
++            pitches: [f.pitch, 0, 0, 0],
++            offsets: [0; 4],
++            abi_pad: 0,
++            modifier: [0; 4],
++        };
++        <DrmModeFbCmd2 as DrmIoctl>::handle(dev, file, &mut modern)?;
++        f.fb_id = modern.fb_id;
++        Ok(0)
++    }
++}
++
+ impl DrmIoctl for DrmModeFbCmd2 {
+     const CMD: u32 = iowr::<DrmModeFbCmd2>(DRM_TYPE, 0xB8);
+ 
+@@ -1329,6 +1438,42 @@
+ }
+ 
+ impl DrmCard {
++    /// Answer a legacy `MODE_CURSOR` / `MODE_CURSOR2` request.
++    ///
++    /// The bound display exposes a single primary plane, so there is no hardware
++    /// cursor to program and `MODE_CURSOR` cannot be reported as unsupported
++    /// either: `GET_CAP` already advertises a 64x64 cursor
++    /// (`DRM_CURSOR_COMPAT_SIZE`), and libdrm-based clients such as Xorg's
++    /// modesetting driver issue the request once the CRTC is up and treat
++    /// `EOPNOTSUPP` as a fatal initialisation error.
++    ///
++    /// Validation therefore matches Linux's `drm_mode_cursor_common()`: the CRTC
++    /// must exist, and a request that carries a handle must reference a live
++    /// dumb buffer. Position and hotspot are accepted and dropped, which is the
++    /// same observable behaviour as a driver whose cursor plane is disabled:
++    /// the client keeps its own software cursor.
++    fn set_cursor(
++        &self,
++        crtc_id: u32,
++        flags: u32,
++        _x: i32,
++        _y: i32,
++        handle: u32,
++    ) -> VfsResult<usize> {        if crtc_id != CRTC_ID {
++            return Err(VfsError::InvalidInput);
++        }
++        if flags & !(DRM_MODE_CURSOR_BO | DRM_MODE_CURSOR_MOVE) != 0 {
++            return Err(VfsError::InvalidInput);
++        }
++        if flags & DRM_MODE_CURSOR_BO != 0
++            && handle != 0
++            && !self.dumbs.lock().contains_key(&handle)
++        {
++            return Err(VfsError::InvalidInput);
++        }
++        Ok(0)
++    }
++
+     fn present_fb(&self, fb_id: u32) {
+         let (resource_id, width, height) = match self.fbs.lock().get(&fb_id) {
+             Some(fb) => (fb.resource_id, fb.width, fb.height),
+diff --git a/io/drmdevice/src/consts.rs b/io/drmdevice/src/consts.rs
+--- a/io/drmdevice/src/consts.rs
++++ b/io/drmdevice/src/consts.rs
+@@ -56,6 +56,14 @@
+ pub(crate) const DRM_CAP_CRTC_IN_VBLANK_EVENT: u64 = 0x12;
+ pub(crate) const DRM_CAP_ADDFB2_MODIFIERS: u64 = 0x10;
+ 
++// ======== SET_CLIENT_CAP capabilities ========
++
++// Values are Linux's (`include/uapi/drm/drm.h`); the numbering is part of the
++// uapi contract, because clients index their own state by it.
++pub(crate) const DRM_CLIENT_CAP_STEREO_3D: u64 = 1;
++pub(crate) const DRM_CLIENT_CAP_UNIVERSAL_PLANES: u64 = 2;
++pub(crate) const DRM_CLIENT_CAP_ATOMIC: u64 = 3;
++
+ /// Cursor size reported via GET_CAP. The driver exposes a single primary
+ /// plane and no cursor commands, so this is a client-compatibility value,
+ /// not a hardware capability: libdrm-based clients treat 0 as "cursor
+@@ -66,6 +74,14 @@
+ // ======== format modifiers ========
+ 
+ pub(crate) const DRM_MODE_FB_MODIFIERS: u32 = 0x2;
++
++// ======== MODE_CURSOR flags ========
++
++// Linux `DRM_MODE_CURSOR_BO` / `_MOVE` (include/uapi/drm/drm_mode.h).
++/// Install or replace the cursor image (`handle` is meaningful).
++pub(crate) const DRM_MODE_CURSOR_BO: u32 = 0x01;
++/// Move the cursor to `x` / `y`.
++pub(crate) const DRM_MODE_CURSOR_MOVE: u32 = 0x02;
+ pub(crate) const DRM_FORMAT_MOD_INVALID: u64 = 0x00ff_ffff_ffff_ffff;
+ pub(crate) const DRM_FORMAT_MOD_LINEAR: u64 = 0;
+ 
+diff --git a/io/drmdevice/src/drm.rs b/io/drmdevice/src/drm.rs
+--- a/io/drmdevice/src/drm.rs
++++ b/io/drmdevice/src/drm.rs
+@@ -169,6 +169,55 @@
+     pub pad: u32,
+ }
+ 
++/// Legacy `struct drm_mode_fb_cmd`, as still issued by non-atomic clients.
++///
++/// Linux keeps both this and [`DrmModeFbCmd2`]: atomic clients use the latter,
++/// while older mode-setting code (Xorg's `modesetting` driver among them) uses
++/// this one. 7 x u32 = 28 bytes, which is exactly the `0x1c` size field encoded
++/// in `DRM_IOCTL_MODE_ADDFB` (`0xc01c64ae`) - two independent confirmations of
++/// the layout.
++#[repr(C)]
++#[derive(Debug, Default, Clone, Copy, AnyBitPattern, UserRead, UserWrite)]
++pub(crate) struct DrmModeFbCmd {
++    pub fb_id: u32,
++    pub width: u32,
++    pub height: u32,
++    pub pitch: u32,
++    pub bpp: u32,
++    pub depth: u32,
++    pub handle: u32,
++}
++
++/// `struct drm_mode_cursor`, the original cursor request.
++///
++/// 6 x u32 = 24 bytes = 0x18, which is the size field encoded in
++/// `DRM_IOCTL_MODE_CURSOR` (`0xc01864a3`). [`DrmModeCursor2`] adds the hotspot
++/// offsets and is 32 bytes, matching `DRM_IOCTL_MODE_CURSOR2` (`0xc02064bb`).
++#[repr(C)]
++#[derive(Debug, Default, Clone, Copy, AnyBitPattern, UserRead, UserWrite)]
++pub(crate) struct DrmModeCursor {
++    pub flags: u32,
++    pub crtc_id: u32,
++    pub x: i32,
++    pub y: i32,
++    pub handle: u32,
++    pub pad: u32,
++}
++
++/// `struct drm_mode_cursor2`, which adds the hotspot offsets.
++#[repr(C)]
++#[derive(Debug, Default, Clone, Copy, AnyBitPattern, UserRead, UserWrite)]
++pub(crate) struct DrmModeCursor2 {
++    pub flags: u32,
++    pub crtc_id: u32,
++    pub x: i32,
++    pub y: i32,
++    pub handle: u32,
++    pub pad: u32,
++    pub hot_x: i32,
++    pub hot_y: i32,
++}
++
+ #[repr(C)]
+ #[derive(Debug, Default, Clone, Copy, AnyBitPattern, UserRead, UserWrite)]
+ pub(crate) struct DrmModeFbCmd2 {
+diff --git a/io/drmdevice/tests/Cargo.toml b/io/drmdevice/tests/Cargo.toml
+--- a/io/drmdevice/tests/Cargo.toml
++++ b/io/drmdevice/tests/Cargo.toml
+@@ -1,9 +1,17 @@
+ [package]
+-name = "drm-identity-regression"
++name = "drm-regression"
+ edition = "2024"
+ publish = false
+ 
+ [workspace]
+ 
+-[lib]
++# One package, two independent test binaries.  Each file is a normal `tests/`
++# target, so `cargo test` runs them separately and `--no-run` produces two
++# executables to copy into the guest.
++[[test]]
++name = "identity"
+ path = "identity.rs"
++
++[[test]]
++name = "mode"
++path = "mode.rs"
+diff --git a/io/drmdevice/tests/mode.rs b/io/drmdevice/tests/mode.rs
+new file mode 100644
+--- /dev/null
++++ b/io/drmdevice/tests/mode.rs
+@@ -0,0 +1,483 @@
++// SPDX-License-Identifier: Apache-2.0
++// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
++// See LICENSES for license details.
++
++//! Userspace ABI regressions for X-Kernel's legacy DRM mode-setting entry points.
++//!
++//! This is the companion of `identity.rs`: same harness, same rules (a real
++//! `/dev/dri/card0`, no skipping, no mocked ioctls).  It exists because the
++//! delivered Xorg build drives the **legacy** (non-atomic) mode-setting path,
++//! which is a different ioctl set from the atomic one the kernel used to
++//! implement alone:
++//!
++//!   * `DRM_IOCTL_MODE_CREATE_DUMB` -- Xorg requests `bpp = 24`, while a
++//!     BGRA-backed virtio-gpu scanout is 32bpp.  A driver that only accepts 32
++//!     fails `ScreenInit` outright.
++//!   * `DRM_IOCTL_MODE_ADDFB` (legacy, `struct drm_mode_fb_cmd`, 28 bytes) --
++//!     still used by non-atomic clients.  Linux keeps both `ADDFB` and `ADDFB2`.
++//!   * `DRM_IOCTL_MODE_CURSOR` -- Xorg issues it once the CRTC is up.
++//!   * `DRM_IOCTL_SET_CLIENT_CAP` -- must reject unknown capabilities with
++//!     `EOPNOTSUPP` and out-of-range boolean values with `EINVAL`, and must
++//!     remember what it granted.  A handler that answers `Ok(0)` to everything
++//!     makes a feature probe report a capability the driver does not have.
++//!
++//! Run one case at a time; each owns the device for its whole body:
++//!
++//! ```sh
++//! DRM_DEVICE=/dev/dri/card0 ./drm_mode_abi_regression --nocapture
++//! ```
++//!
++//! See `README.md` in this directory for how to build the binary.
++
++#[cfg(not(all(target_os = "linux", target_pointer_width = "64")))]
++compile_error!("DRM mode ABI regressions require a 64-bit Linux userspace target");
++
++#[cfg(all(test, target_os = "linux", target_pointer_width = "64"))]
++mod tests {
++    use std::{
++        ffi::{c_int, c_ulong, c_void},
++        fs::{File, OpenOptions},
++        io,
++        mem::size_of,
++        os::fd::AsRawFd,
++        ptr,
++    };
++
++    // _IOWR('d', nr, struct) with 64-bit struct sizes, taken from Linux uapi
++    // `include/uapi/drm/drm.h` and `drm_mode.h`.
++    const SET_CLIENT_CAP: c_ulong = 0xc010_640d;
++    const CREATE_DUMB: c_ulong = 0xc020_64b2;
++    const MAP_DUMB: c_ulong = 0xc010_64b3;
++    const DESTROY_DUMB: c_ulong = 0xc004_64b4;
++    /// Legacy `struct drm_mode_fb_cmd` is 7 x u32 = 28 bytes -> size nibble 0x1c.
++    const ADDFB_LEGACY: c_ulong = 0xc01c_64ae;
++    /// `struct drm_mode_fb_cmd2` is 104 bytes -> size nibble 0x68.
++    const ADDFB2: c_ulong = 0xc068_64b8;
++    const MODE_CURSOR: c_ulong = 0xc01c_64a3;
++    /// `struct drm_mode_dirtyfb` is 24 bytes -> size nibble 0x18.
++    const DIRTYFB: c_ulong = 0xc018_64b1;
++
++    const DRM_CLIENT_CAP_UNIVERSAL_PLANES: u64 = 2;
++    const DRM_CLIENT_CAP_ATOMIC: u64 = 3;
++    /// Deliberately not a Linux capability value.
++    const DRM_CLIENT_CAP_UNKNOWN: u64 = 0x40;
++
++    const DRM_FORMAT_XRGB8888: u32 = 0x3432_5258; // 'XR24'
++    const DRM_FORMAT_ARGB8888: u32 = 0x3432_5241; // 'AR24'
++
++    const ENOENT: i32 = 2;
++    const EINVAL: i32 = 22;
++    const EOPNOTSUPP: i32 = 95;
++
++    // ---------------------------------------------------------------- ABI types
++
++    #[repr(C)]
++    #[derive(Default, Clone, Copy)]
++    struct SetClientCap {
++        capability: u64,
++        value: u64,
++    }
++
++    #[repr(C)]
++    #[derive(Default, Clone, Copy)]
++    struct CreateDumb {
++        height: u32,
++        width: u32,
++        bpp: u32,
++        flags: u32,
++        handle: u32,
++        pitch: u32,
++        size: u64,
++    }
++
++    #[repr(C)]
++    #[derive(Default, Clone, Copy)]
++    struct MapDumb {
++        handle: u32,
++        pad: u32,
++        offset: u64,
++    }
++
++    #[repr(C)]
++    #[derive(Default, Clone, Copy)]
++    struct DestroyDumb {
++        handle: u32,
++    }
++
++    /// Legacy `struct drm_mode_fb_cmd`.
++    #[repr(C)]
++    #[derive(Default, Clone, Copy)]
++    struct FbCmd {
++        fb_id: u32,
++        width: u32,
++        height: u32,
++        pitch: u32,
++        bpp: u32,
++        depth: u32,
++        handle: u32,
++    }
++
++    /// `struct drm_mode_fb_cmd2`.
++    #[repr(C)]
++    #[derive(Default, Clone, Copy)]
++    struct FbCmd2 {
++        fb_id: u32,
++        width: u32,
++        height: u32,
++        pixel_format: u32,
++        flags: u32,
++        handles: [u32; 4],
++        pitches: [u32; 4],
++        offsets: [u32; 4],
++        modifier: [u64; 4],
++    }
++
++    /// `struct drm_mode_dirtyfb`.
++    #[repr(C)]
++    #[derive(Default, Clone, Copy)]
++    struct DirtyFb {
++        fb_id: u32,
++        flags: u32,
++        color: u32,
++        num_clips: u32,
++        clips_ptr: u64,
++    }
++
++    #[repr(C)]
++    #[derive(Default, Clone, Copy)]
++    struct ModeCursor {
++        flags: u32,
++        crtc_id: u32,
++        x: i32,
++        y: i32,
++        handle: u32,
++        pad: u32,
++    }
++
++    // ------------------------------------------------------------------ helpers
++
++    fn open_card() -> File {
++        let path = std::env::var("DRM_DEVICE").unwrap_or_else(|_| "/dev/dri/card0".into());
++        OpenOptions::new()
++            .read(true)
++            .write(true)
++            .open(&path)
++            .unwrap_or_else(|error| panic!("cannot open DRM device {path}: {error}"))
++    }
++
++    fn ioctl_arg<T>(file: &File, command: c_ulong, value: &mut T) -> io::Result<()> {
++        // SAFETY: callers pair each command with its repr(C) ABI struct, and
++        // the storage stays live for the duration of the call.
++        let result = unsafe { ioctl(file.as_raw_fd(), command, ptr::from_mut(value)) };
++        if result < 0 {
++            Err(io::Error::last_os_error())
++        } else {
++            Ok(())
++        }
++    }
++
++    fn errno(result: io::Result<()>) -> i32 {
++        result
++            .expect_err("ioctl was expected to fail")
++            .raw_os_error()
++            .expect("ioctl error must carry an errno")
++    }
++
++    /// Create a dumb buffer, returning `(handle, pitch, size)`.
++    fn create_dumb(file: &File, width: u32, height: u32, bpp: u32) -> io::Result<CreateDumb> {
++        let mut request = CreateDumb {
++            width,
++            height,
++            bpp,
++            ..CreateDumb::default()
++        };
++        ioctl_arg(file, CREATE_DUMB, &mut request)?;
++        Ok(request)
++    }
++
++    fn destroy_dumb(file: &File, handle: u32) {
++        let mut request = DestroyDumb { handle };
++        let _ = ioctl_arg(file, DESTROY_DUMB, &mut request);
++    }
++
++    // ------------------------------------------------------------------- cases
++
++    // SET_CLIENT_CAP must behave like Linux `drm_setclientcap()`.
++    #[test]
++    fn set_client_cap_rejects_unknown_and_out_of_range() {
++        assert_eq!(size_of::<SetClientCap>(), 16);
++        let card = open_card();
++
++        let mut unknown = SetClientCap {
++            capability: DRM_CLIENT_CAP_UNKNOWN,
++            value: 1,
++        };
++        assert_eq!(
++            errno(ioctl_arg(&card, SET_CLIENT_CAP, &mut unknown)),
++            EOPNOTSUPP,
++            "an unknown capability must be reported as unsupported, not silently accepted"
++        );
++
++        for capability in [DRM_CLIENT_CAP_UNIVERSAL_PLANES, DRM_CLIENT_CAP_ATOMIC] {
++            let mut out_of_range = SetClientCap {
++                capability,
++                value: 2,
++            };
++            assert_eq!(
++                errno(ioctl_arg(&card, SET_CLIENT_CAP, &mut out_of_range)),
++                EINVAL,
++                "capability {capability} accepted a boolean value other than 0 or 1"
++            );
++            let mut valid = SetClientCap {
++                capability,
++                value: 1,
++            };
++            ioctl_arg(&card, SET_CLIENT_CAP, &mut valid).unwrap_or_else(|error| {
++                panic!("capability {capability} must be grantable: {error}")
++            });
++            let mut revoked = SetClientCap {
++                capability,
++                value: 0,
++            };
++            ioctl_arg(&card, SET_CLIENT_CAP, &mut revoked).unwrap_or_else(|error| {
++                panic!("capability {capability} must be revocable: {error}")
++            });
++        }
++    }
++
++    // Xorg's modesetting driver asks for 24bpp on its legacy path.  The driver
++    // may back it with a 32bpp buffer, but it must not reject the request.
++    #[test]
++    fn create_dumb_accepts_24bpp_with_a_32bpp_compatible_layout() {
++        assert_eq!(size_of::<CreateDumb>(), 32);
++        let card = open_card();
++
++        let bpp32 = create_dumb(&card, 1280, 800, 32).expect("32bpp CREATE_DUMB");
++        assert_eq!(bpp32.pitch, 1280 * 4, "32bpp pitch must be width * 4");
++        assert!(
++            bpp32.size >= u64::from(bpp32.pitch) * u64::from(bpp32.height),
++            "CREATE_DUMB reported {} bytes for {}x{} at pitch {}",
++            bpp32.size,
++            bpp32.width,
++            bpp32.height,
++            bpp32.pitch
++        );
++
++        let bpp24 = create_dumb(&card, 1280, 800, 24)
++            .expect("24bpp CREATE_DUMB must be accepted for legacy mode-setting clients");
++        assert_eq!(
++            bpp24.pitch, bpp32.pitch,
++            "24bpp requests are backed by the same 32bpp layout, so the pitch must match"
++        );
++
++        for (width, height, bpp) in [(0u32, 800u32, 32u32), (1280, 0, 32), (1280, 800, 16)] {
++            let mut invalid = CreateDumb {
++                width,
++                height,
++                bpp,
++                ..CreateDumb::default()
++            };
++            assert_eq!(
++                errno(ioctl_arg(&card, CREATE_DUMB, &mut invalid)),
++                EINVAL,
++                "CREATE_DUMB accepted width={width} height={height} bpp={bpp}"
++            );
++        }
++
++        destroy_dumb(&card, bpp24.handle);
++        destroy_dumb(&card, bpp32.handle);
++    }
++
++    // A dumb buffer must be mappable, because that is how clients obtain the
++    // pixels they later hand to ADDFB.
++    #[test]
++    fn dumb_buffer_is_mappable() {
++        let card = open_card();
++        let dumb = create_dumb(&card, 64, 64, 32).expect("CREATE_DUMB");
++        let mut map = MapDumb {
++            handle: dumb.handle,
++            ..MapDumb::default()
++        };
++        ioctl_arg(&card, MAP_DUMB, &mut map).expect("MAP_DUMB");
++        assert_eq!(map.offset % 4096, 0, "MAP_DUMB offset must be page aligned");
++        destroy_dumb(&card, dumb.handle);
++    }
++
++    // Linux implements BOTH legacy ADDFB and ADDFB2.  Non-atomic clients such
++    // as Xorg use the legacy one, and a missing implementation is fatal for
++    // them even when ADDFB2 works.
++    #[test]
++    fn legacy_addfb_and_addfb2_agree() {
++        assert_eq!(size_of::<FbCmd>(), 28);
++        assert_eq!(size_of::<FbCmd2>(), 104);
++        let card = open_card();
++
++        let dumb = create_dumb(&card, 256, 256, 32).expect("CREATE_DUMB");
++
++        let mut modern = FbCmd2 {
++            width: dumb.width,
++            height: dumb.height,
++            pixel_format: DRM_FORMAT_XRGB8888,
++            handles: [dumb.handle, 0, 0, 0],
++            pitches: [dumb.pitch, 0, 0, 0],
++            ..FbCmd2::default()
++        };
++        ioctl_arg(&card, ADDFB2, &mut modern).expect("ADDFB2");
++        assert_ne!(modern.fb_id, 0, "ADDFB2 returned no framebuffer id");
++
++        let mut legacy = FbCmd {
++            width: dumb.width,
++            height: dumb.height,
++            pitch: dumb.pitch,
++            bpp: 32,
++            depth: 24,
++            handle: dumb.handle,
++            ..FbCmd::default()
++        };
++        ioctl_arg(&card, ADDFB_LEGACY, &mut legacy)
++            .expect("legacy ADDFB must be implemented; non-atomic clients depend on it");
++        assert_ne!(legacy.fb_id, 0, "legacy ADDFB returned no framebuffer id");
++        assert_ne!(
++            legacy.fb_id, modern.fb_id,
++            "each ADDFB allocates its own framebuffer id"
++        );
++
++        // 24bpp must be accepted here too, otherwise the CREATE_DUMB allowance
++        // above is pointless: callers hand the same bpp straight back.
++        let mut legacy_24 = FbCmd {
++            width: dumb.width,
++            height: dumb.height,
++            pitch: dumb.pitch,
++            bpp: 24,
++            depth: 24,
++            handle: dumb.handle,
++            ..FbCmd::default()
++        };
++        ioctl_arg(&card, ADDFB_LEGACY, &mut legacy_24).expect("legacy ADDFB with bpp=24");
++
++        let mut nonsense = FbCmd {
++            width: dumb.width,
++            height: dumb.height,
++            pitch: dumb.pitch,
++            bpp: 32,
++            depth: 0,
++            handle: dumb.handle,
++            ..FbCmd::default()
++        };
++        assert_eq!(
++            errno(ioctl_arg(&card, ADDFB_LEGACY, &mut nonsense)),
++            EINVAL,
++            "ADDFB accepted depth=0"
++        );
++
++        let mut bad_format = FbCmd2 {
++            width: dumb.width,
++            height: dumb.height,
++            pixel_format: DRM_FORMAT_ARGB8888,
++            handles: [dumb.handle, 0, 0, 0],
++            pitches: [dumb.pitch, 0, 0, 0],
++            ..FbCmd2::default()
++        };
++        let _ = ioctl_arg(&card, ADDFB2, &mut bad_format);
++
++        destroy_dumb(&card, dumb.handle);
++    }
++
++    // Xorg issues MODE_CURSOR once the CRTC is up.  The kernel may report a
++    // soft-cursor fallback, but the request must not fail with EOPNOTSUPP.
++    #[test]
++    fn mode_cursor_is_implemented() {
++        assert_eq!(size_of::<ModeCursor>(), 24);
++        let card = open_card();
++
++        let mut cursor = ModeCursor::default();
++        match ioctl_arg(&card, MODE_CURSOR, &mut cursor) {
++            Ok(()) => {}
++            Err(error) => {
++                let code = error.raw_os_error().unwrap_or(0);
++                assert_ne!(
++                    code, EOPNOTSUPP,
++                    "MODE_CURSOR is not implemented; the kernel must answer it so legacy \
++                     mode-setting clients do not abort their initialisation"
++                );
++                panic!("MODE_CURSOR failed with errno {code}");
++            }
++        }
++    }
++
++    // Xorg probes the generic damage-tracking entry point while it decides
++    // whether the driver can report dirty rectangles.  Linux answers an unknown
++    // fb_id with -ENOENT, not -EINVAL, and the caller reads the difference: an
++    // EINVAL probe disables its own damage tracking, which in turn stops the
++    // software update path that pushes new framebuffer content to the display.
++    #[test]
++    fn dirtyfb_reports_unknown_framebuffer_as_enoent() {
++        assert_eq!(size_of::<DirtyFb>(), 24);
++        let card = open_card();
++
++        let mut unknown = DirtyFb {
++            fb_id: 0xdead_beef,
++            ..DirtyFb::default()
++        };
++        assert_eq!(
++            errno(ioctl_arg(&card, DIRTYFB, &mut unknown)),
++            ENOENT,
++            "DIRTYFB must report an unknown framebuffer with ENOENT"
++        );
++
++        // A registered framebuffer must be accepted, otherwise the ENOENT above
++        // could come from rejecting every request.
++        let dumb = create_dumb(&card, 64, 64, 32).expect("CREATE_DUMB");
++        let mut legacy = FbCmd {
++            width: dumb.width,
++            height: dumb.height,
++            pitch: dumb.pitch,
++            bpp: 32,
++            depth: 24,
++            handle: dumb.handle,
++            ..FbCmd::default()
++        };
++        ioctl_arg(&card, ADDFB_LEGACY, &mut legacy).expect("legacy ADDFB");
++        let mut known = DirtyFb {
++            fb_id: legacy.fb_id,
++            ..DirtyFb::default()
++        };
++        ioctl_arg(&card, DIRTYFB, &mut known).expect("DIRTYFB on a registered framebuffer");
++
++        destroy_dumb(&card, dumb.handle);
++    }
++
++    // Every ioctl above must survive a close/reopen cycle without leaking a
++    // master reference, because `x11-session` respawns the whole X server.
++    #[test]
++    fn session_restart_reacquires_the_device() {
++        let first = open_card();
++        let dumb = create_dumb(&first, 32, 32, 32).expect("CREATE_DUMB");
++        destroy_dumb(&first, dumb.handle);
++        drop(first);
++
++        let second = open_card();
++        let mut cap = SetClientCap {
++            capability: DRM_CLIENT_CAP_UNIVERSAL_PLANES,
++            value: 1,
++        };
++        ioctl_arg(&second, SET_CLIENT_CAP, &mut cap).expect("SET_CLIENT_CAP after reopen");
++        let mut cursor = ModeCursor::default();
++        let _ = ioctl_arg(&second, MODE_CURSOR, &mut cursor);
++    }
++
++    #[allow(dead_code)]
++    fn ioctl_takes_null_argument(file: &File, command: c_ulong) -> io::Result<()> {
++        // SAFETY: only used for commands documented to take no argument.
++        let result = unsafe { ioctl(file.as_raw_fd(), command, ptr::null_mut::<c_void>()) };
++        if result < 0 {
++            Err(io::Error::last_os_error())
++        } else {
++            Ok(())
++        }
++    }
++
++    unsafe extern "C" {
++        fn ioctl(fd: c_int, request: c_ulong, ...) -> c_int;
++    }
++}
+diff --git a/net/knet/docs/design.md b/net/knet/docs/design.md
+--- a/net/knet/docs/design.md
++++ b/net/knet/docs/design.md
+@@ -285,6 +285,15 @@
+ 
+   A blocking Unix stream `connect` waits for listener backlog capacity through `event-listener` when the backlog is full. The wait is bounded by `SO_SNDTIMEO` and therefore requires scheduler support and an interruptible task context.
+ 
++  `GeneralOptions::send_poller_with_nonblocking` and its receive counterpart
++  check the socket's own nonblocking flag and the per-call override first: when
++  either is set they run the operation once and return, bypassing the timeout
++  wrapper and the readiness wait. A nonblocking call must report progress,
++  `WouldBlock`, or a real error; it must not be converted into `EINTR` by a
++  signal that happens to be pending when the call is issued. Only blocking
++  operations enter the interruptible wait, and callers rely on that boundary —
++  a window manager that reopens its menus is defeated by spurious `EINTR`.
++
+ * **Global state is not tied to a fixed current process or thread**
+ 
+   Shared access to `SERVICE`, `SOCKET_SET`, and Router state is mainly protected by global locks and atomic state. Syscall-specific semantics are still provided by `posix/net`, which supplies the process file-descriptor context and caller credentials.
+@@ -851,6 +860,46 @@
+ 
+ Readable, writable, and connection-state events use separate `PollSet` instances for each endpoint. A write wakes the peer's readable waiters. A read wakes the peer's writable waiters when buffer occupancy crosses the send-buffer low-water mark. A half-close wakes the affected direction, and a full close notifies both endpoints through their connection-state waiters.
+ 
++### Unix Stream Control Messages
++
++A Unix stream carries ancillary data (`SCM_RIGHTS`, `SCM_CREDENTIALS`) in a side
++queue attached to the in-band bytes, because descriptors passed over `sendmsg`
++must stay associated with the message they were sent with. Each transmit
++direction owns a `StreamControl` (`unix/stream/channel.rs`) holding wrapping
++byte positions `written`/`read` and a FIFO of `ControlRecord`. The transmit
++control queue of one endpoint is the receive control queue of its peer, so
++`Channel` holds both `tx_control` and `rx_control` references to the same pair
++of `Arc<Mutex<StreamControl>>`.
++
++`send` publishes one record for the first batch that actually writes bytes:
++
++1. read into the vacant ring region and compute `count`;
++2. lock `tx_control`, and reserve capacity when a record will be published, so
++   publishing under `tx_order` neither allocates nor drops descriptors;
++3. under `tx_order`, recheck shutdown state, push the record covering
++   `[written, written + count)`, advance `written`, and publish the write index.
++
++Later batches of the same `send` carry no record, so a partially accepted
++message never delivers its descriptors twice.
++
++`recv` treats the front record as a receive barrier:
++
++- the read is limited to `end - read` bytes of that record (bounded by the
++  occupied length and the caller's buffer), so one `recvmsg` cannot merge two
++  rights lists;
++- a record is delivered once the read crosses the position of its first byte,
++  which the limit above makes an all-or-nothing condition;
++- `MSG_PEEK` clones the record instead of removing it, so a peek does not
++  consume the descriptors and a later read still receives them;
++- the guard is dropped, the peer endpoint reference is cloned, and the channel
++  mutex is released **before** the received descriptors are appended to the
++  caller's list, because dropping an unclaimed rights list can close a socket
++  and reenter this transport.
++
++`AncillaryData` is `Arc<dyn Any + Send + Sync>`, not `Box`: sharing is what
++lets a peek and the syscall layer both observe a queued resource. Transports
++that discard a record (`Channel::drop`) release it outside every state lock.
++
+ ### Packet and vsock Synchronization
+ 
+ `PACKET_HANDLERS` protects weak socket registrations with a mutex and tracks the active count atomically. Each packet socket uses an `RwLock` for its binding, a mutex for its bounded RX queue, and a separate `recv_lock` to serialize receive/peek operations across payload copying. Packet and drop statistics use atomic counters. Frame publication snapshots active sockets before accessing their queues.
+@@ -988,6 +1037,31 @@
+ Data flows from TIPC to vsock through `get_msg -> read_msg -> put_msg -> send_bridge`. When vsock credits are exhausted, `send_bridge` blocks on `tx_wait_queue` until `CreditUpdate`. Connection closure returns an error for the caller to handle. Bridge v1 forwards only bytes; TIPC handles and memory references are outside its scope.
+ 
+ With `vsock_tipc_bridge` enabled, `bind()` rejects explicit binding to ports in `BRIDGE_PORT_MAP`, and ephemeral port allocation skips these reserved ports.
++
++### TCP Keep-Alive Tuning
++
++Linux exposes keep-alive as `SO_KEEPALIVE` plus three independent knobs
++(`TCP_KEEPIDLE`, `TCP_KEEPINTVL`, `TCP_KEEPCNT`) whose defaults live in
++`net.ipv4.tcp_keepalive_{time,intvl,probes}`. smoltcp has one knob: the interval
++after which an idle connection is probed. The three options are therefore split
++by what the stack can actually honour.
++
++| Option | Effect |
++|---|---|
++| `TCP_KEEPIDLE` | Recorded, and applied to smoltcp's keep-alive interval when keep-alive is already enabled. The two quantities are the same one: how long the connection must be idle before the first probe. |
++| `TCP_KEEPINTVL` | Recorded and reported back by `getsockopt`; smoltcp probes at the single interval above, so there is no second knob to apply it to. |
++| `TCP_KEEPCNT` | Recorded and reported back; smoltcp decides on its own when to give up. |
++
++Setting any of the three does not by itself enable probing; only
++`SO_KEEPALIVE` does, which is also Linux's behaviour. `SO_KEEPALIVE` uses the
++currently configured idle time, so the two orders of `SO_KEEPALIVE` and
++`TCP_KEEPIDLE` agree.
++
++Accepting values the stack cannot yet enforce is a deliberate trade. The
++alternative -- `ENOPROTOOPT` -- is not neutral in practice: Chromium's network
++service treats it as a failed connection setup and retries, which was observable
++here as an uninterrupted `sockopt rejected: (6, 4)` stream on the kernel console
++that flooded the serial link and made guest-side evidence collection unreliable.
+ 
+ ## Supported Scope and Limitations
+ 
+@@ -1000,7 +1074,7 @@
+ | AF_PACKET | Ethernet raw/datagram sockets with byte- and frame-bounded queues; filters `PACKET_OTHERHOST`. Membership changes, connect, peer queries, shutdown, listen, and accept are unsupported. |
+ | rtnetlink operations | Supports link queries/updates, IPv4 address and route queries/add/delete, and IPv4 neighbor updates. Other message types return `NLMSG_ERROR` with `EOPNOTSUPP`; neighbors accept only incomplete/permanent states with no flags. |
+ | Netlink sockets | Route sockets reject multicast subscriptions, userspace-peer destinations, and mixed query/mutation batches. Kobject-uevent sockets support group delivery, `SO_PASSCRED`, and validated no-op classic-BPF attach/detach compatibility. Connect, peer queries, and shutdown are unsupported. |
+-| Socket options | Options unhandled by the selected protocol return `ENOPROTOOPT`. |
++| Socket options | Options unhandled by the selected protocol return `ENOPROTOOPT`. TCP keep-alive tuning is accepted and readable, but only `TCP_KEEPIDLE` reaches the stack; `TCP_KEEPINTVL` and `TCP_KEEPCNT` are stored for `getsockopt` and not yet enforced. |
+ | Unix datagrams | Receive queues use unbounded `async_channel` queues. |
+ | vsock / TIPC bridge | Stream transport only; the bridge forwards bytes, excluding TIPC handles and memory references. |
+ | Ethernet progress | Failed RX-scheduler attachment falls back to timeout polling. ARP pending traffic is subject to head-of-line blocking. |
+diff --git a/net/knet/src/netlink/socket.rs b/net/knet/src/netlink/socket.rs
+--- a/net/knet/src/netlink/socket.rs
++++ b/net/knet/src/netlink/socket.rs
+@@ -2,7 +2,7 @@
+ // Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+ // See LICENSES for license details.
+ 
+-use alloc::{boxed::Box, format, sync::Arc, vec, vec::Vec};
++use alloc::{format, sync::Arc, vec, vec::Vec};
+ use core::sync::atomic::Ordering;
+ 
+ use kcred::Cred;
+@@ -258,7 +258,7 @@
+                     && self.inner.general.pass_credentials()
+                     && let Some(ancillary) = options.ancillary.as_deref_mut()
+                 {
+-                    ancillary.push(Box::new(crate::KernelAncillaryData::Credentials(
++                    ancillary.push(Arc::new(crate::KernelAncillaryData::Credentials(
+                         crate::options::UnixCredentials {
+                             pid: 0,
+                             uid: 0,
+diff --git a/net/knet/src/netlink/tests.rs b/net/knet/src/netlink/tests.rs
+--- a/net/knet/src/netlink/tests.rs
++++ b/net/knet/src/netlink/tests.rs
+@@ -1133,9 +1133,10 @@
+     let credentials = ancillary
+         .pop()
+         .unwrap()
+-        .downcast::<KernelAncillaryData>()
+-        .unwrap();
+-    let KernelAncillaryData::Credentials(credentials) = *credentials else {
++        .as_ref()
++        .downcast_ref::<KernelAncillaryData>()
++        .unwrap();
++    let KernelAncillaryData::Credentials(credentials) = credentials else {
+         panic!("expected SCM_CREDENTIALS ancillary data");
+     };
+     assert_eq!(credentials.pid, 0);
+diff --git a/net/knet/src/socket/general.rs b/net/knet/src/socket/general.rs
+--- a/net/knet/src/socket/general.rs
++++ b/net/knet/src/socket/general.rs
+@@ -175,20 +175,23 @@
+ 
+     /// Poll for send readiness and run the operation with a per-call
+     /// nonblocking override.
++    ///
++    /// A nonblocking call attempts the operation once and never enters an
++    /// interruptible wait, because a pending task interruption must not replace
++    /// progress or `WouldBlock` with `EINTR` on a socket the caller made
++    /// nonblocking.
+     pub(crate) fn send_poller_with_nonblocking<P: Pollable, F: FnMut() -> KResult<T>, T>(
+         &self,
+         pollable: &P,
+         nonblocking: bool,
+-        f: F,
++        mut f: F,
+     ) -> KResult<T> {
++        if self.nonblocking() || nonblocking {
++            return f();
++        }
+         block_on(timeout(
+             self.send_timeout(),
+-            poll_io(
+-                pollable,
+-                IoEvents::OUT,
+-                self.nonblocking() || nonblocking,
+-                f,
+-            ),
++            poll_io(pollable, IoEvents::OUT, false, f),
+         ))?
+     }
+ 
+@@ -203,15 +206,21 @@
+ 
+     /// Poll for receive readiness and run the operation with a per-call
+     /// nonblocking override.
++    ///
++    /// Like the send helper, a nonblocking receive performs no interruptible
++    /// readiness wait and leaves pending task interruption to its owner.
+     pub(crate) fn recv_poller_with_nonblocking<P: Pollable, F: FnMut() -> KResult<T>, T>(
+         &self,
+         pollable: &P,
+         nonblocking: bool,
+-        f: F,
++        mut f: F,
+     ) -> KResult<T> {
++        if self.nonblocking() || nonblocking {
++            return f();
++        }
+         block_on(timeout(
+             self.recv_timeout(),
+-            poll_io(pollable, IoEvents::IN, self.nonblocking() || nonblocking, f),
++            poll_io(pollable, IoEvents::IN, false, f),
+         ))?
+     }
+ }
+diff --git a/net/knet/src/socket/mod.rs b/net/knet/src/socket/mod.rs
+--- a/net/knet/src/socket/mod.rs
++++ b/net/knet/src/socket/mod.rs
+@@ -13,7 +13,7 @@
+ #[cfg(unittest)]
+ mod test_state;
+ 
+-use alloc::{boxed::Box, vec::Vec};
++use alloc::{boxed::Box, sync::Arc, vec::Vec};
+ use core::{
+     any::Any,
+     fmt::{self, Debug},
+@@ -145,7 +145,14 @@
+     }
+ }
+ 
+-pub type AncillaryData = Box<dyn Any + Send + Sync>;
++/// Owned, type-erased control data.
++///
++/// Sharing rather than moving lets a receiving transport hand the same
++/// resource to `MSG_PEEK` and to the syscall layer without either of them
++/// stealing it from the queued record. Transports must release discarded
++/// references outside their state locks, because a destructor may close
++/// another socket and reenter the transport.
++pub type AncillaryData = Arc<dyn Any + Send + Sync>;
+ 
+ /// Options for initiating a socket connection.
+ #[derive(Default, Debug, Clone, Copy)]
+diff --git a/net/knet/src/socket/options.rs b/net/knet/src/socket/options.rs
+--- a/net/knet/src/socket/options.rs
++++ b/net/knet/src/socket/options.rs
+@@ -84,6 +84,14 @@
+     NoDelay(bool),
+     MaxSegment(usize),
+     TcpInfo(()),
++    // TCP keep-alive tuning, in the units of the Linux ABI: seconds for the
++    // first two, a probe count for the third.  They are separate options
++    // because Linux keeps them in three independent sysctls
++    // (net.ipv4.tcp_keepalive_{time,intvl,probes}) and callers set them
++    // one at a time.
++    TcpKeepIdle(u32),
++    TcpKeepInterval(u32),
++    TcpKeepCount(u32),
+ 
+     // ---- IP options ----
+     Ttl(u8),
+diff --git a/net/knet/src/transport/tcp.rs b/net/knet/src/transport/tcp.rs
+--- a/net/knet/src/transport/tcp.rs
++++ b/net/knet/src/transport/tcp.rs
+@@ -6,7 +6,7 @@
+ use alloc::{boxed::Box, sync::Arc, vec, vec::Vec};
+ use core::{
+     net::{Ipv4Addr, SocketAddr},
+-    sync::atomic::{AtomicBool, Ordering},
++    sync::atomic::{AtomicBool, AtomicU32, Ordering},
+ };
+ 
+ use hashbrown::HashMap;
+@@ -51,7 +51,25 @@
+     rx_closed: AtomicBool,
+     tx_closed: AtomicBool,
+     poll_rx_closed: Arc<PollSet>,
+-}
++
++    /// Keep-alive tuning, in the units of the Linux ABI.
++    ///
++    /// smoltcp exposes a single keep-alive interval and no probe counter, so
++    /// only `keep_idle` reaches the stack; the other two are stored so that a
++    /// later `getsockopt` reports what was set instead of a made-up constant.
++    /// Accepting a value the stack cannot yet act on is deliberate: Linux
++    /// accepts these calls, and a client that receives `ENOPROTOOPT` here
++    /// abandons or retries a connection that is otherwise fine.
++    keep_idle: AtomicU32,
++    keep_interval: AtomicU32,
++    keep_count: AtomicU32,
++}
++
++/// Linux defaults for the three keep-alive knobs, used before a caller sets
++/// them: net.ipv4.tcp_keepalive_{time,intvl,probes}.
++const TCP_KEEPIDLE_DEFAULT_SECS: u32 = 7200;
++const TCP_KEEPINTVL_DEFAULT_SECS: u32 = 75;
++const TCP_KEEPCNT_DEFAULT: u32 = 9;
+ 
+ impl TcpSocket {
+     /// Creates a new TCP socket.
+@@ -68,6 +86,10 @@
+             rx_closed: AtomicBool::new(false),
+             tx_closed: AtomicBool::new(false),
+             poll_rx_closed: Arc::new(PollSet::new()),
++
++            keep_idle: AtomicU32::new(TCP_KEEPIDLE_DEFAULT_SECS),
++            keep_interval: AtomicU32::new(TCP_KEEPINTVL_DEFAULT_SECS),
++            keep_count: AtomicU32::new(TCP_KEEPCNT_DEFAULT),
+         }
+     }
+ 
+@@ -89,6 +111,10 @@
+             rx_closed: AtomicBool::new(false),
+             tx_closed: AtomicBool::new(false),
+             poll_rx_closed: Arc::new(PollSet::new()),
++
++            keep_idle: AtomicU32::new(TCP_KEEPIDLE_DEFAULT_SECS),
++            keep_interval: AtomicU32::new(TCP_KEEPINTVL_DEFAULT_SECS),
++            keep_count: AtomicU32::new(TCP_KEEPCNT_DEFAULT),
+         };
+         let bound_endpoint = endpoint_from_ip_endpoint(local_endpoint);
+         *result.bound_endpoint.lock() = bound_endpoint;
+@@ -342,6 +368,15 @@
+             O::TcpInfo(_) => {
+                 // TODO(mivik): implement TCP diagnostics
+             }
++            O::TcpKeepIdle(idle) => {
++                **idle = self.keep_idle.load(Ordering::Relaxed);
++            }
++            O::TcpKeepInterval(interval) => {
++                **interval = self.keep_interval.load(Ordering::Relaxed);
++            }
++            O::TcpKeepCount(count) => {
++                **count = self.keep_count.load(Ordering::Relaxed);
++            }
+             _ => return Ok(OptionHandled::No),
+         }
+         Ok(OptionHandled::Yes)
+@@ -362,10 +397,39 @@
+                 network_poller().notify(PollReason::Tx);
+             }
+             O::KeepAlive(keep_alive) => {
++                // Enabling keep-alive uses the idle time currently configured
++                // through TCP_KEEPIDLE, so "`SO_KEEPALIVE=1` then
++                // `TCP_KEEPIDLE=n`" and the reverse order agree -- with the
++                // Linux default of 7200 s standing in until a caller says
++                // otherwise.
++                let idle = self.keep_idle.load(Ordering::Relaxed);
+                 self.with_smol_socket(|socket| {
+-                    socket.set_keep_alive(keep_alive.then(|| Duration::from_secs(75)));
++                    socket.set_keep_alive(keep_alive.then(|| Duration::from_secs(idle.into())));
+                 });
+                 network_poller().notify(PollReason::Timer);
++            }
++            O::TcpKeepIdle(idle) => {
++                // Linux: the connection must be idle this long before the first
++                // probe.  That is the same quantity as smoltcp's single
++                // keep-alive interval, so the value is applied to the stack as
++                // well as recorded -- but only when keep-alive is already on,
++                // because setting TCP_KEEPIDLE must not itself start probing.
++                self.keep_idle.store(*idle, Ordering::Relaxed);
++                if self.with_smol_socket(|socket| socket.keep_alive().is_some()) {
++                    self.with_smol_socket(|socket| {
++                        socket.set_keep_alive(Some(Duration::from_secs((*idle).into())));
++                    });
++                    network_poller().notify(PollReason::Timer);
++                }
++            }
++            O::TcpKeepInterval(interval) => {
++                // Recorded and reported back, not yet acted upon: smoltcp sends
++                // every probe at the one interval above and has no second knob.
++                self.keep_interval.store(*interval, Ordering::Relaxed);
++            }
++            O::TcpKeepCount(count) => {
++                // Same as TCP_KEEPINTVL: accepted and remembered, not enforced.
++                self.keep_count.store(*count, Ordering::Relaxed);
+             }
+             _ => return Ok(OptionHandled::No),
+         }
+diff --git a/net/knet/src/transport/udp/socket.rs b/net/knet/src/transport/udp/socket.rs
+--- a/net/knet/src/transport/udp/socket.rs
++++ b/net/knet/src/transport/udp/socket.rs
+@@ -2,7 +2,7 @@
+ // Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+ // See LICENSES for license details.
+ 
+-use alloc::{boxed::Box, sync::Arc, vec, vec::Vec};
++use alloc::{sync::Arc, vec, vec::Vec};
+ 
+ use ::core::net::SocketAddr;
+ use kerrno::{KError, KResult, LinuxError, k_bail};
+@@ -313,7 +313,7 @@
+             *from = SocketAddrEx::Ip(addr);
+         }
+         if let Some(ancillary) = msg.ancillary.as_deref_mut() {
+-            ancillary.push(Box::new(KernelAncillaryData::IpError(recv_error)));
++            ancillary.push(Arc::new(KernelAncillaryData::IpError(recv_error)));
+         }
+ 
+         Ok(copy_udp_error_payload(&payload, msg))
+diff --git a/net/knet/src/unix/dgram.rs b/net/knet/src/unix/dgram.rs
+--- a/net/knet/src/unix/dgram.rs
++++ b/net/knet/src/unix/dgram.rs
+@@ -262,7 +262,7 @@
+                 if self.options.pass_credentials()
+                     && let Some(credentials) = unix_sender_credentials
+                 {
+-                    dst.push(Box::new(crate::KernelAncillaryData::Credentials(
++                    dst.push(Arc::new(crate::KernelAncillaryData::Credentials(
+                         credentials,
+                     )));
+                 }
+@@ -372,9 +372,10 @@
+             .into_iter()
+             .next()
+             .unwrap()
+-            .downcast::<KernelAncillaryData>()
+-            .unwrap();
+-        let KernelAncillaryData::Credentials(credentials) = *credentials else {
++            .as_ref()
++            .downcast_ref::<KernelAncillaryData>()
++            .unwrap();
++        let KernelAncillaryData::Credentials(credentials) = credentials else {
+             panic!("expected sender credentials");
+         };
+         assert_eq!(credentials.pid, 42);
+@@ -431,9 +432,10 @@
+             let credentials = ancillary
+                 .pop()
+                 .unwrap()
+-                .downcast::<KernelAncillaryData>()
++                .as_ref()
++                .downcast_ref::<KernelAncillaryData>()
+                 .unwrap();
+-            let KernelAncillaryData::Credentials(credentials) = *credentials else {
++            let KernelAncillaryData::Credentials(credentials) = credentials else {
+                 panic!("expected sender credentials");
+             };
+             assert_eq!(credentials.pid, pid);
+diff --git a/net/knet/src/unix/stream/channel.rs b/net/knet/src/unix/stream/channel.rs
+--- a/net/knet/src/unix/stream/channel.rs
++++ b/net/knet/src/unix/stream/channel.rs
+@@ -4,16 +4,19 @@
+ 
+ //! Connected Unix stream channel state.
+ 
+-use alloc::sync::Arc;
++use alloc::{collections::VecDeque, sync::Arc, vec::Vec};
+ use core::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+ 
+ use kerrno::LinuxError;
+ use kpoll::{IoEvents, PollContext, PollRegisterError, PollSet};
+ use kspin::SpinNoPreempt;
++use ksync::Mutex;
+ use ringbuf::{
+     HeapCons, HeapProd, HeapRb,
+     traits::{Observer, Split},
+ };
++
++use crate::AncillaryData;
+ 
+ pub(super) const STREAM_BUF_BYTES: usize = 64 * 1024;
+ pub(super) const STREAM_WRITABLE_MAX_OCCUPIED_BYTES: usize = STREAM_BUF_BYTES / 4;
+@@ -25,6 +28,32 @@
+ fn new_ring_pair() -> (HeapProd<u8>, HeapCons<u8>) {
+     let rb = HeapRb::new(STREAM_BUF_BYTES);
+     rb.split()
++}
++
++/// Control data published with the first byte of a send.
++///
++/// The byte range is half-open and a receive stops at `end`, so one recvmsg
++/// cannot merge two rights lists that the sender kept apart.
++pub(super) struct ControlRecord {
++    pub(super) start: usize,
++    pub(super) end: usize,
++    pub(super) data: Vec<AncillaryData>,
++}
++
++/// Control-message side channel of one transmit direction.
++///
++/// `written` and `read` are byte positions of the channel's transmit ring
++/// and wrap together with it; their distance never exceeds `STREAM_BUF_BYTES`
++/// because the ring cannot hold more than that many unpublished bytes.
++///
++/// Lock order is channel mutex -> control mutex -> endpoint `tx_order`.
++/// User copies may fault and run under sleepable mutexes, never under
++/// `tx_order`.
++#[derive(Default)]
++pub(super) struct StreamControl {
++    pub(super) written: usize,
++    pub(super) read: usize,
++    pub(super) records: VecDeque<ControlRecord>,
+ }
+ 
+ #[derive(Default)]
+@@ -82,10 +111,16 @@
+ ) -> (Channel, Channel) {
+     let (client_tx, server_rx) = new_ring_pair();
+     let (server_tx, client_rx) = new_ring_pair();
++    // The transmit control queue of one side is the receive control queue of
++    // the other, because in-band bytes and their control data travel together.
++    let client_control = Arc::new(Mutex::new(StreamControl::default()));
++    let server_control = Arc::new(Mutex::new(StreamControl::default()));
+     (
+         Channel {
+             tx: client_tx,
+             rx: client_rx,
++            tx_control: client_control.clone(),
++            rx_control: server_control.clone(),
+             endpoint: client_endpoint.clone(),
+             peer_endpoint: server_endpoint.clone(),
+             peer_pid: pid,
+@@ -93,6 +128,8 @@
+         Channel {
+             tx: server_tx,
+             rx: server_rx,
++            tx_control: server_control,
++            rx_control: client_control,
+             endpoint: server_endpoint,
+             peer_endpoint: client_endpoint,
+             peer_pid: pid,
+@@ -103,6 +140,8 @@
+ pub(super) struct Channel {
+     pub(super) tx: HeapProd<u8>,
+     pub(super) rx: HeapCons<u8>,
++    pub(super) tx_control: Arc<Mutex<StreamControl>>,
++    pub(super) rx_control: Arc<Mutex<StreamControl>>,
+     pub(super) endpoint: Arc<StreamEndpoint>,
+     pub(super) peer_endpoint: Arc<StreamEndpoint>,
+     pub(super) peer_pid: u32,
+@@ -121,6 +160,11 @@
+             let _tx_order = self.endpoint.tx_order.lock();
+             !self.endpoint.tx_closed.swap(true, Ordering::AcqRel)
+         };
++        // Stop publication before detaching rights that nobody received.
++        // Their destructors may close sockets and reenter this transport, so
++        // no channel or control guard may survive the release.
++        let discarded = core::mem::take(&mut self.rx_control.lock().records);
++        drop(discarded);
+         if has_unread_input {
+             self.peer_endpoint
+                 .socket_error
+diff --git a/net/knet/src/unix/stream.rs b/net/knet/src/unix/stream.rs
+--- a/net/knet/src/unix/stream.rs
++++ b/net/knet/src/unix/stream.rs
+@@ -23,7 +23,7 @@
+     listener::{ConnRequest, ListenerQueue},
+ };
+ use crate::{
+-    ConnectOptions, RecvOptions, SendOptions, Shutdown,
++    ConnectOptions, RecvFlags, RecvOptions, SendOptions, Shutdown,
+     general::GeneralOptions,
+     options::{Configurable, GetSocketOption, OptionHandled, SetSocketOption, UnixCredentials},
+     unix::{UnixAddr, UnixTransport, UnixTransportOps},
+@@ -222,12 +222,21 @@
+     }
+ 
+     fn send(&self, mut src: impl Read + IoBuf, options: SendOptions) -> KResult<usize> {
+-        if options.to.is_some() {
++        let SendOptions {
++            to,
++            flags,
++            mut ancillary,
++            unix_sender_credentials: _,
++        } = options;
++        if to.is_some() {
+             return Err(KError::InvalidInput);
+         }
+         let size = src.remaining();
+         let mut total = 0;
+-        let non_blocking = self.options.nonblocking() || options.flags.nonblocking();
++        // Control data is consumed by the first batch that publishes bytes, so
++        // that all descriptors stay associated with the message they arrived
++        // with. Later batches of the same send carry none.
++        let non_blocking = self.options.nonblocking() || flags.nonblocking();
+         self.options
+             .send_poller_with_nonblocking(self, non_blocking, || {
+                 if self.endpoint.tx_closed.load(Ordering::Acquire) {
+@@ -247,36 +256,67 @@
+                     }
+                 }
+ 
+-                let count = {
+-                    let (left, right) = chan.tx.vacant_slices_mut();
+-                    // SAFETY: The slices returned by `vacant_slices_mut` describe
+-                    // writable ring-buffer capacity. `Read::read` initializes only
+-                    // bytes it reports as written, and those bytes are published by
+-                    // `advance_write_index` below while the channel lock is held.
+-                    let mut count = src.read(unsafe { left.assume_init_mut() })?;
+-                    if count >= left.len() {
+-                        // SAFETY: Same invariant as for `left`; this slice is the
+-                        // second contiguous writable region of the same producer.
+-                        count += src.read(unsafe { right.assume_init_mut() })?;
++                let (count, peer_endpoint) = {
++                    let count = {
++                        let (left, right) = chan.tx.vacant_slices_mut();
++                        // SAFETY: The slices returned by `vacant_slices_mut` describe
++                        // writable ring-buffer capacity. `Read::read` initializes only
++                        // bytes it reports as written, and those bytes are published by
++                        // `advance_write_index` below while the channel lock is held.
++                        let mut count = match src.read(unsafe { left.assume_init_mut() }) {
++                            Ok(count) => count,
++                            Err(error) => return finish_send_on_error(total, error),
++                        };
++                        if count >= left.len() {
++                            // SAFETY: Same invariant as for `left`; this slice is the
++                            // second contiguous writable region of the same producer.
++                            match src.read(unsafe { right.assume_init_mut() }) {
++                                Ok(extra) => count += extra,
++                                // A partially filled message is still progress, so
++                                // only a first-region failure may report an error.
++                                Err(error) if count == 0 => {
++                                    return finish_send_on_error(total, error);
++                                }
++                                Err(_) => {}
++                            }
++                        }
++                        count
++                    };
++                    let mut control = chan.tx_control.lock();
++                    // Reserve before taking `tx_order`: publishing metadata must
++                    // not allocate, and must not run descriptor destructors,
++                    // while the transmit order lock is held.
++                    if count > 0 && !ancillary.is_empty() {
++                        control.records.reserve(1);
+                     }
+-                    count
++                    {
++                        let _tx_order = self.endpoint.tx_order.lock();
++                        if self.endpoint.tx_closed.load(Ordering::Acquire)
++                            || chan.peer_endpoint.rx_closed.load(Ordering::Acquire)
++                            || !chan.tx.read_is_held()
++                        {
++                            return finish_send_on_error(total, KError::BrokenPipe);
++                        }
++                        if count > 0 && !ancillary.is_empty() {
++                            let start = control.written;
++                            control.records.push_back(channel::ControlRecord {
++                                start,
++                                end: start.wrapping_add(count),
++                                data: core::mem::take(&mut ancillary),
++                            });
++                        }
++                        control.written = control.written.wrapping_add(count);
++                        // SAFETY: `count` is the sum of bytes written into the vacant
++                        // slices above, so it never exceeds the producer capacity that
++                        // was exposed while the channel lock excluded other producers.
++                        unsafe { chan.tx.advance_write_index(count) };
++                    }
++                    drop(control);
++                    (count, chan.peer_endpoint.clone())
+                 };
+-                {
+-                    let _tx_order = self.endpoint.tx_order.lock();
+-                    if self.endpoint.tx_closed.load(Ordering::Acquire)
+-                        || chan.peer_endpoint.rx_closed.load(Ordering::Acquire)
+-                        || !chan.tx.read_is_held()
+-                    {
+-                        return finish_send_on_error(total, KError::BrokenPipe);
+-                    }
+-                    // SAFETY: `count` is the sum of bytes written into the vacant
+-                    // slices above, so it never exceeds the producer capacity that
+-                    // was exposed while the channel lock excluded other producers.
+-                    unsafe { chan.tx.advance_write_index(count) };
+-                }
+                 total += count;
+                 if count > 0 {
+-                    chan.peer_endpoint.polls.readable.wake();
++                    peer_endpoint.polls.readable.wake();
+                 }
+ 
+                 if total == size || (non_blocking && total > 0) {
+@@ -287,8 +327,9 @@
+             })
+     }
+ 
+-    fn recv(&self, mut dst: impl Write + IoBufMut, options: RecvOptions) -> KResult<usize> {
++    fn recv(&self, mut dst: impl Write + IoBufMut, mut options: RecvOptions) -> KResult<usize> {
+         let is_zero_length = dst.remaining_mut() == 0;
++        let is_peek = options.flags.contains(RecvFlags::PEEK);
+         self.options
+             .recv_poller_with_nonblocking(self, options.flags.nonblocking(), || {
+                 let mut guard = self.channel.lock();
+@@ -296,28 +337,77 @@
+                     return Err(KError::NotConnected);
+                 };
+ 
+-                let occupied_before = chan.rx.occupied_len();
+-                if is_zero_length && occupied_before > 0 {
++                if is_zero_length {
+                     return Ok(0);
+                 }
++
++                // A control record is a receive barrier: one recvmsg must not
++                // merge the descriptors of one send with the plain bytes of the
++                // next, because the caller installs them as one rights list.
++                let read_limit = {
++                    let control = chan.rx_control.lock();
++                    let occupied = chan.rx.occupied_len();
++                    let limit = control.records.front().map_or(occupied, |record| {
++                        occupied.min(record.end.wrapping_sub(control.read))
++                    });
++                    limit.min(dst.remaining_mut())
++                };
+                 let count = {
+                     let (left, right) = chan.rx.as_slices();
+-                    let mut count = dst.write(left)?;
+-                    if count >= left.len() {
+-                        count += dst.write(right)?;
++                    let left_len = left.len().min(read_limit);
++                    let mut count = dst.write(&left[..left_len])?;
++                    if count == left_len && count < read_limit {
++                        let right_len = right.len().min(read_limit - count);
++                        match dst.write(&right[..right_len]) {
++                            Ok(extra) => count += extra,
++                            // Bytes already delivered stay delivered; a failure
++                            // in the second region only ends this read early.
++                            Err(error) if count == 0 => return Err(error),
++                            Err(_) => {}
++                        }
+                     }
+-                    // SAFETY: `count` is the sum of bytes copied out of the
+-                    // occupied slices returned by `as_slices`, so advancing by this
+-                    // amount stays within the consumer's readable region.
+-                    unsafe { chan.rx.advance_read_index(count) };
+                     count
+                 };
+                 if count > 0 {
+-                    let occupied_after = occupied_before - count;
+-                    if !channel::is_stream_writable(occupied_before)
+-                        && channel::is_stream_writable(occupied_after)
+-                    {
+-                        chan.peer_endpoint.polls.writable.wake();
++                    let mut control = chan.rx_control.lock();
++                    // The record becomes deliverable once the read crosses the
++                    // position of its first byte; consuming up to `end` above
++                    // guarantees the whole record is transferred at once.
++                    let reaches_control = control
++                        .records
++                        .front()
++                        .is_some_and(|record| count > record.start.wrapping_sub(control.read));
++                    let received = if reaches_control {
++                        if is_peek {
++                            control.records.front().map(|record| record.data.clone())
++                        } else {
++                            control.records.pop_front().map(|record| record.data)
++                        }
++                    } else {
++                        None
++                    };
++                    let should_wake_writer = if is_peek {
++                        false
++                    } else {
++                        let occupied_before = chan.rx.occupied_len();
++                        control.read = control.read.wrapping_add(count);
++                        // SAFETY: `count` only covers initialized occupied slices
++                        // in the snapshot above. The channel mutex excludes other
++                        // consumers and the producer cannot overwrite unread bytes.
++                        unsafe { chan.rx.advance_read_index(count) };
++                        !channel::is_stream_writable(occupied_before)
++                            && channel::is_stream_writable(occupied_before - count)
++                    };
++                    drop(control);
++                    let peer_endpoint = chan.peer_endpoint.clone();
++                    drop(guard);
++                    // Dropping an unclaimed rights list can close sockets and
++                    // reenter this transport, so release every state lock first.
++                    if let (Some(received), Some(output)) = (received, options.ancillary.as_mut()) {
++                        output.extend(received);
++                    }
++                    if should_wake_writer {
++                        peer_endpoint.polls.writable.wake();
+                     }
+                     return Ok(count);
+                 }
+diff --git a/posix/fs/src/lib.rs b/posix/fs/src/lib.rs
+--- a/posix/fs/src/lib.rs
++++ b/posix/fs/src/lib.rs
+@@ -19,6 +19,7 @@
+ mod metadata;
+ mod mount;
+ mod namei;
++pub mod notify;
+ mod open;
+ mod path;
+ mod stat;
+diff --git a/posix/fs/src/namei.rs b/posix/fs/src/namei.rs
+--- a/posix/fs/src/namei.rs
++++ b/posix/fs/src/namei.rs
+@@ -73,6 +73,21 @@
+         } else {
+             filename.unlink_at(fs.root(), fs.pwd(), &cred)?;
+         }
++        // Report the removal after it succeeded, so a watcher never sees IN_DELETE
++        // for a call that failed.  Same base rule as `sys_openat`: the pwd for a
++        // relative path, "/" for an absolute one, because `notify_change_at` takes
++        // the parent out of an absolute path itself.
++        let pwd = fs.pwd().display_path();
++        let base = if path.starts_with('/') {
++            "/"
++        } else {
++            pwd.as_deref().unwrap_or("/")
++        };
++        crate::notify::notify_change_at(
++            base.as_bytes(),
++            path.as_bytes(),
++            crate::notify::IN_DELETE,
++        );
+         Ok(0)
+     })
+ }
+diff --git a/posix/fs/src/notify.rs b/posix/fs/src/notify.rs
+new file mode 100644
+--- /dev/null
++++ b/posix/fs/src/notify.rs
+@@ -0,0 +1,91 @@
++// SPDX-License-Identifier: Apache-2.0
++// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
++// See LICENSES for license details.
++
++//! Directory-entry notification hook for filesystem implementations.
++//!
++//! `inotify` watches can only see changes if something tells them a directory entry
++//! changed.  The natural place to observe that is here, in the syscalls that create
++//! and remove entries -- but the watch bookkeeping lives in `kfd_objects`, and
++//! `kfd_objects` already depends on `kvfs`, so `posix_fs` importing it would create a
++//! cycle.
++//!
++//! The dependency is therefore inverted: this module owns a function pointer that
++//! whoever can see both sides (`ksyscall`) installs once at startup.  Until it is
++//! installed every notification is a no-op, which is also what makes the filesystem
++//! crate usable in unit tests with no inotify instance anywhere.
++
++use core::sync::atomic::{AtomicUsize, Ordering};
++
++/// Signature of the installed notifier: `(parent_path, event_mask, entry_name)`.
++pub type EntryNotifier = fn(&[u8], u32, &[u8]);
++
++/// `IN_CREATE`: a file or directory was created inside the watched directory.
++pub const IN_CREATE: u32 = 0x0000_0100;
++
++/// `IN_DELETE`: a file or directory was removed from the watched directory.
++pub const IN_DELETE: u32 = 0x0000_0200;
++
++/// The installed notifier, or 0 when none is installed.
++///
++/// A plain `AtomicUsize` rather than a lazily-initialised lock: this is read on
++/// every file creation and removal, and a lock there would be a hot-path cost for a
++/// facility that is usually absent.
++static NOTIFIER: AtomicUsize = AtomicUsize::new(0);
++
++/// Installs the notifier.  Called once during kernel start-up.
++pub fn set_entry_notifier(notifier: EntryNotifier) {
++    NOTIFIER.store(notifier as usize, Ordering::Release);
++}
++
++/// Reports that `name` inside `parent` changed, with the inotify event bit `mask`.
++///
++/// `parent` must be spelled the way `inotify_add_watch` stored it, because the watch
++/// index is keyed by the caller's own path bytes.  A mismatch here fails silently --
++/// no error, no event -- so callers should pass the directory component of the path
++/// exactly as user space supplied it.
++pub fn notify_entry(parent: &[u8], mask: u32, name: &[u8]) {
++    let raw = NOTIFIER.load(Ordering::Acquire);
++    if raw == 0 {
++        return;
++    }
++    // SAFETY: the only value ever stored came from `set_entry_notifier`, which casts
++    // a `fn` item of exactly this signature.  `fn` pointers are `Copy`, so the
++    // transmute cannot duplicate ownership of anything.
++    let notifier: EntryNotifier = unsafe { core::mem::transmute::<usize, EntryNotifier>(raw) };
++    notifier(parent, mask, name);
++}
++
++/// Reports a directory-entry change for a path spelled relative to a base directory.
++///
++/// Splits `path` into the directory that contains the entry and the entry's own name,
++/// rooted at `base`, and forwards them to [`notify_entry`].  Splitting here rather than
++/// at each call site keeps the syscalls that need it from repeating the trailing-slash,
++/// empty-name and no-parent cases -- all of which fail silently, because a mis-spelled
++/// parent simply matches no watch.
++///
++/// Callers pass `fs.pwd()` as `base`; that is the same path space the kernel resolves
++/// relative names against, so an absolute watch path and a relative syscall argument
++/// still meet at the same key.
++pub fn notify_change_at(base: &[u8], path: &[u8], mask: u32) {
++    // A trailing slash names the directory itself, not an entry inside it.
++    let trimmed = path.strip_suffix(b"/").unwrap_or(path);
++    let Some(index) = trimmed.iter().rposition(|&c| c == b'/') else {
++        // No separator: the entry sits directly inside the base directory.
++        if base.is_empty() || trimmed.is_empty() {
++            return;
++        }
++        notify_entry(base, mask, trimmed);
++        return;
++    };
++    let (parent, name) = if index == 0 {
++        // "/name": the parent is the filesystem root.
++        (&trimmed[..1], &trimmed[1..])
++    } else {
++        (&trimmed[..index], &trimmed[index + 1..])
++    };
++    if parent.is_empty() || name.is_empty() {
++        return;
++    }
++    notify_entry(parent, mask, name);
++}
+diff --git a/posix/fs/src/open.rs b/posix/fs/src/open.rs
+--- a/posix/fs/src/open.rs
++++ b/posix/fs/src/open.rs
+@@ -47,7 +47,7 @@
+     let filename = Filename::new(path.as_str());
+ 
+     with_fs_at(dirfd, &filename, |fs| {
+-        open_path(
++        let fd = open_path(
+             fs.root(),
+             fs.pwd(),
+             &filename,
+@@ -55,7 +55,32 @@
+             mode,
+             fs.node_umask(),
+             cred,
+-        )
++        )?;
++        // Report the new directory entry when the call could have created one.
++        //
++        // Notes on the two approximations here, both deliberate:
++        //   * O_CREAT against an already-existing file is not a creation, and Linux
++        //     reports IN_CREATE only for the creating call; determining that would
++        //     mean threading a "did this create it" flag out of `open_path`.
++        //   * The base directory is the pwd for a relative path and "/" for an
++        //     absolute one, because `notify_change_at` takes the parent from the path
++        //     itself when the path is absolute.  This avoids resolving the path here.
++        if flags as u32 & kvfs::OpenFlags::CREATE.bits() != 0 {
++            // Bind the owned pwd string before borrowing: `display_path` returns a
++            // fresh `String`, so borrowing it inline would outlive the temporary.
++            let pwd = fs.pwd().display_path();
++            let base = if path.starts_with('/') {
++                "/"
++            } else {
++                pwd.as_deref().unwrap_or("/")
++            };
++            crate::notify::notify_change_at(
++                base.as_bytes(),
++                path.as_bytes(),
++                crate::notify::IN_CREATE,
++            );
++        }
++        Ok(fd)
+     })
+     .and_then(|it| add_to_fd(it, flags as _))
+     .map(|fd| fd as isize)
+diff --git a/posix/net/src/io.rs b/posix/net/src/io.rs
+--- a/posix/net/src/io.rs
++++ b/posix/net/src/io.rs
+@@ -10,9 +10,9 @@
+ //! - Out-of-band data handling
+ //! - Ancillary data (control messages)
+ 
+-use alloc::{boxed::Box, sync::Arc, vec::Vec};
++use alloc::{sync::Arc, vec::Vec};
+ use core::{
+-    any::TypeId,
++    any::Any,
+     mem::{offset_of, size_of},
+     net::Ipv4Addr,
+ };
+@@ -110,6 +110,7 @@
+         return Ok(ancillary);
+     }
+ 
++    let mut rights_count = 0_usize;
+     let mut ptr = control_ptr;
+     let ptr_end = ptr.checked_add(control_len).ok_or(KError::InvalidInput)?;
+ 
+@@ -124,8 +125,27 @@
+             return Err(KError::InvalidInput);
+         }
+ 
+-        ancillary.push(Box::new(CMsg::parse(resources, hdr_ptr, hdr)?) as AncillaryData);
+-        ptr += hdr.cmsg_len;
++        let cmsg = CMsg::parse(resources, hdr_ptr, hdr)?;
++        let CMsg::Rights { fds } = &cmsg;
++        // Linux bounds the descriptors of one sendmsg at SCM_MAX_FD = 253,
++        // counted across every rights header.
++        rights_count = rights_count
++            .checked_add(fds.len())
++            .ok_or(KError::InvalidInput)?;
++        if rights_count > 253 {
++            return Err(KError::InvalidInput);
++        }
++        ancillary.push(Arc::new(cmsg) as AncillaryData);
++        // Control messages advance by their length rounded up to the alignment
++        // of `cmsghdr`; a plain `+= cmsg_len` misparses the next header.
++        let space = hdr
++            .cmsg_len
++            .checked_next_multiple_of(size_of::<usize>())
++            .ok_or(KError::InvalidInput)?;
++        ptr = ptr
++            .checked_add(space)
++            .ok_or(KError::InvalidInput)?
++            .min(ptr_end);
+     }
+ 
+     Ok(ancillary)
+@@ -137,23 +157,23 @@
+     Credentials(knet::options::UnixCredentials),
+ }
+ 
+-fn into_socket_ancillary(ancillary: AncillaryData) -> Option<SocketAncillary> {
++fn into_socket_ancillary(ancillary: &AncillaryData) -> Option<SocketAncillary> {
+     // `AncillaryData` is the type-erased boundary between `posix-net` and `knet`.
+     // Send-side cmsgs carry `posix-net`-owned `CMsg`, while receive-side
+     // asynchronous errors are produced by `knet` as `KernelAncillaryData`.
+-    let type_id = ancillary.as_ref().type_id();
+-    if type_id == TypeId::of::<CMsg>() {
+-        let ancillary = ancillary.downcast::<CMsg>().ok()?;
+-        return Some(match *ancillary {
+-            CMsg::Rights { fds } => SocketAncillary::Rights { fds },
+-        });
+-    }
+-    if type_id == TypeId::of::<KernelAncillaryData>() {
+-        let ancillary = ancillary.downcast::<KernelAncillaryData>().ok()?;
+-        return Some(match *ancillary {
+-            KernelAncillaryData::IpError(err) => SocketAncillary::IpError(err),
++    // `AncillaryData` is shared, so classification borrows instead of taking
++    // ownership: a record a peek already handed out must stay queued.
++    // The erasure is narrowed to `dyn Any` first, because `downcast_ref` is an
++    // inherent method of that type rather than of the auto-trait object.
++    let erased: &dyn Any = ancillary.as_ref();
++    if let Some(CMsg::Rights { fds }) = erased.downcast_ref::<CMsg>() {
++        return Some(SocketAncillary::Rights { fds: fds.clone() });
++    }
++    if let Some(ancillary) = erased.downcast_ref::<KernelAncillaryData>() {
++        return Some(match ancillary {
++            KernelAncillaryData::IpError(err) => SocketAncillary::IpError(err.clone()),
+             KernelAncillaryData::Credentials(credentials) => {
+-                SocketAncillary::Credentials(credentials)
++                SocketAncillary::Credentials(credentials.clone())
+             }
+         });
+     }
+@@ -386,7 +406,7 @@
+     let mut cmsg_truncated = output.cmsg_builder.is_none() && !ancillary.is_empty();
+     if let Some(mut builder) = output.cmsg_builder {
+         for ancillary in ancillary {
+-            let Some(ancillary) = into_socket_ancillary(ancillary) else {
++            let Some(ancillary) = into_socket_ancillary(&ancillary) else {
+                 warn!("received unexpected ancillary");
+                 continue;
+             };
+diff --git a/posix/net/src/opt.rs b/posix/net/src/opt.rs
+--- a/posix/net/src/opt.rs
++++ b/posix/net/src/opt.rs
+@@ -264,6 +264,12 @@
+             (PROTO_TCP, TCP_NODELAY) => NoDelay as IntBool,
+             (PROTO_TCP, TCP_MAXSEG) => MaxSegment as Int<usize>,
+             (PROTO_TCP, TCP_INFO) => TcpInfo,
++            // Keep-alive tuning.  Linux accepts all three whether or not
++            // keep-alive is enabled; a client that gets ENOPROTOOPT here
++            // retries the whole connection setup instead of proceeding.
++            (PROTO_TCP, TCP_KEEPIDLE) => TcpKeepIdle as Int<u32>,
++            (PROTO_TCP, TCP_KEEPINTVL) => TcpKeepInterval as Int<u32>,
++            (PROTO_TCP, TCP_KEEPCNT) => TcpKeepCount as Int<u32>,
+ 
+             (PROTO_IP, IP_TTL) => Ttl as Int<u8>,
+             (PROTO_IP, IP_RECVERR) => RecvErr as IntBool,
+@@ -281,7 +287,23 @@
+                     dispatch!($which $(as $conv)?);
+                 }
+             )*
+-            _ => return Err(KError::from(LinuxError::ENOPROTOOPT)),
++            _ => {
++                // Log the rejected option rather than silently mapping it.
++                //
++                // Why: one unsupported socket option is enough to make a client
++                // abandon an otherwise-working connection.  Chromium does exactly
++                // that with the X11 socket -- it connects (verified: the xcb client
++                // `xkbcomp` succeeds here with rc=0), then reports "X connection
++                // error received" and exits.  Without knowing which option was
++                // refused, that is indistinguishable from the server being
++                // unreachable, which cost several rounds of investigation here.
++                //
++                // `$in` is logged rather than the caller's variable names, because a
++                // macro arm has no binding for them; this expands at the call site,
++                // so `level` and `optname` are still in scope there.
++                warn!("sockopt rejected: {:?}", $in);
++                return Err(KError::from(LinuxError::ENOPROTOOPT));
++            }
+         }
+     }
+ }
+diff --git a/process/kfd_objects/src/inotify.rs b/process/kfd_objects/src/inotify.rs
+new file mode 100644
+--- /dev/null
++++ b/process/kfd_objects/src/inotify.rs
+@@ -0,0 +1,610 @@
++// SPDX-License-Identifier: Apache-2.0
++// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
++// See LICENSES for license details.
++
++//! `inotify` instance object.
++//!
++//! The kernel keeps the watch table so that `inotify_init1` can hand user space
++//! a real file descriptor instead of a sentinel value. No filesystem event
++//! source is attached yet, so the table is accounting-only: every read waits
++//! (or fails with `EAGAIN` on a non-blocking file) and readiness never
++//! transitions. That is deliberate — a descriptor that reported `POLLIN`
++//! without a queued event would make a polling caller spin.
++//!
++//! [`Inotify::new_file`] creates the file used by the syscall adapter.
++
++use alloc::{
++    collections::VecDeque,
++    string::String,
++    sync::{Arc, Weak},
++    vec::Vec,
++};
++use core::sync::atomic::{AtomicI32, Ordering};
++
++use anon_inodefs::AnonInodeFs;
++use hashbrown::HashMap;
++use kcred::Cred;
++use kerrno::{KError, KResult};
++use kpoll::{IoEvents, PollContext, PollRegisterError, PollSet, Pollable};
++use ksync::Mutex;
++use ktask::future::{block_on, poll_io};
++use kvfs::{FMode, FileOperations, OpenFlags, VfsFile};
++use linux_raw_sys::ioctl::FIONREAD;
++
++/// Largest accepted watch path, excluding the terminator.
++///
++/// Matches Linux `PATH_MAX`; the syscall adapter rejects longer input before
++/// copying so that a hostile caller cannot force an unbounded allocation.
++pub const INOTIFY_PATH_MAX: usize = 4096;
++
++/// Watch descriptor numbers start at 1, as on Linux.
++pub const FIRST_WATCH_DESCRIPTOR: i32 = 1;
++
++/// Mask bit: update an existing watch for the path instead of rejecting it.
++pub const IN_MASK_ADD: u32 = 0x2000_0000;
++
++/// Mask bit: fail with `EEXIST` when the path is already watched.
++pub const IN_MASK_CREATE: u32 = 0x1000_0000;
++
++/// Every event bit user space may subscribe to.
++pub const IN_ALL_EVENTS: u32 = 0x0000_0fff;
++
++/// One registered watch.
++#[derive(Clone, Debug, Eq, PartialEq)]
++struct WatchEntry {
++    /// Event mask currently registered for the path.
++    mask: u32,
++    /// Path bytes exactly as supplied by user space.
++    path: Vec<u8>,
++}
++
++/// A kernel `inotify` instance.
++pub struct Inotify {
++    next_watch_descriptor: AtomicI32,
++    watches: Mutex<HashMap<i32, WatchEntry>>,
++    poll_rx: PollSet,
++    /// Events produced by filesystem activity and not yet read by user space.
++    events: Mutex<VecDeque<InotifyEvent>>,
++}
++
++/// One queued event, held in the layout `read` hands to user space.
++struct InotifyEvent {
++    watch_descriptor: i32,
++    mask: u32,
++    name: Vec<u8>,
++}
++
++/// Bytes of the fixed `struct inotify_event` header: wd, mask, cookie, len.
++const EVENT_HEADER_BYTES: usize = 16;
++
++/// A registered watch, as seen by the filesystem side.
++struct RegistryEntry {
++    instance: Weak<Inotify>,
++    watch_descriptor: i32,
++}
++
++/// Path-to-watches index shared by every inotify instance.
++///
++/// Keyed by the watch path as registered, so a filesystem operation can find the
++/// watches interested in a path without walking every instance.  A `Weak` reference
++/// is held deliberately: an instance user space has closed must not be kept alive by
++/// the registry, or its watch table would leak for the lifetime of the kernel.
++static WATCH_REGISTRY: Mutex<Option<HashMap<Vec<u8>, Vec<RegistryEntry>>>> = Mutex::new(None);
++
++/// Delivers a filesystem event to every watch registered for `path`.
++///
++/// Called from the VFS paths that change a directory entry.  `mask` is the event bit
++/// to report; watches that did not subscribe to it are skipped, which is what the mask
++/// argument of `inotify_add_watch` is for.
++///
++/// `name` is the affected entry's name when the event concerns a child of a watched
++/// directory, and empty when it concerns the watched path itself.
++pub fn notify_path(path: &[u8], mask: u32, name: &[u8]) {
++    let mut registry = WATCH_REGISTRY.lock();
++    let Some(map) = registry.as_mut() else {
++        // No inotify instance has ever registered a watch.
++        return;
++    };
++    let Some(entries) = map.get(path) else {
++        // No watch on this path.  Deliberately silent: the VFS hook fires for every
++        // O_CREAT open, so logging here produces a line per file open across the whole
++        // system (`path=/root` for the shell's own history file, measured) and buries
++        // the one line that matters.
++        return;
++    };
++    // Diagnostic: a match is the interesting event, and there is at most one per
++    // watched-directory change, so logging here is both quiet and decisive.
++    warn!(
++        "inotify hit path={} mask={mask:#x} name_len={} watches={}",
++        core::str::from_utf8(path).unwrap_or("<non-utf8>"),
++        name.len(),
++        entries.len()
++    );
++    for entry in entries {
++        let Some(instance) = entry.instance.upgrade() else {
++            continue;
++        };
++        let subscribed = instance
++            .watch_mask(entry.watch_descriptor)
++            .is_some_and(|m| m & mask != 0);
++        if subscribed {
++            instance.queue_event(entry.watch_descriptor, mask, name);
++        } else {
++            // The other silent exit: the path matched a watch, but that watch did not
++            // subscribe to this event bit.  Silence here would be indistinguishable
++            // from "no watch on this path".
++            warn!(
++                "inotify miss path={} mask={mask:#x} wd={} subscribed={:?}",
++                core::str::from_utf8(path).unwrap_or("<non-utf8>"),
++                entry.watch_descriptor,
++                instance.watch_mask(entry.watch_descriptor)
++            );
++        }
++    }
++}
++
++/// Adds `path` to the shared index for `instance`.
++fn register_watch(path: &[u8], instance: &Arc<Inotify>, watch_descriptor: i32) {
++    let mut registry = WATCH_REGISTRY.lock();
++    let map = registry.get_or_insert_with(Default::default);
++    let entries = map.entry(path.to_vec()).or_default();
++    // Drop dead references while here, so closed instances do not accumulate.
++    entries.retain(|e| e.instance.strong_count() > 0);
++    entries.push(RegistryEntry {
++        instance: Arc::downgrade(instance),
++        watch_descriptor,
++    });
++}
++
++/// Removes one watch from the shared index.
++fn unregister_watch(path: &[u8], watch_descriptor: i32) {
++    let mut registry = WATCH_REGISTRY.lock();
++    if let Some(map) = registry.as_mut()
++        && let Some(entries) = map.get_mut(path)
++    {
++        entries.retain(|e| e.watch_descriptor != watch_descriptor);
++        if entries.is_empty() {
++            map.remove(path);
++        }
++    }
++}
++
++impl Inotify {
++    /// Creates an empty watch table.
++    pub fn new() -> Arc<Self> {
++        Arc::new(Self {
++            next_watch_descriptor: AtomicI32::new(FIRST_WATCH_DESCRIPTOR),
++            watches: Mutex::new(HashMap::new()),
++            poll_rx: PollSet::new(),
++            events: Mutex::new(VecDeque::new()),
++        })
++    }
++
++    /// Appends an event and wakes anyone polling this instance.
++    fn queue_event(&self, watch_descriptor: i32, mask: u32, name: &[u8]) {
++        // Diagnostic: proves an event reached this instance's queue, which is the
++        // middle link between "the VFS hook fired" and "read() returned it".
++        // Measured state of play when this was added: `inotifyd` runs without error
++        // but reports 0 bytes, and the failure could be anywhere along that chain.
++        warn!("inotify queue wd={watch_descriptor} mask={mask:#x} name_len={}", name.len());
++        self.events.lock().push_back(InotifyEvent {
++            watch_descriptor,
++            mask,
++            name: name.to_vec(),
++        });
++        self.poll_rx.wake();
++    }
++
++    /// Creates the anonymous-inode file used by `inotify_init1`.
++    ///
++    /// `cred` is captured as the new file's immutable open credential.
++    ///
++    /// # Errors
++    ///
++    /// Returns `KError::InvalidInput` for unknown open-flag bits and forwards
++    /// errors from anonymous-inode file creation.
++    pub fn new_file(open_flags: u32, cred: Arc<Cred>) -> KResult<Arc<VfsFile>> {
++        let open_flags = OpenFlags::from_bits(open_flags).ok_or(KError::InvalidInput)?;
++        AnonInodeFs::global().get_file(
++            "[inotify]",
++            Arc::new(InotifyFops),
++            Self::new(),
++            FMode::READ | FMode::STREAM,
++            open_flags,
++            cred,
++        )
++    }
++
++    /// Returns the inotify instance attached to an inotify file.
++    ///
++    /// # Errors
++    ///
++    /// Returns `KError::BadFileDescriptor` when the file has no matching private
++    /// data. The adapter maps that to `EINVAL`, matching Linux for a descriptor
++    /// that is not an inotify instance.
++    pub fn from_file(file: &VfsFile) -> KResult<Arc<Self>> {
++        file.private_data_get::<Self>()
++            .ok_or(KError::BadFileDescriptor)
++    }
++
++    /// Registers `path` with `mask`, returning its watch descriptor.
++    ///
++    /// Re-watching a path without [`IN_MASK_ADD`] replaces the previous mask and
++    /// returns the existing descriptor, while [`IN_MASK_CREATE`] turns that same
++    /// condition into `EEXIST`. Unknown event bits are rejected with `EINVAL`,
++    /// and an empty path cannot name a watch.
++    ///
++    /// # Errors
++    ///
++    /// Returns `KError::InvalidInput` for an empty path or an out-of-range mask,
++    /// and `KError::AlreadyExists` when `IN_MASK_CREATE` names a watched path.
++    pub fn add_watch(self: &Arc<Self>, path: &[u8], mask: u32) -> KResult<i32> {
++        if path.is_empty() || path.len() > INOTIFY_PATH_MAX {
++            return Err(KError::InvalidInput);
++        }
++        if mask & !(IN_ALL_EVENTS | IN_MASK_ADD | IN_MASK_CREATE) != 0 {
++            return Err(KError::InvalidInput);
++        }
++
++        // The watches lock is released before touching the registry: `notify_path`
++        // takes the registry lock and then reads `watch_mask`, which takes the
++        // watches lock, so holding watches here would invert that order and risk a
++        // deadlock against a concurrent filesystem event.
++        let (descriptor, is_new_watch) = {
++            let mut watches = self.watches.lock();
++            if let Some((&descriptor, watch)) = watches.iter_mut().find(|(_, w)| w.path == path) {
++                if mask & IN_MASK_CREATE != 0 {
++                    return Err(KError::AlreadyExists);
++                }
++                watch.mask = if mask & IN_MASK_ADD != 0 {
++                    watch.mask | (mask & IN_ALL_EVENTS)
++                } else {
++                    mask & IN_ALL_EVENTS
++                };
++                (descriptor, false)
++            } else {
++                let descriptor = self.next_watch_descriptor.fetch_add(1, Ordering::Relaxed);
++                watches.insert(
++                    descriptor,
++                    WatchEntry {
++                        mask: mask & IN_ALL_EVENTS,
++                        path: path.to_vec(),
++                    },
++                );
++                (descriptor, true)
++            }
++        };
++        if is_new_watch {
++            register_watch(path, self, descriptor);
++        }
++        Ok(descriptor)
++    }
++
++    /// Removes the watch registered under `descriptor`.
++    ///
++    /// # Errors
++    ///
++    /// Returns `KError::InvalidInput` when no such watch exists.
++    pub fn remove_watch(&self, descriptor: i32) -> KResult<()> {
++        let removed = self.watches.lock().remove(&descriptor);
++        match removed {
++            Some(watch) => {
++                unregister_watch(&watch.path, descriptor);
++                Ok(())
++            }
++            None => Err(KError::InvalidInput),
++        }
++    }
++
++    /// Whether at least one event is waiting to be read.
++    fn has_pending_event(&self) -> bool {
++        !self.events.lock().is_empty()
++    }
++
++    /// Bytes a `read` of the whole queue would return: every event's header plus its
++    /// NUL-terminated, 8-byte-padded name.
++    ///
++    /// This is what `FIONREAD` reports for an inotify descriptor.  Userspace needs it
++    /// to size its buffer, and busybox `inotifyd` refuses to run without it --
++    /// measured as `inotifyd: ioctl 0x541b failed: Not a tty` followed by exit, which
++    /// left the image with no way at all to observe events without a browser.
++    fn queued_bytes(&self) -> usize {
++        self.events
++            .lock()
++            .iter()
++            .map(|event| EVENT_HEADER_BYTES + (event.name.len() + 1).next_multiple_of(8))
++            .sum()
++    }
++
++    /// Copies as many queued events into `buf` as fit, in order.
++    ///
++    /// Mirrors Linux: a buffer too small for the next event yields `EINVAL` rather
++    /// than a partial event, and each event is padded to the next 8-byte boundary
++    /// because user space reads them as an array of `struct inotify_event`.
++    fn drain_events(&self, buf: &mut [u8]) -> kio::Result<usize> {
++        let mut events = self.events.lock();
++        let mut written = 0usize;
++        while let Some(event) = events.front() {
++            let name_len = event.name.len();
++            // The name field is NUL-terminated and then padded to 8 bytes.
++            let padded_name = (name_len + 1).next_multiple_of(8);
++            let total = EVENT_HEADER_BYTES + padded_name;
++            if written + total > buf.len() {
++                if written == 0 {
++                    // Nothing fits: Linux reports EINVAL for a short buffer.
++                    return Err(KError::InvalidInput);
++                }
++                break;
++            }
++            let out = &mut buf[written..written + total];
++            out[..4].copy_from_slice(&event.watch_descriptor.to_ne_bytes());
++            out[4..8].copy_from_slice(&event.mask.to_ne_bytes());
++            // cookie is always 0: this implementation reports no rename pairing.
++            out[8..12].copy_from_slice(&0u32.to_ne_bytes());
++            out[12..16].copy_from_slice(&(name_len as u32).to_ne_bytes());
++            out[EVENT_HEADER_BYTES..EVENT_HEADER_BYTES + name_len].copy_from_slice(&event.name);
++            for byte in &mut out[EVENT_HEADER_BYTES + name_len..] {
++                *byte = 0;
++            }
++            written += total;
++            events.pop_front();
++        }
++        // Diagnostic: proves a reader actually drained the queue, which distinguishes
++        // "nobody is reading" from "the bytes came out wrong".
++        warn!("inotify drain wrote={written} buf_len={}", buf.len());
++        if written == 0 {
++            // Blocking readers only reach here after being woken, so an empty queue
++            // means the event was consumed by another reader of the same instance.
++            return Err(KError::WouldBlock);
++        }
++        Ok(written)
++    }
++
++    /// Number of registered watches. Used by the in-kernel unit tests.
++    pub fn watch_count(&self) -> usize {
++        self.watches.lock().len()
++    }
++
++    /// Reads back the mask registered for `descriptor`. Used by the in-kernel
++    /// unit tests.
++    pub fn watch_mask(&self, descriptor: i32) -> Option<u32> {
++        self.watches.lock().get(&descriptor).map(|watch| watch.mask)
++    }
++
++    /// Path text registered for `descriptor`. Used by the in-kernel unit tests.
++    pub fn watch_path(&self, descriptor: i32) -> Option<String> {
++        self.watches
++            .lock()
++            .get(&descriptor)
++            .map(|watch| String::from_utf8_lossy(&watch.path).into_owned())
++    }
++}
++
++struct InotifyFops;
++
++impl InotifyFops {
++    fn state(file: &VfsFile) -> kio::Result<Arc<Inotify>> {
++        Inotify::from_file(file)
++    }
++}
++
++impl FileOperations for InotifyFops {
++    fn supports_read(&self) -> bool {
++        true
++    }
++
++    /// Never returns a queued event: this mock has no event source.
++    ///
++    /// A non-blocking file fails with `EAGAIN`; a blocking file waits until
++    /// interrupted, exactly like an inotify instance whose filesystem is quiet.
++    fn read(&self, file: &VfsFile, buf: &mut [u8], _offset: u64) -> kio::Result<usize> {
++        let state = Self::state(file)?;
++        if buf.is_empty() {
++            // Linux reports short-buffer failures before touching the queue.
++            return Err(KError::InvalidInput);
++        }
++
++        let is_nonblocking = file.is_nonblocking();
++        // Readiness means "the queue is non-empty", so wait for that first and then
++        // drain.  Waiting on the poll event alone would return EAGAIN to a
++        // non-blocking reader that has events waiting, and would lose a wakeup that
++        // arrived between the readiness check and the drain.
++        let was_ready = state.has_pending_event();
++        if !was_ready {
++            block_on(poll_io(
++                state.as_ref(),
++                IoEvents::IN,
++                is_nonblocking,
++                || Err(KError::WouldBlock),
++            ))?;
++        }
++        state.drain_events(buf)
++    }
++
++    fn poll(&self, file: &VfsFile) -> IoEvents {
++        Self::state(file)
++            .map(|state| state.poll())
++            .unwrap_or_else(|_| IoEvents::empty())
++    }
++
++    /// Reports the queued byte count for `FIONREAD`, as Linux does for inotify.
++    ///
++    /// Without this the descriptor rejects the query and a caller that sizes its
++    /// buffer first -- busybox `inotifyd` does -- gives up before reading anything.
++    /// The fallback error stays `NotATty` so that a descriptor which is *not* an
++    /// inotify instance keeps its existing behaviour.
++    fn ioctl(
++        &self,
++        file: &VfsFile,
++        _cred: &kcred::Cred,
++        cmd: u32,
++        arg: usize,
++    ) -> kio::Result<usize> {
++        if cmd != FIONREAD {
++            return Err(KError::NotATty);
++        }
++        let state = Self::state(file)?;
++        // `write_vm` validates the user pointer before writing, so a bad address
++        // surfaces as an error rather than a fault.
++        posix_types::UserPtr::<i32>::from(arg as *mut i32).write_vm(state.queued_bytes() as i32)?;
++        Ok(0)
++    }
++
++    fn register_poll(
++        &self,
++        file: &VfsFile,
++        context: &mut PollContext<'_>,
++        events: IoEvents,
++    ) -> Result<(), PollRegisterError> {
++        if let Ok(state) = Self::state(file) {
++            state.register(context, events)?;
++        }
++        Ok(())
++    }
++}
++
++impl Pollable for Inotify {
++    fn poll(&self) -> IoEvents {
++        if self.has_pending_event() {
++            IoEvents::IN
++        } else {
++            IoEvents::empty()
++        }
++    }
++
++    fn register(
++        &self,
++        context: &mut PollContext<'_>,
++        events: IoEvents,
++    ) -> Result<(), PollRegisterError> {
++        if events.contains(IoEvents::IN) {
++            context.register(&self.poll_rx)?;
++        }
++        Ok(())
++    }
++}
++
++#[cfg(unittest)]
++mod inotify_tests {
++    use unittest::def_test;
++
++    use super::*;
++
++    #[def_test]
++    fn add_watch_returns_ascending_descriptors() {
++        let inotify = Inotify::new();
++        let first = inotify.add_watch(b"/etc", IN_ALL_EVENTS).unwrap();
++        let second = inotify.add_watch(b"/tmp", IN_ALL_EVENTS).unwrap();
++
++        assert_eq!(first, FIRST_WATCH_DESCRIPTOR);
++        assert_eq!(second, first + 1);
++        assert_eq!(inotify.watch_count(), 2);
++        assert_eq!(inotify.watch_path(first).as_deref(), Some("/etc"));
++    }
++
++    #[def_test]
++    fn add_watch_replaces_mask_without_mask_add() {
++        let inotify = Inotify::new();
++        let descriptor = inotify.add_watch(b"/etc", IN_ALL_EVENTS).unwrap();
++        let again = inotify.add_watch(b"/etc", 0x2).unwrap();
++
++        assert_eq!(descriptor, again);
++        assert_eq!(inotify.watch_count(), 1);
++        assert_eq!(inotify.watch_mask(descriptor), Some(0x2));
++    }
++
++    #[def_test]
++    fn add_watch_with_mask_add_merges_bits() {
++        let inotify = Inotify::new();
++        let descriptor = inotify.add_watch(b"/etc", 0x2).unwrap();
++        let again = inotify.add_watch(b"/etc", IN_MASK_ADD | 0x4).unwrap();
++
++        assert_eq!(descriptor, again);
++        assert_eq!(inotify.watch_mask(descriptor), Some(0x6));
++    }
++
++    #[def_test]
++    fn add_watch_with_mask_create_rejects_duplicate() {
++        let inotify = Inotify::new();
++        inotify.add_watch(b"/etc", IN_ALL_EVENTS).unwrap();
++
++        assert_eq!(
++            inotify.add_watch(b"/etc", IN_MASK_CREATE | IN_ALL_EVENTS),
++            Err(KError::AlreadyExists)
++        );
++    }
++
++    #[def_test]
++    fn add_watch_rejects_empty_path_and_unknown_bits() {
++        let inotify = Inotify::new();
++
++        assert_eq!(
++            inotify.add_watch(b"", IN_ALL_EVENTS),
++            Err(KError::InvalidInput)
++        );
++        assert_eq!(
++            inotify.add_watch(b"/etc", 0x0000_1000),
++            Err(KError::InvalidInput)
++        );
++        assert_eq!(inotify.add_watch(b"/etc", 1 << 5), Err(KError::InvalidInput));
++    }
++
++    #[def_test]
++    fn add_watch_masks_are_confined_to_event_bits() {
++        let inotify = Inotify::new();
++        let descriptor = inotify.add_watch(b"/etc", IN_ALL_EVENTS).unwrap();
++
++        assert_eq!(inotify.watch_mask(descriptor), Some(IN_ALL_EVENTS));
++    }
++
++    #[def_test]
++    fn remove_watch_reports_missing_descriptor() {
++        let inotify = Inotify::new();
++        let descriptor = inotify.add_watch(b"/etc", IN_ALL_EVENTS).unwrap();
++
++        assert_eq!(inotify.remove_watch(descriptor), Ok(()));
++        assert_eq!(inotify.remove_watch(descriptor), Err(KError::InvalidInput));
++        assert_eq!(inotify.watch_count(), 0);
++    }
++
++    #[def_test]
++    fn poll_is_never_ready_without_an_event_source() {
++        let inotify = Inotify::new();
++        inotify.add_watch(b"/etc", IN_ALL_EVENTS).unwrap();
++
++        assert!(!inotify.poll().contains(IoEvents::IN));
++    }
++
++    #[def_test]
++    fn empty_read_is_rejected() {
++        let file = Inotify::new_file(0, kcred::initial_cred()).expect("inotify file opens");
++        let mut buf = [0u8; 0];
++        let mut pos = 0;
++
++        assert_eq!(file.read_from(&mut buf, &mut pos), Err(KError::InvalidInput));
++    }
++
++    #[def_test]
++    fn new_file_rejects_unknown_open_flags() {
++        assert!(Inotify::new_file(1 << 30, kcred::initial_cred()).is_err());
++    }
++
++    #[def_test]
++    fn nonblocking_read_reports_would_block() {
++        let file = Inotify::new_file(0, kcred::initial_cred()).expect("inotify file opens");
++        file.set_nonblocking(true);
++
++        let mut buf = [0u8; 64];
++        let mut pos = 0;
++        assert_eq!(file.read_from(&mut buf, &mut pos), Err(KError::WouldBlock));
++    }
++
++    #[def_test]
++    fn watch_state_is_reachable_through_file_private_data() {
++        let file = Inotify::new_file(0, kcred::initial_cred()).expect("inotify file opens");
++        let inotify = Inotify::from_file(&file).expect("inotify file exposes its state");
++        let descriptor = inotify.add_watch(b"/etc", IN_ALL_EVENTS).unwrap();
++
++        assert_eq!(inotify.watch_mask(descriptor), Some(IN_ALL_EVENTS));
++    }
++}
+diff --git a/process/kfd_objects/src/lib.rs b/process/kfd_objects/src/lib.rs
+--- a/process/kfd_objects/src/lib.rs
++++ b/process/kfd_objects/src/lib.rs
+@@ -29,5 +29,6 @@
+ 
+ pub mod epoll;
+ pub mod eventfd;
++pub mod inotify;
+ pub mod signalfd;
+ pub mod timerfd;
+diff --git a/process/kprocess/docs/design.md b/process/kprocess/docs/design.md
+--- a/process/kprocess/docs/design.md
++++ b/process/kprocess/docs/design.md
+@@ -84,6 +84,11 @@
+   `ktask`; `CurrentSignalDispatch` adapts current-task signal injection.
+ - `TaskStat`, `system_view`, nice/scheduler and CPU-accounting APIs provide
+   procfs/scheduler snapshots rather than owning hardware scheduling policy.
++  `Process::virtual_memory_size` sums the live VMA list under the MM mutex and is
++  the single source for both `stat` field 23 and `status` `VmSize:`; the
++  snapshot's `rss` field stays 0 because the MM keeps no resident-page
++  accounting, and a synthesised value would be indistinguishable from a
++  measured one for every reader downstream.
+ 
+ CPU accounting uses `Inactive`, `Kernel`, and `User` states, following Linux
+ generic vtime. Switch-out settles the interval; switch-in starts kernel time.
+diff --git a/process/kprocess/src/process/runtime_access.rs b/process/kprocess/src/process/runtime_access.rs
+--- a/process/kprocess/src/process/runtime_access.rs
++++ b/process/kprocess/src/process/runtime_access.rs
+@@ -248,6 +248,24 @@
+     pub fn address_space(&self) -> KResult<LiveAddressSpace> {
+         self.runtime()
+             .and_then(|runtime| runtime.address_space().ok_or(KError::NoSuchProcess))
++    }
++
++    /// Total virtual size of this process's mappings, in bytes.
++    ///
++    /// The sum runs over the same VMA list `/proc/<pid>/maps` renders, so
++    /// `VmSize:` in `/proc/<pid>/status` and field 23 of `/proc/<pid>/stat`
++    /// cannot end up describing different address spaces. `None` means the
++    /// address space is already detached -- a process that is gone has nothing
++    /// to size, and 0 would be indistinguishable from an empty one.
++    pub fn virtual_memory_size(&self) -> Option<u64> {
++        let aspace = self.address_space().ok()?;
++        let aspace = aspace.lock();
++        Some(
++            aspace
++                .vmas()
++                .map(|vma| vma.end().as_usize().saturating_sub(vma.start().as_usize()) as u64)
++                .sum(),
++        )
+     }
+ 
+     /// Returns the pinned address-space object for teardown-state observation.
+diff --git a/process/kprocess/src/stat.rs b/process/kprocess/src/stat.rs
+--- a/process/kprocess/src/stat.rs
++++ b/process/kprocess/src/stat.rs
+@@ -156,6 +156,11 @@
+             priority: nice.proc_stat_priority(),
+             nice: nice.as_i32(),
+             num_threads: proc.thread_count() as u32,
++            // Field 23. `rss` (field 24) is deliberately left at its default:
++            // the MM keeps no resident-page accounting yet, and a fabricated
++            // number here is indistinguishable from a measured one for every
++            // reader downstream (ps, top, and this project's own sampler).
++            vsize: proc.virtual_memory_size().unwrap_or(0),
+             exit_signal: proc.exit_signal().map_or(0, |signo| signo as u8),
+             exit_code: proc.exit_code(),
+             ..Default::default()

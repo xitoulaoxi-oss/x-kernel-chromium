@@ -1,0 +1,397 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! Early boot page table setup and MMU initialisation for AArch64.
+
+use aarch64_cpu::{asm::barrier, registers::*};
+use kaddr_layout::KIMAGE_VADDR;
+use memaddr::PhysAddr;
+use page_table::{
+    PageTableEntry, PagingFlags,
+    aarch64::{A64PageEntry, Arm64MemAttr},
+};
+
+use super::serial::BOOT_UART_BOOT_VADDR;
+use crate::bootconsole_config;
+
+const PT_ENTRIES: usize = 512;
+const GIB: usize = 0x4000_0000;
+const MIB_2: usize = 0x20_0000;
+const MAX_BOOT_RAM_REGIONS: usize = 16;
+
+#[repr(C, align(4096))]
+struct PageAligned<T>(T);
+
+impl<T: Copy> PageAligned<T> {
+    const fn new(val: T) -> Self {
+        Self(val)
+    }
+}
+
+impl<T, const N: usize> core::ops::Index<usize> for PageAligned<[T; N]> {
+    type Output = T;
+
+    fn index(&self, idx: usize) -> &T {
+        &self.0[idx]
+    }
+}
+
+impl<T, const N: usize> core::ops::IndexMut<usize> for PageAligned<[T; N]> {
+    fn index_mut(&mut self, idx: usize) -> &mut T {
+        &mut self.0[idx]
+    }
+}
+
+#[unsafe(link_section = ".data.boot_page_table")]
+static mut BOOT_PT_L0_TTBR0: PageAligned<[A64PageEntry; PT_ENTRIES]> =
+    PageAligned::new([A64PageEntry::EMPTY; PT_ENTRIES]);
+
+#[unsafe(link_section = ".data.boot_page_table")]
+static mut BOOT_PT_L0_TTBR1: PageAligned<[A64PageEntry; PT_ENTRIES]> =
+    PageAligned::new([A64PageEntry::EMPTY; PT_ENTRIES]);
+
+#[unsafe(link_section = ".data.boot_page_table")]
+static mut BOOT_PT_L1_IDMAP: PageAligned<[A64PageEntry; PT_ENTRIES]> =
+    PageAligned::new([A64PageEntry::EMPTY; PT_ENTRIES]);
+
+#[unsafe(link_section = ".data.boot_page_table")]
+static mut BOOT_PT_L1_LINEAR: PageAligned<[A64PageEntry; PT_ENTRIES]> =
+    PageAligned::new([A64PageEntry::EMPTY; PT_ENTRIES]);
+
+#[unsafe(link_section = ".data.boot_page_table")]
+static mut BOOT_PT_L1_KIMAGE: PageAligned<[A64PageEntry; PT_ENTRIES]> =
+    PageAligned::new([A64PageEntry::EMPTY; PT_ENTRIES]);
+
+#[unsafe(link_section = ".data.boot_page_table")]
+static mut BOOT_PT_L2_KIMAGE: PageAligned<[A64PageEntry; PT_ENTRIES]> =
+    PageAligned::new([A64PageEntry::EMPTY; PT_ENTRIES]);
+
+#[unsafe(link_section = ".data.boot_page_table")]
+static mut BOOT_PT_L2_BOOT_UART: PageAligned<[A64PageEntry; PT_ENTRIES]> =
+    PageAligned::new([A64PageEntry::EMPTY; PT_ENTRIES]);
+
+macro_rules! phys_addr_of {
+    ($sym:expr) => {{
+        let pa: usize;
+        // SAFETY: this emits a pure address-materialization sequence for a
+        // linker-resolved symbol without dereferencing memory or touching the stack.
+        unsafe {
+            core::arch::asm!(
+                "adrp {out}, {sym}",
+                "add  {out}, {out}, :lo12:{sym}",
+                sym = sym $sym,
+                out = out(reg) pa,
+                options(pure, nomem, nostack),
+            );
+        }
+        pa
+    }};
+}
+
+fn map_boot_idmap_block_if_absent(block_base: usize, flags: PagingFlags) {
+    let l1_idx = block_base / GIB;
+    assert!(
+        l1_idx < PT_ENTRIES,
+        "physical address outside boot idmap window"
+    );
+    // SAFETY: boot page tables are only mutated during early single-core bring-up,
+    // and `l1_idx` was bounds-checked against the statically sized table.
+    if unsafe { BOOT_PT_L1_IDMAP[l1_idx].is_present() } {
+        return;
+    }
+    // SAFETY: Single-core boot still owns the table exclusively, and l1_idx
+    // was bounds-checked above before installing this absent entry.
+    unsafe {
+        BOOT_PT_L1_IDMAP[l1_idx] = A64PageEntry::new_page(PhysAddr::from(block_base), flags, true)
+    };
+}
+
+fn map_boot_linear_block_if_absent(block_base: usize, flags: PagingFlags) {
+    let l1_idx = block_base / GIB;
+    assert!(
+        l1_idx < PT_ENTRIES,
+        "physical address outside boot linear map window"
+    );
+    // SAFETY: boot page tables are only mutated during early single-core bring-up,
+    // and `l1_idx` was bounds-checked against the statically sized table.
+    if unsafe { BOOT_PT_L1_LINEAR[l1_idx].is_present() } {
+        return;
+    }
+    // SAFETY: Single-core boot still owns the table exclusively, and l1_idx
+    // was bounds-checked above before installing this absent entry.
+    unsafe {
+        BOOT_PT_L1_LINEAR[l1_idx] = A64PageEntry::new_page(PhysAddr::from(block_base), flags, true)
+    };
+}
+
+/// # Safety
+///
+/// Call only during single-CPU boot with exclusive access to the inactive
+/// boot tables. `kernel_start_pa` and any nonzero `dtb_paddr` must describe
+/// the current image and firmware blob so the resulting mappings preserve
+/// them across MMU activation.
+unsafe fn create_boot_minimal_maps(kernel_start_pa: usize, dtb_paddr: usize) {
+    if let Some(uart_paddr) = bootconsole_config::mmio_addr() {
+        let uart_block_base = uart_paddr & !(GIB - 1);
+        map_boot_idmap_block_if_absent(
+            uart_block_base,
+            PagingFlags::READ | PagingFlags::WRITE | PagingFlags::DEVICE,
+        );
+    }
+
+    let kernel_block_base = kernel_start_pa & !(GIB - 1);
+    map_boot_idmap_block_if_absent(
+        kernel_block_base,
+        PagingFlags::READ | PagingFlags::WRITE | PagingFlags::EXECUTE,
+    );
+    map_boot_linear_block_if_absent(
+        kernel_block_base,
+        PagingFlags::READ | PagingFlags::WRITE | PagingFlags::EXECUTE,
+    );
+
+    if dtb_paddr != 0 {
+        let dtb_block_base = dtb_paddr & !(GIB - 1);
+        map_boot_idmap_block_if_absent(
+            dtb_block_base,
+            PagingFlags::READ | PagingFlags::WRITE | PagingFlags::EXECUTE,
+        );
+        map_boot_linear_block_if_absent(
+            dtb_block_base,
+            PagingFlags::READ | PagingFlags::WRITE | PagingFlags::EXECUTE,
+        );
+    }
+}
+
+/// # Safety
+///
+/// Call only during single-CPU boot with exclusive access to the inactive
+/// boot tables. The ordered image bounds must describe the loaded kernel
+/// and fit the dedicated L2 table after 2 MiB rounding without overflow.
+/// `l2_kimage_pa` must be the physical address of `BOOT_PT_L2_KIMAGE`.
+unsafe fn create_boot_kimage_map(
+    kernel_start_pa: usize,
+    kernel_end_pa: usize,
+    l2_kimage_pa: usize,
+) {
+    // SAFETY: boot page tables are only mutated during early single-core bring-up,
+    // and the computed index selects the dedicated L1 entry for the kernel image.
+    unsafe {
+        let kimage_l1_idx = (KIMAGE_VADDR & !0xFFFF_0000_0000_0000) >> 30 & (PT_ENTRIES - 1);
+        BOOT_PT_L1_KIMAGE[kimage_l1_idx] = A64PageEntry::new_table(PhysAddr::from(l2_kimage_pa));
+    }
+
+    let pa_base = kernel_start_pa & !(MIB_2 - 1);
+    let pa_end = (kernel_end_pa + MIB_2 - 1) & !(MIB_2 - 1);
+
+    let mut pa = pa_base;
+    let mut l2_idx = 0usize;
+    while pa < pa_end {
+        // SAFETY: the loop walks within the statically allocated L2 boot table
+        // and fills one entry per 2 MiB chunk of the kernel image mapping.
+        unsafe {
+            BOOT_PT_L2_KIMAGE[l2_idx] = A64PageEntry::new_page(
+                PhysAddr::from(pa),
+                PagingFlags::READ | PagingFlags::WRITE | PagingFlags::EXECUTE,
+                true,
+            );
+        }
+        pa += MIB_2;
+        l2_idx += 1;
+    }
+}
+
+/// # Safety
+///
+/// Call only during single-CPU boot with exclusive access to the inactive
+/// boot tables after the kernel image mapping is installed.
+/// `l2_boot_uart_pa` must be the physical address of `BOOT_PT_L2_BOOT_UART`,
+/// and the configured MMIO address must identify the boot UART.
+unsafe fn create_boot_uart_map(l2_boot_uart_pa: usize) {
+    let Some(boot_console_paddr) = bootconsole_config::mmio_addr() else {
+        return;
+    };
+
+    let boot_uart_l1_idx = (BOOT_UART_BOOT_VADDR & !0xFFFF_0000_0000_0000) >> 30 & (PT_ENTRIES - 1);
+    let boot_uart_l2_idx = (BOOT_UART_BOOT_VADDR >> 21) & (PT_ENTRIES - 1);
+    let boot_uart_block_pa = boot_console_paddr & !(MIB_2 - 1);
+    let kimage_l1_idx = (KIMAGE_VADDR & !0xFFFF_0000_0000_0000) >> 30 & (PT_ENTRIES - 1);
+
+    if boot_uart_l1_idx == kimage_l1_idx {
+        // SAFETY: Single-core boot exclusively owns this table and the masked
+        // UART index lies within PT_ENTRIES.
+        let is_present = unsafe { BOOT_PT_L2_KIMAGE[boot_uart_l2_idx].is_present() };
+        assert!(!is_present, "boot UART VA overlaps kernel-image boot map");
+        // SAFETY: The overlap check established an unused in-bounds entry;
+        // boot remains the sole writer until the MMU handoff.
+        unsafe {
+            BOOT_PT_L2_KIMAGE[boot_uart_l2_idx] = A64PageEntry::new_page(
+                PhysAddr::from(boot_uart_block_pa),
+                PagingFlags::READ | PagingFlags::WRITE | PagingFlags::DEVICE,
+                true,
+            );
+        }
+    } else {
+        // SAFETY: Single-core boot exclusively owns this in-bounds UART L1 slot,
+        // distinct from the kernel image slot. The caller supplies the UART L2 PA.
+        unsafe {
+            BOOT_PT_L1_KIMAGE[boot_uart_l1_idx] =
+                A64PageEntry::new_table(PhysAddr::from(l2_boot_uart_pa));
+        }
+        // SAFETY: The dedicated UART table remains exclusively boot-owned,
+        // and masking above bounded this leaf index by PT_ENTRIES.
+        unsafe {
+            BOOT_PT_L2_BOOT_UART[boot_uart_l2_idx] = A64PageEntry::new_page(
+                PhysAddr::from(boot_uart_block_pa),
+                PagingFlags::READ | PagingFlags::WRITE | PagingFlags::DEVICE,
+                true,
+            );
+        }
+    }
+}
+
+#[unsafe(link_section = ".idmap.text")]
+/// # Safety
+///
+/// This function may only run during early single-CPU bring-up before the MMU
+/// handoff completes. The caller must ensure the linker symbols, saved DTB
+/// pointer, and boot page-table globals all refer to the current boot image
+/// and are not concurrently mutated.
+pub(super) unsafe fn create_boot_page_tables() {
+    let l1_idmap_pa = phys_addr_of!(BOOT_PT_L1_IDMAP);
+    let l1_linear_pa = phys_addr_of!(BOOT_PT_L1_LINEAR);
+    let l1_kimage_pa = phys_addr_of!(BOOT_PT_L1_KIMAGE);
+    let l2_kimage_pa = phys_addr_of!(BOOT_PT_L2_KIMAGE);
+    let l2_boot_uart_pa = phys_addr_of!(BOOT_PT_L2_BOOT_UART);
+
+    unsafe extern "C" {
+        fn _start();
+        fn _ekernel();
+    }
+    let kernel_start_pa = phys_addr_of!(_start);
+    let kernel_end_pa = phys_addr_of!(_ekernel);
+
+    // SAFETY: boot page-table roots are single-writer globals during early
+    // bring-up, and the computed indices select valid top-level slots.
+    unsafe { BOOT_PT_L0_TTBR0[0] = A64PageEntry::new_table(PhysAddr::from(l1_idmap_pa)) };
+    // SAFETY: Boot exclusively owns TTBR1's root; slot zero links the physical
+    // L1 linear-map table from this image before secondary CPUs start.
+    unsafe { BOOT_PT_L0_TTBR1[0] = A64PageEntry::new_table(PhysAddr::from(l1_linear_pa)) };
+
+    let kimage_l0_idx = (KIMAGE_VADDR & !0xFFFF_0000_0000_0000) >> 39;
+    // SAFETY: The kernel image VA selects an in-bounds root slot, still under
+    // exclusive single-core boot ownership, linked to this image's L1 table.
+    unsafe {
+        BOOT_PT_L0_TTBR1[kimage_l0_idx] = A64PageEntry::new_table(PhysAddr::from(l1_kimage_pa))
+    };
+
+    // SAFETY: early boot saved the raw DTB pointer in `SAVED_BOOT_ARGS[0]`.
+    let dtb_paddr = unsafe { super::entry::SAVED_BOOT_ARGS[0] as usize };
+    // SAFETY: these helpers mutate only boot-time page tables before MMU handoff.
+    unsafe { create_boot_minimal_maps(kernel_start_pa, dtb_paddr) };
+    // SAFETY: these helpers mutate only boot-time page tables before MMU handoff.
+    unsafe { create_boot_kimage_map(kernel_start_pa, kernel_end_pa, l2_kimage_pa) };
+    // SAFETY: these helpers mutate only boot-time page tables before MMU handoff.
+    unsafe { create_boot_uart_map(l2_boot_uart_pa) };
+
+    barrier::dsb(barrier::SY);
+}
+
+pub(super) fn extend_boot_linear_ram_from_dtb(dtb_paddr: usize) {
+    if dtb_paddr == 0 {
+        return;
+    }
+
+    #[expect(
+        clippy::panic,
+        reason = "CG-021-no-panic-on-reachable-failure: Fatal boot: the firmware DTB pointer does \
+                  not reference a readable device tree, so boot RAM cannot be mapped; early \
+                  page-table setup has no error return or recovery"
+    )]
+    // SAFETY: `dtb_paddr` comes from boot firmware and points to the immutable
+    // device-tree blob used for early RAM discovery.
+    let Ok((regions, count)) = (unsafe {
+        of::read_memory_regions_from_ptr::<MAX_BOOT_RAM_REGIONS>(dtb_paddr as *const u8)
+    }) else {
+        panic!("invalid device tree pointer: {dtb_paddr:#x}");
+    };
+
+    for region in &regions[..count] {
+        if region.size == 0 {
+            continue;
+        }
+        let start = region.starting_address as usize & !(GIB - 1);
+        let end = ((region.starting_address as usize) + region.size + GIB - 1) & !(GIB - 1);
+        let mut addr = start;
+        while addr < end {
+            map_boot_linear_block_if_absent(addr, PagingFlags::READ | PagingFlags::WRITE);
+            addr += GIB;
+        }
+    }
+
+    barrier::dsb(barrier::SY);
+    karch::flush_tlb(None);
+    barrier::isb(barrier::SY);
+}
+
+/// # EL0 system-register policy established here
+///
+/// Besides enabling translation, this is the one place every CPU passes through
+/// during bring-up, so the EL0 access policy for cache-related system registers
+/// is set here rather than per CPU. `SCTLR_EL1.UCT` and `SCTLR_EL1.UCI` are
+/// cleared at reset, which traps EL0 reads of `CTR_EL0` and EL0 cache
+/// maintenance to EL1. Linux user space relies on both: compiler and libgcc
+/// cache-synchronisation helpers read `CTR_EL0` and then issue `DC CVAU` /
+/// `IC IVAU`. A trapped access that no handler claims is delivered as SIGILL,
+/// so leaving the reset values makes conforming user space crash.
+///
+/// The VHE configuration is excluded: with HCR_EL2.{E2H,TGE} = {1,1} the same
+/// control bits live in SCTLR_EL2, so that case needs its own decision.
+///
+/// # Safety
+///
+/// The boot page tables rooted at `BOOT_PT_L0_TTBR0` and `BOOT_PT_L0_TTBR1`
+/// must already be fully initialized for the current boot image, and the
+/// caller must ensure enabling the MMU will keep the current execution path
+/// and required data mapped.
+#[unsafe(link_section = ".idmap.text")]
+pub(super) unsafe fn init_mmu() {
+    let ttbr0_root_pa = phys_addr_of!(BOOT_PT_L0_TTBR0);
+    let ttbr1_root_pa = phys_addr_of!(BOOT_PT_L0_TTBR1);
+
+    MAIR_EL1.set(Arm64MemAttr::MAIR_VALUE);
+
+    let tcr_flags0 = TCR_EL1::EPD0::EnableTTBR0Walks
+        + TCR_EL1::TG0::KiB_4
+        + TCR_EL1::SH0::Inner
+        + TCR_EL1::ORGN0::WriteBack_ReadAlloc_WriteAlloc_Cacheable
+        + TCR_EL1::IRGN0::WriteBack_ReadAlloc_WriteAlloc_Cacheable
+        + TCR_EL1::T0SZ.val(16);
+    let tcr_flags1 = TCR_EL1::EPD1::EnableTTBR1Walks
+        + TCR_EL1::TG1::KiB_4
+        + TCR_EL1::SH1::Inner
+        + TCR_EL1::ORGN1::WriteBack_ReadAlloc_WriteAlloc_Cacheable
+        + TCR_EL1::IRGN1::WriteBack_ReadAlloc_WriteAlloc_Cacheable
+        + TCR_EL1::T1SZ.val(16);
+    TCR_EL1.write(TCR_EL1::IPS::Bits_48 + TCR_EL1::AS::ASID16Bits + tcr_flags0 + tcr_flags1);
+    barrier::isb(barrier::SY);
+
+    TTBR0_EL1.set(ttbr0_root_pa as u64);
+    TTBR1_EL1.set(ttbr1_root_pa as u64);
+
+    karch::flush_tlb(None);
+
+    SCTLR_EL1.modify(SCTLR_EL1::M::Enable + SCTLR_EL1::C::Cacheable + SCTLR_EL1::I::Cacheable);
+    // Linux user space synchronizes caches from EL0: libgcc reads CTR_EL0 and
+    // then issues DC CVAU / IC IVAU. Leaving UCT and UCI at their reset values
+    // traps those accesses, and an unhandled system-register trap reaches user
+    // space as SIGILL - which is how a Chromium renderer died here. This is the
+    // shared primary/secondary CPU path, so the policy applies to every CPU.
+    // VHE aliases SCTLR_EL1 to SCTLR_EL2, whose EL0 controls need a separate
+    // audit, so the VMM configuration keeps the trapping behaviour.
+    #[cfg(not(feature = "vmm"))]
+    SCTLR_EL1.modify(SCTLR_EL1::UCT::DontTrap + SCTLR_EL1::UCI::DontTrap);
+    SCTLR_EL1.set(SCTLR_EL1.get() | (1 << 23));
+    barrier::isb(barrier::SY);
+    super::serial::activate_boot_map();
+}

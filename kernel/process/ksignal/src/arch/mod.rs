@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! Architecture-specific signal frames and trampoline.
+cfg_if::cfg_if! {
+    if #[cfg(target_arch = "x86_64")] {
+        mod x86_64;
+        pub use self::x86_64::*;
+        pub(crate) use self::x86_64::SIGNAL_FRAME_ALIGN;
+    } else if #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))] {
+        mod riscv;
+        pub use self::riscv::*;
+        pub(crate) use self::riscv::SIGNAL_FRAME_ALIGN;
+    } else if #[cfg(target_arch = "aarch64")]{
+        mod aarch64;
+        pub use self::aarch64::*;
+        pub(crate) use self::aarch64::SIGNAL_FRAME_ALIGN;
+    } else if #[cfg(target_arch = "loongarch64")] {
+        mod loongarch64;
+        pub use self::loongarch64::*;
+        pub(crate) use self::loongarch64::SIGNAL_FRAME_ALIGN;
+    } else {
+        compile_error!("Unsupported architecture");
+    }
+}
+
+/// Return the entry address of the signal trampoline.
+pub fn signal_trampoline_address() -> usize {
+    unsafe extern "C" {
+        safe static signal_trampoline: [u8; 0];
+    }
+
+    signal_trampoline.as_ptr() as usize
+}

@@ -1,0 +1,129 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! Memory address types, ranges, and alignment utilities.
+#![cfg_attr(not(test), no_std)]
+
+mod units;
+
+pub use self::units::{
+    AddrOps, AddrRange, DynPageIter, MemoryAddr, PageIter, PhysAddr, PhysAddrRange, VirtAddr,
+    VirtAddrRange,
+};
+
+/// 1 KiB.
+pub const KB: usize = 1024;
+/// 1 MiB.
+pub const MB: usize = 1024 * KB;
+/// 1 GiB.
+pub const GB: usize = 1024 * MB;
+
+/// 4 KiB page size.
+pub const PAGE_SIZE_4K: usize = 0x1000;
+/// 2 MiB page size.
+pub const PAGE_SIZE_2M: usize = 0x20_0000;
+/// 1 GiB page size.
+pub const PAGE_SIZE_1G: usize = 0x4000_0000;
+
+pub type PageIter4K<A> = PageIter<PAGE_SIZE_4K, A>;
+pub type PageIter2M<A> = PageIter<PAGE_SIZE_2M, A>;
+pub type PageIter1G<A> = PageIter<PAGE_SIZE_1G, A>;
+
+const fn assert_valid_align(align: usize) {
+    assert!(
+        align != 0 && (align & (align - 1)) == 0,
+        "alignment must be a non-zero power of two"
+    );
+}
+
+/// Align down to the nearest multiple of `align`.
+pub const fn floor_align(addr: usize, align: usize) -> usize {
+    assert_valid_align(align);
+    let mask = align - 1;
+    addr & !mask
+}
+
+/// Align up to the nearest multiple of `align`.
+pub const fn ceil_align(addr: usize, align: usize) -> usize {
+    assert_valid_align(align);
+    let mask = align - 1;
+    match addr.checked_add(mask) {
+        Some(addr) => addr & !mask,
+        #[expect(
+            clippy::panic,
+            reason = "CG-021-no-panic-on-reachable-failure: Only an address within align - 1 of \
+                      usize::MAX overflows, which no valid address range reaches; this mirrors an \
+                      integer overflow check in a const fn"
+        )]
+        None => panic!("aligned address overflow"),
+    }
+}
+
+/// Return the remainder for `addr` relative to `align`.
+pub const fn align_rem(addr: usize, align: usize) -> usize {
+    assert_valid_align(align);
+    addr & (align - 1)
+}
+
+/// Returns `true` if `addr` is aligned to `align`.
+pub const fn aligned_to(addr: usize, align: usize) -> bool {
+    align_rem(addr, align) == 0
+}
+
+/// Align down to a 4 KiB boundary.
+pub const fn floor_4k(addr: usize) -> usize {
+    floor_align(addr, PAGE_SIZE_4K)
+}
+
+/// Align up to a 4 KiB boundary.
+pub const fn ceil_4k(addr: usize) -> usize {
+    ceil_align(addr, PAGE_SIZE_4K)
+}
+
+/// Return the 4 KiB alignment remainder.
+pub const fn rem_4k(addr: usize) -> usize {
+    align_rem(addr, PAGE_SIZE_4K)
+}
+
+/// Returns `true` if `addr` is 4 KiB aligned.
+pub const fn aligned_4k(addr: usize) -> bool {
+    aligned_to(addr, PAGE_SIZE_4K)
+}
+
+pub use align_rem as align_offset;
+pub use aligned_4k as is_aligned_4k;
+pub use aligned_to as is_aligned;
+pub use ceil_4k as align_up_4k;
+pub use ceil_align as align_up;
+pub use floor_4k as align_down_4k;
+pub use floor_align as align_down;
+pub use rem_4k as align_offset_4k;
+
+#[unittest::mod_test]
+pub mod tests_memaddr {
+    use unittest::def_test;
+
+    use super::*;
+
+    #[def_test]
+    fn test_align_helpers() {
+        assert_eq!(floor_align(0x1234, 0x1000), 0x1000);
+        assert_eq!(ceil_align(0x1234, 0x1000), 0x2000);
+        assert_eq!(align_rem(0x1234, 0x1000), 0x234);
+    }
+
+    #[def_test]
+    fn test_align_4k_helpers() {
+        assert_eq!(floor_4k(0x1fff), 0x1000);
+        assert_eq!(ceil_4k(0x1001), 0x2000);
+        assert_eq!(rem_4k(0x1001), 0x1);
+    }
+
+    #[def_test]
+    fn test_aligned_checks() {
+        assert!(aligned_to(0x2000, 0x1000));
+        assert!(!aligned_to(0x2001, 0x1000));
+        assert!(aligned_4k(0x3000));
+    }
+}

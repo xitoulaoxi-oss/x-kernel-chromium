@@ -1,0 +1,71 @@
+#!/bin/sh
+
+export HOME=/root
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+printf "Welcome to \e[96m\e[1mKylin X\e[0m!\n"
+env
+echo
+
+printf 'Use \033[1m\033[3mapt\033[0m to install packages.\n'
+echo
+
+# Do your initialization here!
+
+cd ~
+
+# Hand off to a real init system when the root filesystem actually has one.
+#
+# The original test recognised only OpenRC (`command -v openrc`). That excludes
+# BusyBox init, which is what minimal images ship: Alpine's `/sbin/init` is a
+# symlink to `/bin/busybox` and there is no `openrc` binary at all, so the test
+# was always false and PID 1 stayed an interactive shell. On such an image
+# `/etc/inittab` was therefore never read and every service it defines --
+# serial getty, and a kiosk or display-manager session on a VT -- silently
+# never ran.
+#
+# Every init handoff needs `/etc/inittab` (that is the file they read to decide
+# what to start) and a console to attach to. Requiring both keeps the original
+# intent -- do not exec an init that has nothing to run and no console to run it
+# on -- while admitting BusyBox alongside OpenRC.
+#
+# /sbin/init (e.g. openrc) assumes a full console subsystem: the reboot
+# syscall, VT ioctls, and /dev/tty1-N for getty. On a minimal rootfs without
+# those, execing /sbin/init just spews errors, so keep an interactive shell
+# unless the handoff is actually viable.
+if [ -x /sbin/init ] && [ -r /etc/inittab ] && [ -e /dev/console ]; then
+    # Run the init in this shell first instead of exec'ing it blind: an init
+    # that dies immediately would otherwise take PID 1 down with it, and the
+    # console would show nothing at all. If it survives long enough to be
+    # meaningful it has taken over, and the shell never reaches the next line.
+    echo "init: handing off to /sbin/init (inittab present, /dev/console present)"
+    /sbin/init &
+    init_pid=$!
+    sleep 5
+    if kill -0 "$init_pid" 2>/dev/null; then
+        wait "$init_pid"
+        echo "init: /sbin/init exited; falling back to an interactive shell"
+    else
+        wait "$init_pid" 2>/dev/null
+        echo "init: /sbin/init exited immediately; falling back to an interactive shell"
+    fi
+fi
+
+if [ -x /sbin/init ] && [ ! -r /etc/inittab ]; then
+    echo "init: /sbin/init exists but /etc/inittab is unreadable; staying as a shell"
+fi
+
+# PID 1 inherited console file descriptions opened by the kernel bootstrap,
+# which intentionally did not claim a controlling terminal. Reopen the console
+# from user context so the session leader acquires it before starting an
+# interactive fallback shell. The OpenRC path above remains free for getty.
+# Keep all three descriptors readable and writable: pagers read keys from
+# stderr when stdin is a pipe.
+exec 0<>/dev/console 1>&0 2>&0
+
+# Use bash if available, otherwise fall back to sh
+if [ -x /bin/bash ]; then
+    exec /bin/bash -l
+else
+    exec /bin/sh --login
+fi

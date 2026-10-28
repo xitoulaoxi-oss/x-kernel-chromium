@@ -1,0 +1,21 @@
+x-kernel Chromium Runtime
+Copyright 2026 the x-kernel Chromium Runtime contributors
+
+This repository contains patches, tooling and documentation for running
+Chromium on x-kernel.  The kernel itself is derived from:
+
+    x-kernel
+    https://gitee.com/openkylin/x-kernel
+    Copyright openKylin and the x-kernel contributors
+    Licensed under the Apache License, Version 2.0
+
+The files under kernel-changes/ are modified versions of upstream files and
+retain their original SPDX headers.  The patches under patches/ are provided
+under the same license.
+
+The three HTML pages under pages/ were supplied by the competition organisers
+for acceptance testing; they are included here unchanged for reproducibility.
+
+QEMU is used as an external tool and is not distributed in this repository.
+Chromium, Xorg, JWM and the guest user space are part of the separately
+supplied guest image and are not distributed here.

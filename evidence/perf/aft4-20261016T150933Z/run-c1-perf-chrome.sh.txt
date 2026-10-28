@@ -1,0 +1,14 @@
+sh /tmp/xk-c1-perf-chrome.sh 2>&1
+P2-BEGIN
+chrome_s=8
+[37m[ 35.634529 3:77 ksyscall::dispatch:885] [33mUnimplemented syscall: landlock_create_ruleset (tid=77)[m
+[mrenderer_s=34
+paint_s=56
+painted=1
+renderer_forks=5
+log_bytes=10060
+win=_NET_CLIENT_LIST(WINDOW): window id # 0x400003
+P2-END
+kylin-x:~# echo __XK8396164__rc=$?
+__XK8396164__rc=0
+kylin-x:~# [6n

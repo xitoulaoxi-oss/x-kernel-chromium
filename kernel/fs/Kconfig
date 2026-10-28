@@ -1,0 +1,43 @@
+menu "File Systems"
+
+config KFEAT_FS
+    bool "Enable filesystem support"
+    default y
+    help
+      Enable the kernel filesystem stack and related runtime support.
+
+config KFEAT_FS_EXT4
+    bool "ext4 filesystem support"
+    depends on KFEAT_FS
+    default y
+    help
+      Enable support for mounting ext4 filesystems.
+
+config KFEAT_FS_FAT
+    bool "FAT filesystem support"
+    depends on KFEAT_FS
+    help
+      Enable support for mounting FAT filesystems.
+
+config KFEAT_FS_TIMES
+    bool "Enable filesystem timestamps"
+    depends on KFEAT_FS_EXT4
+    help
+      Enable timestamp-related behavior in the ext4 VFS adapter.
+
+config KFEAT_FS_9P
+    bool "Enable 9P filesystem support"
+    depends on KFEAT_FS
+    help
+      Enable the 9P filesystem client used for shared-directory mounts such as
+      QEMU hostshare.
+
+config KFEAT_FS_CGROUP2
+    bool "Enable cgroup v2 filesystem support"
+    depends on KFEAT_FS
+    default y
+    help
+      Enable the cgroup v2 filesystem and mount the unified hierarchy at
+      /sys/fs/cgroup in the initial mount namespace.
+
+endmenu

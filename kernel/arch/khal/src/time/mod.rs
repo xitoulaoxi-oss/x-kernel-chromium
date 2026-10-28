@@ -1,0 +1,152 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! Unified time capability exposed by `khal`.
+
+use ktime_types::{Frequency, MonotonicInstant, TimeSpan};
+
+/// Raw counter ticks in the platform monotonic timer domain.
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
+pub struct TimerTicks(u64);
+
+impl TimerTicks {
+    /// Wraps a raw hardware counter value at a timer backend boundary.
+    pub const fn from_raw(raw: u64) -> Self {
+        Self(raw)
+    }
+
+    /// Exposes the raw counter representation at a hardware or ABI boundary.
+    pub const fn as_raw(self) -> u64 {
+        self.0
+    }
+
+    /// Returns the wrapping tick delta between two counter samples.
+    pub const fn wrapping_duration_since(self, earlier: Self) -> Self {
+        Self(self.0.wrapping_sub(earlier.0))
+    }
+}
+
+/// Provides a monotonic counter and conversions for its tick domain.
+#[kiface::interface]
+pub trait ClockSourceIf {
+    /// Returns the current monotonic timer tick count.
+    fn now_ticks() -> TimerTicks;
+    /// Converts monotonic timer ticks to elapsed time.
+    fn ticks_to_span(ticks: TimerTicks) -> TimeSpan;
+    /// Returns the monotonic counter frequency.
+    fn frequency() -> Frequency;
+    /// Converts elapsed time to monotonic timer ticks.
+    fn span_to_ticks(span: TimeSpan) -> TimerTicks;
+}
+
+/// Provides per-CPU clock events for monotonic deadlines.
+#[kiface::interface]
+pub trait ClockEventIf {
+    /// Returns the clock-event interrupt ID.
+    fn interrupt_id() -> usize;
+    /// Arms the local clock event to trigger at the given deadline.
+    fn arm_timer(deadline: MonotonicInstant);
+    /// Disarms the local clock event so it will not interrupt until re-armed.
+    fn disarm_timer();
+    /// Allows the clock-event backend to repair timer state after idle returns.
+    /// `previous_ticks` is the pre-idle logical sample and may be ignored by
+    /// backends that check every read. Returns whether this call repaired state,
+    /// not whether a reset occurred during idle: another read may repair first.
+    fn handle_idle_return(previous_ticks: TimerTicks) -> bool;
+}
+
+#[inline]
+pub fn now_ticks() -> TimerTicks {
+    ClockSourceIf::now_ticks()
+}
+
+#[inline]
+pub fn ticks_to_span(ticks: TimerTicks) -> TimeSpan {
+    ClockSourceIf::ticks_to_span(ticks)
+}
+
+#[inline]
+pub fn frequency() -> Frequency {
+    ClockSourceIf::frequency()
+}
+
+#[inline]
+pub fn span_to_ticks(span: TimeSpan) -> TimerTicks {
+    ClockSourceIf::span_to_ticks(span)
+}
+
+#[inline]
+pub fn interrupt_id() -> usize {
+    ClockEventIf::interrupt_id()
+}
+
+#[inline]
+pub fn arm_timer(deadline: MonotonicInstant) {
+    ClockEventIf::arm_timer(deadline)
+}
+
+#[inline]
+pub fn disarm_timer() {
+    ClockEventIf::disarm_timer()
+}
+
+#[inline]
+pub fn handle_idle_return(previous_ticks: TimerTicks) -> bool {
+    ClockEventIf::handle_idle_return(previous_ticks)
+}
+
+#[inline]
+pub fn monotonic_time() -> MonotonicInstant {
+    MonotonicInstant::from_span_since_origin(ticks_to_span(now_ticks()))
+}
+
+/// Nanoseconds since the monotonic origin, for hardware / scheduler arithmetic.
+#[inline]
+pub fn monotonic_time_nanos() -> u64 {
+    monotonic_time().as_nanos_u64_saturating()
+}
+
+#[inline]
+pub fn spin_until(deadline: MonotonicInstant) {
+    while monotonic_time() < deadline {
+        core::hint::spin_loop();
+    }
+}
+
+#[inline]
+pub fn spin_wait(dur: TimeSpan) {
+    spin_until(monotonic_time() + dur);
+}
+
+/// Busy-wait for the given duration.
+pub fn busy_wait(dur: TimeSpan) {
+    spin_wait(dur);
+}
+
+/// Busy-wait until the given deadline.
+pub fn busy_wait_until(deadline: MonotonicInstant) {
+    spin_until(deadline);
+}
+
+#[unittest::mod_test]
+pub mod tests_time {
+    use ktime_types::{NANOS_PER_SEC, TimeSpan};
+    use unittest::def_test;
+
+    #[def_test]
+    fn test_duration_from_nanos() {
+        let nanos = NANOS_PER_SEC;
+        let from = TimeSpan::from_nanos(nanos);
+        let one = TimeSpan::from_secs(1);
+        assert_eq!(from, one);
+    }
+
+    #[def_test]
+    fn test_duration_ordering() {
+        let short = TimeSpan::from_millis(1);
+        let long = TimeSpan::from_millis(2);
+        assert!(long > short);
+    }
+}

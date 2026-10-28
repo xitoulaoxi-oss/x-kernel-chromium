@@ -1,0 +1,19 @@
+sh /tmp/xk-s9-stability10.sh 2>&1
+T1
+T2 t=60 x=1 j=1 c=15 w=2 a=0x400009 l1=13224 l2=517
+T2 t=120 x=1 j=1 c=15 w=2 a=0x400009 l1=14064 l2=517
+T2 t=180 x=1 j=1 c=16 w=2 a=0x400009 l1=17178 l2=517
+T2 t=240 x=1 j=1 c=16 w=2 a=0x400009 l1=20010 l2=517
+T2 t=300 x=1 j=1 c=16 w=2 a=0x400009 l1=20850 l2=517
+T2 t=360 x=1 j=1 c=16 w=2 a=0x400009 l1=23402 l2=517
+T2 t=420 x=1 j=1 c=16 w=2 a=0x400009 l1=26514 l2=517
+T2 t=480 x=1 j=1 c=16 w=2 a=0x400009 l1=26794 l2=517
+T2 t=540 x=1 j=1 c=16 w=2 a=0x400009 l1=29626 l2=517
+T2 t=600 x=1 j=1 c=16 w=2 a=0x400009 l1=32458 l2=517
+T3 Screen 0: minimum 320 x 200, current 1280 x 800, maximum 1280 x 800
+T4 _NET_CLIENT_LIST(WINDOW): window id # 0x400009, 0x400003
+T5 _NET_SUPPORTING_WM_CHECK(WINDOW): window id # 0x200001
+T6
+kylin-x:~# echo __XK6594466__rc=$?
+__XK6594466__rc=0
+kylin-x:~# [6n

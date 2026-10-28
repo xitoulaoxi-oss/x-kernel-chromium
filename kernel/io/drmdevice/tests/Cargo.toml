@@ -1,0 +1,17 @@
+[package]
+name = "drm-regression"
+edition = "2024"
+publish = false
+
+[workspace]
+
+# One package, two independent test binaries.  Each file is a normal `tests/`
+# target, so `cargo test` runs them separately and `--no-run` produces two
+# executables to copy into the guest.
+[[test]]
+name = "identity"
+path = "identity.rs"
+
+[[test]]
+name = "mode"
+path = "mode.rs"

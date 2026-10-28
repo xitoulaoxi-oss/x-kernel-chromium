@@ -1,0 +1,54 @@
+[package]
+name = "kernel-boot"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords = ["bootloader", "x-kernel", "multi-arch", "position-independent"]
+description = "Architecture boot entry and handoff layer for x-kernel"
+
+[features]
+default = []
+fp-simd = []
+vmm = []
+
+[dependencies]
+kbuild_config = { workspace = true }
+boot_info = { workspace = true }
+kaddr_layout = { workspace = true }
+kcpu_id_map = { workspace = true }
+kiface = { workspace = true }
+
+# Architecture-specific dependencies
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+aarch64-cpu.workspace = true
+karch = { workspace = true }
+page_table = { workspace = true }
+memaddr = { workspace = true }
+of = { workspace = true }
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+raw-cpuid = "11"
+x86 = "0.52"
+x86_64 = { workspace = true }
+karch = { workspace = true }
+memaddr = { workspace = true }
+
+[target.'cfg(target_arch = "riscv64")'.dependencies]
+riscv = "0.14"
+karch = { workspace = true }
+memaddr = { workspace = true }
+of = { workspace = true }
+
+[target.'cfg(target_arch = "loongarch64")'.dependencies]
+firmware_handoff = { workspace = true }
+loongArch64 = "0.2.4"
+karch = { workspace = true }
+memaddr = { workspace = true }
+of = { workspace = true }
+page_table = { workspace = true }
+
+[lints]
+workspace = true

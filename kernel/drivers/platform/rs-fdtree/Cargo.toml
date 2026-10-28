@@ -1,0 +1,19 @@
+[package]
+name = "rs_fdtree"
+version = { workspace = true }
+edition = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+documentation = { workspace = true }
+description = "A pure-Rust #![no_std] crate for parsing Linux Flattened Devicetrees"
+keywords = [
+    "devicetree",
+    "fdt",
+    "dt",
+    "linux",
+]
+
+[dependencies]
+
+[lints]
+workspace = true

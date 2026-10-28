@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! Lightweight architecture-specific low-level operations.
+//!
+//! This crate provides a uniform API across all supported architectures for
+//! TLB flush, cache maintenance, CPU halt, interrupt management, thread pointer
+//! access, and FP/SIMD enable operations.
+#![doc = include_str!("../README.md")]
+#![no_std]
+
+pub mod cache;
+
+/// `kiface` for cross-PE pipeline synchronisation.
+///
+/// SMP builds use the provider implemented by `kipi`; uniprocessor builds use
+/// the local no-op provider below because there are no remote PEs to flush.
+#[kiface::interface]
+pub trait IcacheFlushIf {
+    fn flush_others();
+}
+
+#[cfg(not(feature = "smp"))]
+#[kiface::provide]
+impl IcacheFlushIf {
+    fn flush_others() {}
+}
+
+/// Sends IPIs to all other PEs requesting they flush their instruction pipeline.
+#[inline]
+#[expect(
+    clippy::allow_attributes,
+    reason = "CG-024-lint-exceptions: Remote instruction-cache flush is called only by \
+              architectures that require explicit broadcast"
+)]
+#[allow(
+    dead_code,
+    reason = "CG-024-lint-exceptions: dead_code: Remote instruction-cache flush is called only by \
+              architectures that require explicit broadcast"
+)]
+pub(crate) fn flush_icache_others() {
+    crate::IcacheFlushIf::flush_others();
+}
+
+cfg_if::cfg_if! {
+    if #[cfg(target_arch = "x86_64")] {
+        mod x86_64;
+        pub use self::x86_64::*;
+    } else if #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))] {
+        mod riscv;
+        pub use self::riscv::*;
+    } else if #[cfg(target_arch = "aarch64")] {
+        mod aarch64;
+        pub use self::aarch64::*;
+    } else if #[cfg(target_arch = "loongarch64")] {
+        mod loongarch64;
+        pub use self::loongarch64::*;
+    } else if #[cfg(target_arch = "arm")] {
+        mod arm;
+        pub use self::arm::*;
+    }
+}
+
+/// Provides `kcpu_slot`'s single-instruction fallback with this crate's local
+/// IRQ save/disable primitive, so AArch64's PMR/NMI masking rules stay in one
+/// place.
+#[kiface::provide]
+impl kcpu_slot::CpuLocalIrqIf {
+    fn save_and_disable() -> usize {
+        crate::save_irq_and_disable()
+    }
+
+    fn restore(state: usize) {
+        crate::restore_irq(state);
+    }
+}

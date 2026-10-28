@@ -1,0 +1,360 @@
+mainmenu "X-kernel Configuration"
+
+choice
+    prompt "Build Type"
+    default BUILD_TYPE_RELEASE
+
+config BUILD_TYPE_RELEASE
+    bool "Release Build"
+    help
+      A release build with optimizations enabled and debug information disabled.
+config BUILD_TYPE_DEBUG
+    bool "Debug Build"
+    help
+        A debug build with optimizations disabled and debug information enabled.
+endchoice
+
+choice
+    prompt "LOG Level"
+    default LOG_LEVEL_WARN
+
+config LOG_LEVEL_ERROR
+    bool "Error Level Logging"
+
+config LOG_LEVEL_WARN
+    bool "Warning Level Logging"
+
+config LOG_LEVEL_INFO
+    bool "Info Level Logging"
+
+config LOG_LEVEL_DEBUG
+    bool "Debug Level Logging"
+
+config LOG_LEVEL_TRACE
+    bool "Trace Level Logging"
+
+endchoice
+
+choice
+    prompt "Target Architecture"
+    default ARCH_AARCH64
+
+config ARCH_AARCH64
+    bool "AArch64 (ARM 64-bit)"
+
+config ARCH_RISCV64
+    bool "RISC-V 64-bit"
+
+config ARCH_X86_64
+    bool "x86_64"
+
+config ARCH_LOONGARCH64
+    bool "LoongArch 64-bit"
+
+endchoice
+
+config ARCH
+    string
+    default "aarch64" if ARCH_AARCH64
+    default "riscv64" if ARCH_RISCV64
+    default "x86_64" if ARCH_X86_64
+    default "loongarch64" if ARCH_LOONGARCH64
+    help
+      The name of the selected architecture.
+
+# NOTE on the ARCH / MACHINE split (decoupled from the old PLATFORM concept):
+#
+# The CPU ARCH (aarch64 / x86_64 / riscv64 / loongarch64) implicitly selects
+# the arch HAL crate (kplat-<arch>) -- there is no longer a separate, redundant
+# PLATFORM symbol that merely echoed ARCH. What users choose here is the real
+# target MACHINE / BOARD (qemu, rk3588, ...). QEMU-hosted variants such as
+# CrosVM, virtCCA, and CSV are defconfig feature combinations layered on top of
+# the qemu machine, not separate machines.
+menu "Machine / Board Selection"
+
+if ARCH_AARCH64
+
+choice
+    prompt "AArch64 Machine / Board"
+    default MACHINE_AARCH64_QEMU
+
+config MACHINE_AARCH64_QEMU
+    bool "QEMU"
+    help
+      QEMU 'virt' virtual machine. Console over PL011.
+
+config MACHINE_AARCH64_RK3588
+    bool "RK3588 (Orange Pi 5 Plus)"
+    help
+      Rockchip RK3588 SoC. Console over UART2 (DesignWare / NS16550 MMIO).
+      Board differences are conveyed by the device tree passed at boot.
+
+endchoice
+
+endif # ARCH_AARCH64
+
+if ARCH_RISCV64
+
+choice
+    prompt "RISC-V 64 Machine / Board"
+    default MACHINE_RISCV64_QEMU
+
+config MACHINE_RISCV64_QEMU
+    bool "QEMU"
+    help
+      QEMU RISC-V 'virt' virtual machine. Console over NS16550 MMIO.
+
+endchoice
+
+endif # ARCH_RISCV64
+
+if ARCH_X86_64
+
+choice
+    prompt "x86_64 Machine / Board"
+    default MACHINE_X86_64_QEMU
+
+config MACHINE_X86_64_QEMU
+    bool "QEMU"
+    help
+      QEMU x86_64 q35 machine. Console over NS16550 I/O port (ISA COM).
+
+endchoice
+
+endif # ARCH_X86_64
+
+if ARCH_LOONGARCH64
+
+choice
+    prompt "LoongArch64 Machine / Board"
+    default MACHINE_LOONGARCH64_QEMU
+
+config MACHINE_LOONGARCH64_QEMU
+    bool "QEMU"
+    help
+      QEMU LoongArch 'virt' virtual machine. Console over NS16550 MMIO.
+
+endchoice
+
+endif # ARCH_LOONGARCH64
+
+config MACHINE_QEMU
+    bool
+    default y if MACHINE_AARCH64_QEMU
+    default y if MACHINE_RISCV64_QEMU
+    default y if MACHINE_X86_64_QEMU
+    default y if MACHINE_LOONGARCH64_QEMU
+    help
+      Hidden aggregate for settings shared by QEMU-hosted machines.
+
+config MACHINE
+    string
+    default "qemu" if MACHINE_AARCH64_QEMU
+    default "rk3588" if MACHINE_AARCH64_RK3588
+    default "qemu" if MACHINE_RISCV64_QEMU
+    default "qemu" if MACHINE_X86_64_QEMU
+    default "qemu" if MACHINE_LOONGARCH64_QEMU
+    help
+      The selected machine / board name. Together with ARCH it forms the kernel
+      artifact stem: xkernel_<arch>-<machine>.elf (e.g.
+      xkernel_aarch64-rk3588.elf).
+
+endmenu # Machine / Board Selection
+
+menu "Kernel Features"
+
+config TASK_STACK_SIZE
+    hex "Task Stack Size (bytes)"
+    default 0x40000
+    help
+      Specify the stack size for each task in bytes.
+
+config KERNEL_STACK_SIZE
+    hex "Kernel Thread Stack Size (bytes)"
+    default 0x40000
+    help
+      Specify the stack size for kernel worker threads in bytes.
+
+config BOOT_STACK_SIZE
+    hex "Boot Stack Size (bytes)"
+    default 0x40000
+    help
+      Specify the stack size for the boot process in bytes.
+
+config NR_CPUS
+    usize "Maximum number of CPUs (NR_CPUS)"
+    range 1 8
+    default 4
+    help
+      Compile-time upper bound on the number of CPUs the kernel can support.
+      The actual CPU count is discovered at boot from the device tree
+      (AArch64/RISC-V/LoongArch) or the ACPI MADT (x86_64); CPUs described
+      beyond this bound are ignored. Static per-CPU resources (secondary boot
+      stacks, the logical-to-raw CPU id map, IPI/TLB-shootdown slots, CPU
+      masks) are sized by this value, so raising it increases static memory
+      usage (e.g. 256 KiB of secondary stack per CPU). Bounded to [1, 8];
+      raising the cap above 8 also requires re-auditing the static per-CPU
+      allocation budget (secondary stacks, id map, IPI/snapshot slots).
+
+config TICKS_PER_SECOND
+    u32 "Ticks Per Second"
+    default 100
+    help
+      Specify the number of timer ticks per second.
+
+config SEV_CBIT_POS
+    u32 "SEV CBIT Position"
+    depends on ARCH_X86_64
+    default 47
+    help
+      Specify the bit position of the SEV CBIT in the page table entries.
+
+config TIMER_FREQUENCY_HZ
+    u32 "Timer Frequency (Hz)"
+    depends on ARCH_X86_64
+    default 4000000000
+    help
+      Specify the frequency of the timer in hertz.
+
+config KFEAT_KVM_GUEST_MEM_SHARE
+    bool "Enable KVM guest memory share/unshare hooks"
+    depends on ARCH_AARCH64
+    help
+      Enable the platform DMA hooks that issue the KVM vendor hypercalls
+      needed to share and unshare guest memory with the host.
+
+config KFEAT_KVM_MMIO_GUARD
+    bool "Enable KVM MMIO guard mapping hooks"
+    depends on ARCH_AARCH64
+    help
+      Enable the platform MMIO hooks that use the KVM vendor MMIO guard
+      hypercalls before mapping guarded device ranges.
+
+config KFEAT_ARM_TIMER_RESUME_FIXUP
+    bool "Enable AArch64 virtual timer resume fixup"
+    depends on ARCH_AARCH64 && !KFEAT_NMI
+    help
+      Repair backward counter discontinuities on every clock read, including
+      unsigned underflow after host resume. Preserve logical time and rearm
+      timers; elapsed sleep time is not recovered. The serialized clock path
+      is not NMI-safe, so this mitigation is restricted to non-NMI guests.
+
+config KFEAT_ROOTFS_SECONDARY_BLOCK
+    bool "Mount the secondary block device as root filesystem"
+    depends on KFEAT_FS
+    help
+      Select the block device with the second-lowest dev_t as the root
+      filesystem backing store instead of the device with the lowest dev_t.
+
+config KFEAT_ROOT_BLOCK
+    string "Preferred root block device name (e.g. \"ramdisk\", \"vda\")"
+    default ""
+    depends on KFEAT_FS
+    help
+      If non-empty, the filesystem init selects the block device whose name
+      matches this value as the root filesystem. This lets multiple block
+      devices coexist -- for example a RAM disk as the root filesystem
+      alongside a virtio-blk data disk -- without disabling either driver.
+      A non-empty value is authoritative and boot fails if no matching disk is
+      registered. If empty, compatibility selection uses the lowest dev_t (or
+      the second-lowest dev_t when KFEAT_ROOTFS_SECONDARY_BLOCK is set).
+
+endmenu
+
+menu "Kernel Diagnostics"
+
+config KFEAT_DWARF
+    bool "Enable in-kernel DWARF symbolication"
+    default y if BUILD_TYPE_DEBUG
+    help
+      Embed DWARF debug sections into the kernel image and symbolicate
+      backtraces inside the kernel (legacy mode). Debug builds enable this
+      by default; release builds can still opt in when runtime
+      symbolication is needed.
+
+      Disabled by default: the kernel then prints raw addresses which are
+      resolved on the host against the unstripped kernel.debug.elf with
+      `make symbolize LOG=<log>`. Raw frame-pointer unwinding is always
+      available regardless of this option.
+
+config KFEAT_SYMTAB
+    bool "Enable compact kernel symbol table"
+    default n
+    help
+      Embed a compact kallsyms-style symbol table into the kernel image so
+      raw backtrace addresses are annotated with func+0xoff/0xsize at the
+      fault site, without full DWARF data.
+
+      Independent of KFEAT_DWARF. Full file/line resolution still happens
+      on the host against kernel.debug.elf.
+
+config KFEAT_PMU
+    bool "PMU support"
+    depends on ARCH_AARCH64
+    help
+      Enable Performance Monitor Unit support for hardware performance
+      counters.  This is a generic feature whose current implementation is
+      AArch64-only; when NMI support is enabled, the PMU also serves as the
+      periodic NMI source.
+
+config KFEAT_NMI
+    bool "NMI support"
+    depends on MACHINE_AARCH64_QEMU
+    help
+      Enable non-maskable interrupt (NMI) support.  The NMI mechanism
+      (hardware NMI vs pseudo-NMI) is selected at build time below.
+      Enabling NMI requires exactly one NMI source (selected below), so
+      every NMI consumer is guaranteed a source at configuration time.
+      The mechanism is arch-neutral; current support is AArch64 QEMU only.
+
+choice
+    prompt "NMI mechanism"
+    depends on KFEAT_NMI
+    default KFEAT_NMI_MODE_PSEUDO
+
+config KFEAT_NMI_MODE_PSEUDO
+    bool "Pseudo-NMI (PMR priority masking)"
+    help
+      Use the GICv3 PMR priority mask to deliver NMIs as high-priority
+      interrupts.  Works on any GICv3 implementation; the PMR-based
+      interrupt masking discipline is compiled in.
+
+config KFEAT_NMI_MODE_HARDWARE
+    bool "Hardware NMI (GICv3.3 + FEAT_NMI)"
+    help
+      Use GICv3.3 NMI attribute interrupts with FEAT_NMI (Superpriority).
+      Requires GICv3.3 NMI attribute registers and a CPU implementing
+      FEAT_NMI; the platform validates this at boot and disables NMI if the
+      hardware does not match.
+
+endchoice
+
+choice
+    prompt "NMI source"
+    depends on KFEAT_NMI
+    default KFEAT_NMI_PMU
+
+config KFEAT_NMI_PMU
+    bool "PMU cycle counter"
+    select KFEAT_PMU
+    help
+      Use the PMU cycle counter as the periodic NMI source.
+
+# Future NMI sources (e.g. SDEI) are added as additional choice members.
+
+endchoice
+
+source "arch/kirq/Kconfig"
+source "task/ktask/Kconfig.diagnostics"
+
+endmenu
+
+source "fs/Kconfig"
+source "mm/Kconfig"
+source "net/Kconfig"
+source "tee/Kconfig"
+source "task/Kconfig"
+source "core/kbpf/Kconfig"
+source "virt/Kconfig"
+
+source "drivers/Kconfig"

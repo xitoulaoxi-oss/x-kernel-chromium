@@ -1,0 +1,112 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+//
+// This file reuses the implementation from Rust's standard library
+// (std::io) for a no_std environment.
+// Because this project cannot depend on the standard library directly,
+// a local copy is maintained in this repository.
+//
+// Source: https://github.com/rust-lang/rust/blob/main/library/std/src/io/mod.rs
+// License: MIT
+
+use crate::Result;
+
+mod impls;
+
+/// Enumeration of possible methods to seek within an I/O object.
+///
+/// It is used by the [`Seek`] trait.
+#[derive(Copy, PartialEq, Eq, Clone, Debug)]
+pub enum SeekFrom {
+    /// Sets the offset to the provided number of bytes.
+    Start(u64),
+
+    /// Sets the offset to the size of this object plus the specified number of
+    /// bytes.
+    ///
+    /// It is possible to seek beyond the end of an object, but it's an error to
+    /// seek before byte 0.
+    End(i64),
+
+    /// Sets the offset to the current position plus the specified number of
+    /// bytes.
+    ///
+    /// It is possible to seek beyond the end of an object, but it's an error to
+    /// seek before byte 0.
+    Current(i64),
+}
+
+/// Default [`Seek::stream_len`] implementation.
+///
+/// # Errors
+///
+/// Forwards errors from the underlying seek operation, including unsupported
+/// or invalid offsets. If an intermediate seek fails, the original position may not be restored.
+pub fn default_stream_len<T: Seek + ?Sized>(this: &mut T) -> Result<u64> {
+    let old_pos = this.stream_position()?;
+    let len = this.seek(SeekFrom::End(0))?;
+
+    if old_pos != len {
+        this.seek(SeekFrom::Start(old_pos))?;
+    }
+
+    Ok(len)
+}
+
+/// The `Seek` trait provides a cursor which can be moved within a stream of
+/// bytes.
+///
+/// See [`std::io::Seek`](https://doc.rust-lang.org/std/io/trait.Seek.html) for more details.
+pub trait Seek {
+    /// Seek to an offset, in bytes, in a stream.
+    ///
+    /// # Errors
+    ///
+    /// Forwards errors from the underlying seek operation, including unsupported
+    /// or invalid offsets. The resulting position on failure is implementation-defined.
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64>;
+
+    /// Rewind to the beginning of a stream.
+    ///
+    /// # Errors
+    ///
+    /// Forwards errors from the underlying seek operation, including unsupported
+    /// or invalid offsets. The resulting position on failure is implementation-defined.
+    fn rewind(&mut self) -> Result<()> {
+        self.seek(SeekFrom::Start(0))?;
+        Ok(())
+    }
+
+    /// Returns the current seek position from the start of the stream.
+    ///
+    /// # Errors
+    ///
+    /// Forwards errors from the underlying seek operation, including unsupported
+    /// or invalid offsets. The resulting position on failure is implementation-defined.
+    fn stream_position(&mut self) -> Result<u64> {
+        self.seek(SeekFrom::Current(0))
+    }
+
+    /// Returns the length of this stream (in bytes).
+    ///
+    /// # Errors
+    ///
+    /// Forwards errors from the underlying seek operation, including unsupported
+    /// or invalid offsets. If an intermediate seek fails, the original position may not be
+    /// restored.
+    fn stream_len(&mut self) -> Result<u64> {
+        default_stream_len(self)
+    }
+
+    /// Seeks relative to the current position.
+    ///
+    /// # Errors
+    ///
+    /// Forwards errors from the underlying seek operation, including unsupported
+    /// or invalid offsets. The resulting position on failure is implementation-defined.
+    fn seek_relative(&mut self, offset: i64) -> Result<()> {
+        self.seek(SeekFrom::Current(offset))?;
+        Ok(())
+    }
+}

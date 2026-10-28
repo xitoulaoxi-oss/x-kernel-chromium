@@ -1,0 +1,30 @@
+[package]
+name = "memfs"
+description = "In-memory filesystem implementation for x-kernel VFS"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+iov_iter.workspace = true
+kalloc.workspace = true
+kcred.workspace = true
+kerrno.workspace = true
+kvfs.workspace = true
+pagecache.workspace = true
+macros.workspace = true
+memaddr.workspace = true
+ktime_types.workspace = true
+
+ksync.workspace = true
+hashbrown.workspace = true
+linux-raw-sys = { workspace = true }
+bitflags = { workspace = true }
+slab = { workspace = true }
+unittest.workspace = true
+
+[lints]
+workspace = true

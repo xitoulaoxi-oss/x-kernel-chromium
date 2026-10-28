@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! Terminal module.
+
+use alloc::sync::Arc;
+use core::sync::atomic::AtomicU32;
+
+use bytemuck::AnyBitPattern;
+use kspin::SpinNoPreempt;
+use ksync::Mutex;
+
+pub mod job;
+pub mod ldisc;
+pub mod termios;
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, AnyBitPattern)]
+pub struct WindowSize {
+    pub ws_row: u16,
+    pub ws_col: u16,
+    pub ws_xpixel: u16,
+    pub ws_ypixel: u16,
+}
+
+pub struct Terminal {
+    pub(crate) association: Mutex<()>,
+    pub job_control: job::JobControl,
+    pub window_size: SpinNoPreempt<WindowSize>,
+    pub termios: SpinNoPreempt<Arc<termios::Termios2>>,
+    pub pty_number: AtomicU32,
+}
+impl Default for Terminal {
+    fn default() -> Self {
+        Self {
+            association: Mutex::new(()),
+            job_control: job::JobControl::new(),
+            window_size: SpinNoPreempt::new(WindowSize {
+                ws_row: 28,
+                ws_col: 110,
+                ws_xpixel: 0,
+                ws_ypixel: 0,
+            }),
+            termios: SpinNoPreempt::new(Arc::new(termios::Termios2::default())),
+            pty_number: AtomicU32::new(0),
+        }
+    }
+}
+impl Terminal {
+    /// Load the current terminal I/O settings (termios)
+    pub fn load_termios(&self) -> Arc<termios::Termios2> {
+        self.termios.lock().clone()
+    }
+}
+
+#[unittest::mod_test]
+mod terminal_tests {
+    use unittest::def_test;
+
+    use super::*;
+
+    #[def_test]
+    fn test_window_size_default() {
+        let term = Terminal::default();
+        let ws = *term.window_size.lock();
+        assert_eq!(ws.ws_row, 28);
+        assert_eq!(ws.ws_col, 110);
+        assert_eq!(ws.ws_xpixel, 0);
+        assert_eq!(ws.ws_ypixel, 0);
+    }
+
+    #[def_test]
+    fn test_terminal_load_termios() {
+        let term = Terminal::default();
+        let t = term.load_termios();
+        assert!(t.echo());
+        assert!(t.canonical());
+    }
+
+    #[def_test]
+    fn test_window_size_layout() {
+        assert_eq!(core::mem::size_of::<WindowSize>(), 8);
+    }
+}

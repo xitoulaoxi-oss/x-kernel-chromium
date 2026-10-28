@@ -1,0 +1,61 @@
+diff --git a/fs/boot/src/lib.rs b/fs/boot/src/lib.rs
+--- a/fs/boot/src/lib.rs
++++ b/fs/boot/src/lib.rs
+@@ -266,6 +266,19 @@
+             TMPFS_MOUNT_FLAGS,
+         )
+         .expect("Failed to mount /dev/shm");
++        // POSIX shared memory is a world-writable sticky directory on Linux
++        // (/dev/shm is 1777). It must be set on the mounted tmpfs root, not on
++        // the covered mountpoint, and without it an unprivileged process cannot
++        // create a segment: Chromium's own children run as the desktop user and
++        // silently fail to allocate the shared memory they are built on.
++        #[expect(
++            clippy::expect_used,
++            reason = "CG-021-no-panic-on-reachable-failure: Fatal boot: /dev/shm mounted but its \
++                      permissions could not be set; filesystem startup has no error return or \
++                      recovery"
++        )]
++        self.set_mode_path("/dev/shm", 0o1777)
++            .expect("Failed to set /dev/shm permissions");
+         #[expect(
+             clippy::expect_used,
+             reason = "CG-021-no-panic-on-reachable-failure: Fatal boot: failed to create /tmp \
+@@ -286,6 +297,18 @@
+             TMPFS_MOUNT_FLAGS,
+         )
+         .expect("Failed to mount /tmp");
++        // /tmp is 1777 on Linux for the same reason as /dev/shm: every process
++        // gets its own scratch space, and the sticky bit stops one process from
++        // removing another's files. Chromium's fallback shared-memory path writes
++        // here when /dev/shm is unusable.
++        #[expect(
++            clippy::expect_used,
++            reason = "CG-021-no-panic-on-reachable-failure: Fatal boot: /tmp mounted but its \
++                      permissions could not be set; filesystem startup has no error return or \
++                      recovery"
++        )]
++        self.set_mode_path("/tmp", 0o1777)
++            .expect("Failed to set /tmp permissions");
+         #[expect(
+             clippy::expect_used,
+             reason = "CG-021-no-panic-on-reachable-failure: Fatal boot: failed to create /proc \
+@@ -415,6 +438,18 @@
+                 &cred,
+             )
+             .map(|_| ())
++    }
++
++    /// Applies permission bits to a path.
++    ///
++    /// Only for mount points this module creates itself during early boot, where
++    /// the kernel is the owner and the mode has to match what user space expects
++    /// from Linux. `mkdir_at` creates directories with 0o755, which is right for
++    /// a private directory and wrong for the world-writable ones.
++    fn set_mode_path(&self, path: &str, mode: u16) -> kvfs::VfsResult<()> {
++        let cred = kcred::initial_cred();
++        let target = self.lookup(path)?;
++        target.chmod(NodePermission::from_bits_truncate(mode), &cred)
+     }
+ 
+     fn ensure_directory_path(&self, path: &str) -> kvfs::VfsResult<()> {

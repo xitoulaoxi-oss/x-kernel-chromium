@@ -1,0 +1,29 @@
+[package]
+name = "fat"
+description = "FAT filesystem implementation for x-kernel VFS"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+
+[features]
+default = []
+
+[dependencies]
+block.workspace = true
+chrono = { workspace = true }
+fatfs = { workspace = true, features = ["alloc", "lfn"] }
+fs_block.workspace = true
+kcred.workspace = true
+ktime_types.workspace = true
+macros.workspace = true
+ksync.workspace = true
+kvfs.workspace = true
+slab.workspace = true
+unittest.workspace = true
+
+[lints]
+workspace = true

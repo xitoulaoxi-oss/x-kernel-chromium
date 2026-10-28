@@ -1,0 +1,801 @@
+diff --git a/io/drmdevice/src/card0.rs b/io/drmdevice/src/card0.rs
+--- a/io/drmdevice/src/card0.rs
++++ b/io/drmdevice/src/card0.rs
+@@ -182,7 +182,33 @@
+ impl DrmIoctl for DrmSetClientCap {
+     const CMD: u32 = iow::<DrmSetClientCap>(DRM_TYPE, 0x0d);
+ 
+-    fn handle(_dev: &DrmCard, _file: &Arc<DrmFile>, _cap: &mut Self) -> VfsResult<usize> {
++    fn handle(_dev: &DrmCard, file: &Arc<DrmFile>, cap: &mut Self) -> VfsResult<usize> {
++        // Mirror Linux `drm_setclientcap()`: reject an unknown capability with
++        // EOPNOTSUPP and an out-of-range boolean with EINVAL, then remember what
++        // was granted.
++        //
++        // Answering Ok(0) to everything - which is what this used to do - turns
++        // every "does the driver support X?" probe into a false positive, and
++        // leaves `atomic`/`universal_planes` with no observable effect. Clients
++        // legitimately branch on this: a libdrm client that is told `atomic` was
++        // accepted will go on to issue atomic commits.
++        match cap.capability {
++            DRM_CLIENT_CAP_STEREO_3D
++            | DRM_CLIENT_CAP_UNIVERSAL_PLANES
++            | DRM_CLIENT_CAP_ATOMIC => {}
++            _ => return Err(VfsError::OperationNotSupported),
++        }
++        if cap.value > 1 {
++            return Err(VfsError::InvalidInput);
++        }
++        // Capability values are small and defined above, so the shift is in
++        // range by construction.
++        let bit = 1u64 << cap.capability;
++        if cap.value == 1 {
++            file.client_caps.fetch_or(bit, Ordering::Relaxed);
++        } else {
++            file.client_caps.fetch_and(!bit, Ordering::Relaxed);
++        }
+         Ok(0)
+     }
+ }
+@@ -208,10 +234,13 @@
+     const CMD: u32 = iowr::<DrmModeDirtyFb>(DRM_TYPE, 0xB1);
+ 
+     fn handle(dev: &DrmCard, _file: &Arc<DrmFile>, dirty: &mut Self) -> VfsResult<usize> {
+-        // Linux's drm_mode_dirtyfb_ioctl() rejects an unknown fb_id with
+-        // -EINVAL; present_fb is best-effort, so validate before calling it.
++        // Linux's drm_mode_dirtyfb_ioctl() reports an unknown fb_id as -ENOENT
++        // (drm_framebuffer_lookup), and callers distinguish the two: Xorg keeps
++        // its damage tracking enabled only when the generic path answers with
++        // ENOENT rather than EINVAL. present_fb is best-effort, so validate the
++        // identifier before calling it.
+         if !dev.fbs.lock().contains_key(&dirty.fb_id) {
+-            return Err(VfsError::InvalidInput);
++            return Err(VfsError::NotFound);
+         }
+         dev.present_fb(dirty.fb_id);
+         Ok(0)
+@@ -359,6 +388,13 @@
+ struct DrmFile {
+     masters: Arc<Mutex<MasterState>>,
+     binding: Mutex<MasterBinding>,
++    /// Capabilities granted through `DRM_IOCTL_SET_CLIENT_CAP`, as a bitmask
++    /// indexed by the Linux `DRM_CLIENT_CAP_*` value.
++    ///
++    /// Linux keeps this on `drm_file`, i.e. per open file description, and so
++    /// does this driver: two clients of the same card must not share the
++    /// `atomic` / `universal_planes` bits they negotiated independently.
++    client_caps: AtomicU64,
+ }
+ 
+ impl Drop for DrmFile {
+@@ -539,6 +575,7 @@
+                 master: master.clone(),
+                 is_master,
+             }),
++            client_caps: AtomicU64::new(0),
+         });
+         if is_master {
+             masters.active = Some(ActiveMaster {
+@@ -753,6 +790,18 @@
+                 let user_ptr = UserPtr::<DrmModeGetBlob>::from(arg);
+                 <DrmModeGetBlob as DrmIoctl>::handle_raw(self, &state, user_ptr)
+             }
++            <DrmModeCursor as DrmIoctl>::CMD => {
++                let user_ptr = UserPtr::<DrmModeCursor>::from(arg);
++                <DrmModeCursor as DrmIoctl>::handle_raw(self, &state, user_ptr)
++            }
++            <DrmModeCursor2 as DrmIoctl>::CMD => {
++                let user_ptr = UserPtr::<DrmModeCursor2>::from(arg);
++                <DrmModeCursor2 as DrmIoctl>::handle_raw(self, &state, user_ptr)
++            }
++            <DrmModeFbCmd as DrmIoctl>::CMD => {
++                let user_ptr = UserPtr::<DrmModeFbCmd>::from(arg);
++                <DrmModeFbCmd as DrmIoctl>::handle_raw(self, &state, user_ptr)
++            }
+             <DrmModeFbCmd2 as DrmIoctl>::CMD => {
+                 let user_ptr = UserPtr::<DrmModeFbCmd2>::from(arg);
+                 <DrmModeFbCmd2 as DrmIoctl>::handle_raw(self, &state, user_ptr)
+@@ -936,10 +985,17 @@
+     const CMD: u32 = iowr::<DrmModeCreateDumb>(DRM_TYPE, 0xB2);
+ 
+     fn handle(dev: &DrmCard, _file: &Arc<DrmFile>, c: &mut Self) -> VfsResult<usize> {
+-        // Only BGRA8888 (32bpp) is supported, so the bpp == 0 / bpp > 64 /
+-        // multiple-of-8 checks are subsumed by the bpp != 32 comparison and
+-        // bytes_per_pixel is constant.
+-        if c.width == 0 || c.height == 0 || c.bpp != 32 || c.flags != 0 {
++        // The backing store is always BGRA8888 (32bpp) and `bytes_per_pixel` is
++        // therefore constant, but 24bpp requests must still be accepted: Linux's
++        // generic dumb-buffer ioctl accepts them, and libdrm-based clients on
++        // the non-atomic path (Xorg's modesetting driver) ask for 24bpp and then
++        // hand that same value back to `ADDFB`. Rejecting it fails their
++        // initialisation before any framebuffer exists.
++        //
++        // `bpp == 0`, `bpp > 64` and the multiple-of-8 rule are still enforced,
++        // because the depth comes from user space and an unknown depth cannot be
++        // described to the scanout device.
++        if c.width == 0 || c.height == 0 || c.flags != 0 || !matches!(c.bpp, 24 | 32) {
+             return Err(VfsError::InvalidInput);
+         }
+         if c.width > 16384 || c.height > 16384 {
+@@ -1272,6 +1328,59 @@
+     }
+ }
+ 
++impl DrmIoctl for DrmModeCursor {
++    const CMD: u32 = iowr::<DrmModeCursor>(DRM_TYPE, 0xA3);
++
++    fn handle(dev: &DrmCard, _file: &Arc<DrmFile>, cursor: &mut Self) -> VfsResult<usize> {
++        dev.set_cursor(cursor.crtc_id, cursor.flags, cursor.x, cursor.y, cursor.handle)
++    }
++}
++
++impl DrmIoctl for DrmModeCursor2 {
++    const CMD: u32 = iowr::<DrmModeCursor2>(DRM_TYPE, 0xBB);
++
++    fn handle(dev: &DrmCard, _file: &Arc<DrmFile>, cursor: &mut Self) -> VfsResult<usize> {
++        // The hotspot is only meaningful to a hardware cursor plane, which this
++        // driver does not expose; validating it would reject requests the device
++        // is happy to treat as a plain move.
++        dev.set_cursor(cursor.crtc_id, cursor.flags, cursor.x, cursor.y, cursor.handle)
++    }
++}
++
++impl DrmIoctl for DrmModeFbCmd {
++    const CMD: u32 = iowr::<DrmModeFbCmd>(DRM_TYPE, 0xAE);
++
++    fn handle(dev: &DrmCard, file: &Arc<DrmFile>, f: &mut Self) -> VfsResult<usize> {
++        // Legacy ADDFB. Translate the request into the modern form and reuse
++        // that implementation, so the two entry points cannot drift apart.
++        //
++        // bpp 24 is accepted on purpose: `DrmModeCreateDumb` backs every request
++        // with a 32bpp BGRA buffer and reports `pitch = width * 4`, and callers
++        // hand that same bpp straight back here.
++        //
++        // Unlike ADDFB2 there is no pixel_format field; the legacy ABI implies
++        // XRGB8888 for depth 24, which is what the driver implements.
++        if f.handle == 0 || !matches!(f.bpp, 24 | 32) || f.depth == 0 || f.depth > 32 {
++            return Err(VfsError::InvalidInput);
++        }
++        let mut modern = DrmModeFbCmd2 {
++            fb_id: f.fb_id,
++            width: f.width,
++            height: f.height,
++            pixel_format: DRM_FORMAT_XRGB8888,
++            flags: 0,
++            handles: [f.handle, 0, 0, 0],
++            pitches: [f.pitch, 0, 0, 0],
++            offsets: [0; 4],
++            abi_pad: 0,
++            modifier: [0; 4],
++        };
++        <DrmModeFbCmd2 as DrmIoctl>::handle(dev, file, &mut modern)?;
++        f.fb_id = modern.fb_id;
++        Ok(0)
++    }
++}
++
+ impl DrmIoctl for DrmModeFbCmd2 {
+     const CMD: u32 = iowr::<DrmModeFbCmd2>(DRM_TYPE, 0xB8);
+ 
+@@ -1329,6 +1438,42 @@
+ }
+ 
+ impl DrmCard {
++    /// Answer a legacy `MODE_CURSOR` / `MODE_CURSOR2` request.
++    ///
++    /// The bound display exposes a single primary plane, so there is no hardware
++    /// cursor to program and `MODE_CURSOR` cannot be reported as unsupported
++    /// either: `GET_CAP` already advertises a 64x64 cursor
++    /// (`DRM_CURSOR_COMPAT_SIZE`), and libdrm-based clients such as Xorg's
++    /// modesetting driver issue the request once the CRTC is up and treat
++    /// `EOPNOTSUPP` as a fatal initialisation error.
++    ///
++    /// Validation therefore matches Linux's `drm_mode_cursor_common()`: the CRTC
++    /// must exist, and a request that carries a handle must reference a live
++    /// dumb buffer. Position and hotspot are accepted and dropped, which is the
++    /// same observable behaviour as a driver whose cursor plane is disabled:
++    /// the client keeps its own software cursor.
++    fn set_cursor(
++        &self,
++        crtc_id: u32,
++        flags: u32,
++        _x: i32,
++        _y: i32,
++        handle: u32,
++    ) -> VfsResult<usize> {        if crtc_id != CRTC_ID {
++            return Err(VfsError::InvalidInput);
++        }
++        if flags & !(DRM_MODE_CURSOR_BO | DRM_MODE_CURSOR_MOVE) != 0 {
++            return Err(VfsError::InvalidInput);
++        }
++        if flags & DRM_MODE_CURSOR_BO != 0
++            && handle != 0
++            && !self.dumbs.lock().contains_key(&handle)
++        {
++            return Err(VfsError::InvalidInput);
++        }
++        Ok(0)
++    }
++
+     fn present_fb(&self, fb_id: u32) {
+         let (resource_id, width, height) = match self.fbs.lock().get(&fb_id) {
+             Some(fb) => (fb.resource_id, fb.width, fb.height),
+diff --git a/io/drmdevice/src/drm.rs b/io/drmdevice/src/drm.rs
+--- a/io/drmdevice/src/drm.rs
++++ b/io/drmdevice/src/drm.rs
+@@ -169,6 +169,55 @@
+     pub pad: u32,
+ }
+ 
++/// Legacy `struct drm_mode_fb_cmd`, as still issued by non-atomic clients.
++///
++/// Linux keeps both this and [`DrmModeFbCmd2`]: atomic clients use the latter,
++/// while older mode-setting code (Xorg's `modesetting` driver among them) uses
++/// this one. 7 x u32 = 28 bytes, which is exactly the `0x1c` size field encoded
++/// in `DRM_IOCTL_MODE_ADDFB` (`0xc01c64ae`) - two independent confirmations of
++/// the layout.
++#[repr(C)]
++#[derive(Debug, Default, Clone, Copy, AnyBitPattern, UserRead, UserWrite)]
++pub(crate) struct DrmModeFbCmd {
++    pub fb_id: u32,
++    pub width: u32,
++    pub height: u32,
++    pub pitch: u32,
++    pub bpp: u32,
++    pub depth: u32,
++    pub handle: u32,
++}
++
++/// `struct drm_mode_cursor`, the original cursor request.
++///
++/// 6 x u32 = 24 bytes = 0x18, which is the size field encoded in
++/// `DRM_IOCTL_MODE_CURSOR` (`0xc01864a3`). [`DrmModeCursor2`] adds the hotspot
++/// offsets and is 32 bytes, matching `DRM_IOCTL_MODE_CURSOR2` (`0xc02064bb`).
++#[repr(C)]
++#[derive(Debug, Default, Clone, Copy, AnyBitPattern, UserRead, UserWrite)]
++pub(crate) struct DrmModeCursor {
++    pub flags: u32,
++    pub crtc_id: u32,
++    pub x: i32,
++    pub y: i32,
++    pub handle: u32,
++    pub pad: u32,
++}
++
++/// `struct drm_mode_cursor2`, which adds the hotspot offsets.
++#[repr(C)]
++#[derive(Debug, Default, Clone, Copy, AnyBitPattern, UserRead, UserWrite)]
++pub(crate) struct DrmModeCursor2 {
++    pub flags: u32,
++    pub crtc_id: u32,
++    pub x: i32,
++    pub y: i32,
++    pub handle: u32,
++    pub pad: u32,
++    pub hot_x: i32,
++    pub hot_y: i32,
++}
++
+ #[repr(C)]
+ #[derive(Debug, Default, Clone, Copy, AnyBitPattern, UserRead, UserWrite)]
+ pub(crate) struct DrmModeFbCmd2 {
+diff --git a/io/drmdevice/src/consts.rs b/io/drmdevice/src/consts.rs
+--- a/io/drmdevice/src/consts.rs
++++ b/io/drmdevice/src/consts.rs
+@@ -56,6 +56,14 @@
+ pub(crate) const DRM_CAP_CRTC_IN_VBLANK_EVENT: u64 = 0x12;
+ pub(crate) const DRM_CAP_ADDFB2_MODIFIERS: u64 = 0x10;
+ 
++// ======== SET_CLIENT_CAP capabilities ========
++
++// Values are Linux's (`include/uapi/drm/drm.h`); the numbering is part of the
++// uapi contract, because clients index their own state by it.
++pub(crate) const DRM_CLIENT_CAP_STEREO_3D: u64 = 1;
++pub(crate) const DRM_CLIENT_CAP_UNIVERSAL_PLANES: u64 = 2;
++pub(crate) const DRM_CLIENT_CAP_ATOMIC: u64 = 3;
++
+ /// Cursor size reported via GET_CAP. The driver exposes a single primary
+ /// plane and no cursor commands, so this is a client-compatibility value,
+ /// not a hardware capability: libdrm-based clients treat 0 as "cursor
+@@ -66,6 +74,14 @@
+ // ======== format modifiers ========
+ 
+ pub(crate) const DRM_MODE_FB_MODIFIERS: u32 = 0x2;
++
++// ======== MODE_CURSOR flags ========
++
++// Linux `DRM_MODE_CURSOR_BO` / `_MOVE` (include/uapi/drm/drm_mode.h).
++/// Install or replace the cursor image (`handle` is meaningful).
++pub(crate) const DRM_MODE_CURSOR_BO: u32 = 0x01;
++/// Move the cursor to `x` / `y`.
++pub(crate) const DRM_MODE_CURSOR_MOVE: u32 = 0x02;
+ pub(crate) const DRM_FORMAT_MOD_INVALID: u64 = 0x00ff_ffff_ffff_ffff;
+ pub(crate) const DRM_FORMAT_MOD_LINEAR: u64 = 0;
+ 
+diff --git a/io/drmdevice/tests/mode.rs b/io/drmdevice/tests/mode.rs
+new file mode 100644
+--- /dev/null
++++ b/io/drmdevice/tests/mode.rs
+@@ -0,0 +1,483 @@
++// SPDX-License-Identifier: Apache-2.0
++// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
++// See LICENSES for license details.
++
++//! Userspace ABI regressions for X-Kernel's legacy DRM mode-setting entry points.
++//!
++//! This is the companion of `identity.rs`: same harness, same rules (a real
++//! `/dev/dri/card0`, no skipping, no mocked ioctls).  It exists because the
++//! delivered Xorg build drives the **legacy** (non-atomic) mode-setting path,
++//! which is a different ioctl set from the atomic one the kernel used to
++//! implement alone:
++//!
++//!   * `DRM_IOCTL_MODE_CREATE_DUMB` -- Xorg requests `bpp = 24`, while a
++//!     BGRA-backed virtio-gpu scanout is 32bpp.  A driver that only accepts 32
++//!     fails `ScreenInit` outright.
++//!   * `DRM_IOCTL_MODE_ADDFB` (legacy, `struct drm_mode_fb_cmd`, 28 bytes) --
++//!     still used by non-atomic clients.  Linux keeps both `ADDFB` and `ADDFB2`.
++//!   * `DRM_IOCTL_MODE_CURSOR` -- Xorg issues it once the CRTC is up.
++//!   * `DRM_IOCTL_SET_CLIENT_CAP` -- must reject unknown capabilities with
++//!     `EOPNOTSUPP` and out-of-range boolean values with `EINVAL`, and must
++//!     remember what it granted.  A handler that answers `Ok(0)` to everything
++//!     makes a feature probe report a capability the driver does not have.
++//!
++//! Run one case at a time; each owns the device for its whole body:
++//!
++//! ```sh
++//! DRM_DEVICE=/dev/dri/card0 ./drm_mode_abi_regression --nocapture
++//! ```
++//!
++//! See `README.md` in this directory for how to build the binary.
++
++#[cfg(not(all(target_os = "linux", target_pointer_width = "64")))]
++compile_error!("DRM mode ABI regressions require a 64-bit Linux userspace target");
++
++#[cfg(all(test, target_os = "linux", target_pointer_width = "64"))]
++mod tests {
++    use std::{
++        ffi::{c_int, c_ulong, c_void},
++        fs::{File, OpenOptions},
++        io,
++        mem::size_of,
++        os::fd::AsRawFd,
++        ptr,
++    };
++
++    // _IOWR('d', nr, struct) with 64-bit struct sizes, taken from Linux uapi
++    // `include/uapi/drm/drm.h` and `drm_mode.h`.
++    const SET_CLIENT_CAP: c_ulong = 0xc010_640d;
++    const CREATE_DUMB: c_ulong = 0xc020_64b2;
++    const MAP_DUMB: c_ulong = 0xc010_64b3;
++    const DESTROY_DUMB: c_ulong = 0xc004_64b4;
++    /// Legacy `struct drm_mode_fb_cmd` is 7 x u32 = 28 bytes -> size nibble 0x1c.
++    const ADDFB_LEGACY: c_ulong = 0xc01c_64ae;
++    /// `struct drm_mode_fb_cmd2` is 104 bytes -> size nibble 0x68.
++    const ADDFB2: c_ulong = 0xc068_64b8;
++    const MODE_CURSOR: c_ulong = 0xc01c_64a3;
++    /// `struct drm_mode_dirtyfb` is 24 bytes -> size nibble 0x18.
++    const DIRTYFB: c_ulong = 0xc018_64b1;
++
++    const DRM_CLIENT_CAP_UNIVERSAL_PLANES: u64 = 2;
++    const DRM_CLIENT_CAP_ATOMIC: u64 = 3;
++    /// Deliberately not a Linux capability value.
++    const DRM_CLIENT_CAP_UNKNOWN: u64 = 0x40;
++
++    const DRM_FORMAT_XRGB8888: u32 = 0x3432_5258; // 'XR24'
++    const DRM_FORMAT_ARGB8888: u32 = 0x3432_5241; // 'AR24'
++
++    const ENOENT: i32 = 2;
++    const EINVAL: i32 = 22;
++    const EOPNOTSUPP: i32 = 95;
++
++    // ---------------------------------------------------------------- ABI types
++
++    #[repr(C)]
++    #[derive(Default, Clone, Copy)]
++    struct SetClientCap {
++        capability: u64,
++        value: u64,
++    }
++
++    #[repr(C)]
++    #[derive(Default, Clone, Copy)]
++    struct CreateDumb {
++        height: u32,
++        width: u32,
++        bpp: u32,
++        flags: u32,
++        handle: u32,
++        pitch: u32,
++        size: u64,
++    }
++
++    #[repr(C)]
++    #[derive(Default, Clone, Copy)]
++    struct MapDumb {
++        handle: u32,
++        pad: u32,
++        offset: u64,
++    }
++
++    #[repr(C)]
++    #[derive(Default, Clone, Copy)]
++    struct DestroyDumb {
++        handle: u32,
++    }
++
++    /// Legacy `struct drm_mode_fb_cmd`.
++    #[repr(C)]
++    #[derive(Default, Clone, Copy)]
++    struct FbCmd {
++        fb_id: u32,
++        width: u32,
++        height: u32,
++        pitch: u32,
++        bpp: u32,
++        depth: u32,
++        handle: u32,
++    }
++
++    /// `struct drm_mode_fb_cmd2`.
++    #[repr(C)]
++    #[derive(Default, Clone, Copy)]
++    struct FbCmd2 {
++        fb_id: u32,
++        width: u32,
++        height: u32,
++        pixel_format: u32,
++        flags: u32,
++        handles: [u32; 4],
++        pitches: [u32; 4],
++        offsets: [u32; 4],
++        modifier: [u64; 4],
++    }
++
++    /// `struct drm_mode_dirtyfb`.
++    #[repr(C)]
++    #[derive(Default, Clone, Copy)]
++    struct DirtyFb {
++        fb_id: u32,
++        flags: u32,
++        color: u32,
++        num_clips: u32,
++        clips_ptr: u64,
++    }
++
++    #[repr(C)]
++    #[derive(Default, Clone, Copy)]
++    struct ModeCursor {
++        flags: u32,
++        crtc_id: u32,
++        x: i32,
++        y: i32,
++        handle: u32,
++        pad: u32,
++    }
++
++    // ------------------------------------------------------------------ helpers
++
++    fn open_card() -> File {
++        let path = std::env::var("DRM_DEVICE").unwrap_or_else(|_| "/dev/dri/card0".into());
++        OpenOptions::new()
++            .read(true)
++            .write(true)
++            .open(&path)
++            .unwrap_or_else(|error| panic!("cannot open DRM device {path}: {error}"))
++    }
++
++    fn ioctl_arg<T>(file: &File, command: c_ulong, value: &mut T) -> io::Result<()> {
++        // SAFETY: callers pair each command with its repr(C) ABI struct, and
++        // the storage stays live for the duration of the call.
++        let result = unsafe { ioctl(file.as_raw_fd(), command, ptr::from_mut(value)) };
++        if result < 0 {
++            Err(io::Error::last_os_error())
++        } else {
++            Ok(())
++        }
++    }
++
++    fn errno(result: io::Result<()>) -> i32 {
++        result
++            .expect_err("ioctl was expected to fail")
++            .raw_os_error()
++            .expect("ioctl error must carry an errno")
++    }
++
++    /// Create a dumb buffer, returning `(handle, pitch, size)`.
++    fn create_dumb(file: &File, width: u32, height: u32, bpp: u32) -> io::Result<CreateDumb> {
++        let mut request = CreateDumb {
++            width,
++            height,
++            bpp,
++            ..CreateDumb::default()
++        };
++        ioctl_arg(file, CREATE_DUMB, &mut request)?;
++        Ok(request)
++    }
++
++    fn destroy_dumb(file: &File, handle: u32) {
++        let mut request = DestroyDumb { handle };
++        let _ = ioctl_arg(file, DESTROY_DUMB, &mut request);
++    }
++
++    // ------------------------------------------------------------------- cases
++
++    // SET_CLIENT_CAP must behave like Linux `drm_setclientcap()`.
++    #[test]
++    fn set_client_cap_rejects_unknown_and_out_of_range() {
++        assert_eq!(size_of::<SetClientCap>(), 16);
++        let card = open_card();
++
++        let mut unknown = SetClientCap {
++            capability: DRM_CLIENT_CAP_UNKNOWN,
++            value: 1,
++        };
++        assert_eq!(
++            errno(ioctl_arg(&card, SET_CLIENT_CAP, &mut unknown)),
++            EOPNOTSUPP,
++            "an unknown capability must be reported as unsupported, not silently accepted"
++        );
++
++        for capability in [DRM_CLIENT_CAP_UNIVERSAL_PLANES, DRM_CLIENT_CAP_ATOMIC] {
++            let mut out_of_range = SetClientCap {
++                capability,
++                value: 2,
++            };
++            assert_eq!(
++                errno(ioctl_arg(&card, SET_CLIENT_CAP, &mut out_of_range)),
++                EINVAL,
++                "capability {capability} accepted a boolean value other than 0 or 1"
++            );
++            let mut valid = SetClientCap {
++                capability,
++                value: 1,
++            };
++            ioctl_arg(&card, SET_CLIENT_CAP, &mut valid).unwrap_or_else(|error| {
++                panic!("capability {capability} must be grantable: {error}")
++            });
++            let mut revoked = SetClientCap {
++                capability,
++                value: 0,
++            };
++            ioctl_arg(&card, SET_CLIENT_CAP, &mut revoked).unwrap_or_else(|error| {
++                panic!("capability {capability} must be revocable: {error}")
++            });
++        }
++    }
++
++    // Xorg's modesetting driver asks for 24bpp on its legacy path.  The driver
++    // may back it with a 32bpp buffer, but it must not reject the request.
++    #[test]
++    fn create_dumb_accepts_24bpp_with_a_32bpp_compatible_layout() {
++        assert_eq!(size_of::<CreateDumb>(), 32);
++        let card = open_card();
++
++        let bpp32 = create_dumb(&card, 1280, 800, 32).expect("32bpp CREATE_DUMB");
++        assert_eq!(bpp32.pitch, 1280 * 4, "32bpp pitch must be width * 4");
++        assert!(
++            bpp32.size >= u64::from(bpp32.pitch) * u64::from(bpp32.height),
++            "CREATE_DUMB reported {} bytes for {}x{} at pitch {}",
++            bpp32.size,
++            bpp32.width,
++            bpp32.height,
++            bpp32.pitch
++        );
++
++        let bpp24 = create_dumb(&card, 1280, 800, 24)
++            .expect("24bpp CREATE_DUMB must be accepted for legacy mode-setting clients");
++        assert_eq!(
++            bpp24.pitch, bpp32.pitch,
++            "24bpp requests are backed by the same 32bpp layout, so the pitch must match"
++        );
++
++        for (width, height, bpp) in [(0u32, 800u32, 32u32), (1280, 0, 32), (1280, 800, 16)] {
++            let mut invalid = CreateDumb {
++                width,
++                height,
++                bpp,
++                ..CreateDumb::default()
++            };
++            assert_eq!(
++                errno(ioctl_arg(&card, CREATE_DUMB, &mut invalid)),
++                EINVAL,
++                "CREATE_DUMB accepted width={width} height={height} bpp={bpp}"
++            );
++        }
++
++        destroy_dumb(&card, bpp24.handle);
++        destroy_dumb(&card, bpp32.handle);
++    }
++
++    // A dumb buffer must be mappable, because that is how clients obtain the
++    // pixels they later hand to ADDFB.
++    #[test]
++    fn dumb_buffer_is_mappable() {
++        let card = open_card();
++        let dumb = create_dumb(&card, 64, 64, 32).expect("CREATE_DUMB");
++        let mut map = MapDumb {
++            handle: dumb.handle,
++            ..MapDumb::default()
++        };
++        ioctl_arg(&card, MAP_DUMB, &mut map).expect("MAP_DUMB");
++        assert_eq!(map.offset % 4096, 0, "MAP_DUMB offset must be page aligned");
++        destroy_dumb(&card, dumb.handle);
++    }
++
++    // Linux implements BOTH legacy ADDFB and ADDFB2.  Non-atomic clients such
++    // as Xorg use the legacy one, and a missing implementation is fatal for
++    // them even when ADDFB2 works.
++    #[test]
++    fn legacy_addfb_and_addfb2_agree() {
++        assert_eq!(size_of::<FbCmd>(), 28);
++        assert_eq!(size_of::<FbCmd2>(), 104);
++        let card = open_card();
++
++        let dumb = create_dumb(&card, 256, 256, 32).expect("CREATE_DUMB");
++
++        let mut modern = FbCmd2 {
++            width: dumb.width,
++            height: dumb.height,
++            pixel_format: DRM_FORMAT_XRGB8888,
++            handles: [dumb.handle, 0, 0, 0],
++            pitches: [dumb.pitch, 0, 0, 0],
++            ..FbCmd2::default()
++        };
++        ioctl_arg(&card, ADDFB2, &mut modern).expect("ADDFB2");
++        assert_ne!(modern.fb_id, 0, "ADDFB2 returned no framebuffer id");
++
++        let mut legacy = FbCmd {
++            width: dumb.width,
++            height: dumb.height,
++            pitch: dumb.pitch,
++            bpp: 32,
++            depth: 24,
++            handle: dumb.handle,
++            ..FbCmd::default()
++        };
++        ioctl_arg(&card, ADDFB_LEGACY, &mut legacy)
++            .expect("legacy ADDFB must be implemented; non-atomic clients depend on it");
++        assert_ne!(legacy.fb_id, 0, "legacy ADDFB returned no framebuffer id");
++        assert_ne!(
++            legacy.fb_id, modern.fb_id,
++            "each ADDFB allocates its own framebuffer id"
++        );
++
++        // 24bpp must be accepted here too, otherwise the CREATE_DUMB allowance
++        // above is pointless: callers hand the same bpp straight back.
++        let mut legacy_24 = FbCmd {
++            width: dumb.width,
++            height: dumb.height,
++            pitch: dumb.pitch,
++            bpp: 24,
++            depth: 24,
++            handle: dumb.handle,
++            ..FbCmd::default()
++        };
++        ioctl_arg(&card, ADDFB_LEGACY, &mut legacy_24).expect("legacy ADDFB with bpp=24");
++
++        let mut nonsense = FbCmd {
++            width: dumb.width,
++            height: dumb.height,
++            pitch: dumb.pitch,
++            bpp: 32,
++            depth: 0,
++            handle: dumb.handle,
++            ..FbCmd::default()
++        };
++        assert_eq!(
++            errno(ioctl_arg(&card, ADDFB_LEGACY, &mut nonsense)),
++            EINVAL,
++            "ADDFB accepted depth=0"
++        );
++
++        let mut bad_format = FbCmd2 {
++            width: dumb.width,
++            height: dumb.height,
++            pixel_format: DRM_FORMAT_ARGB8888,
++            handles: [dumb.handle, 0, 0, 0],
++            pitches: [dumb.pitch, 0, 0, 0],
++            ..FbCmd2::default()
++        };
++        let _ = ioctl_arg(&card, ADDFB2, &mut bad_format);
++
++        destroy_dumb(&card, dumb.handle);
++    }
++
++    // Xorg issues MODE_CURSOR once the CRTC is up.  The kernel may report a
++    // soft-cursor fallback, but the request must not fail with EOPNOTSUPP.
++    #[test]
++    fn mode_cursor_is_implemented() {
++        assert_eq!(size_of::<ModeCursor>(), 24);
++        let card = open_card();
++
++        let mut cursor = ModeCursor::default();
++        match ioctl_arg(&card, MODE_CURSOR, &mut cursor) {
++            Ok(()) => {}
++            Err(error) => {
++                let code = error.raw_os_error().unwrap_or(0);
++                assert_ne!(
++                    code, EOPNOTSUPP,
++                    "MODE_CURSOR is not implemented; the kernel must answer it so legacy \
++                     mode-setting clients do not abort their initialisation"
++                );
++                panic!("MODE_CURSOR failed with errno {code}");
++            }
++        }
++    }
++
++    // Xorg probes the generic damage-tracking entry point while it decides
++    // whether the driver can report dirty rectangles.  Linux answers an unknown
++    // fb_id with -ENOENT, not -EINVAL, and the caller reads the difference: an
++    // EINVAL probe disables its own damage tracking, which in turn stops the
++    // software update path that pushes new framebuffer content to the display.
++    #[test]
++    fn dirtyfb_reports_unknown_framebuffer_as_enoent() {
++        assert_eq!(size_of::<DirtyFb>(), 24);
++        let card = open_card();
++
++        let mut unknown = DirtyFb {
++            fb_id: 0xdead_beef,
++            ..DirtyFb::default()
++        };
++        assert_eq!(
++            errno(ioctl_arg(&card, DIRTYFB, &mut unknown)),
++            ENOENT,
++            "DIRTYFB must report an unknown framebuffer with ENOENT"
++        );
++
++        // A registered framebuffer must be accepted, otherwise the ENOENT above
++        // could come from rejecting every request.
++        let dumb = create_dumb(&card, 64, 64, 32).expect("CREATE_DUMB");
++        let mut legacy = FbCmd {
++            width: dumb.width,
++            height: dumb.height,
++            pitch: dumb.pitch,
++            bpp: 32,
++            depth: 24,
++            handle: dumb.handle,
++            ..FbCmd::default()
++        };
++        ioctl_arg(&card, ADDFB_LEGACY, &mut legacy).expect("legacy ADDFB");
++        let mut known = DirtyFb {
++            fb_id: legacy.fb_id,
++            ..DirtyFb::default()
++        };
++        ioctl_arg(&card, DIRTYFB, &mut known).expect("DIRTYFB on a registered framebuffer");
++
++        destroy_dumb(&card, dumb.handle);
++    }
++
++    // Every ioctl above must survive a close/reopen cycle without leaking a
++    // master reference, because `x11-session` respawns the whole X server.
++    #[test]
++    fn session_restart_reacquires_the_device() {
++        let first = open_card();
++        let dumb = create_dumb(&first, 32, 32, 32).expect("CREATE_DUMB");
++        destroy_dumb(&first, dumb.handle);
++        drop(first);
++
++        let second = open_card();
++        let mut cap = SetClientCap {
++            capability: DRM_CLIENT_CAP_UNIVERSAL_PLANES,
++            value: 1,
++        };
++        ioctl_arg(&second, SET_CLIENT_CAP, &mut cap).expect("SET_CLIENT_CAP after reopen");
++        let mut cursor = ModeCursor::default();
++        let _ = ioctl_arg(&second, MODE_CURSOR, &mut cursor);
++    }
++
++    #[allow(dead_code)]
++    fn ioctl_takes_null_argument(file: &File, command: c_ulong) -> io::Result<()> {
++        // SAFETY: only used for commands documented to take no argument.
++        let result = unsafe { ioctl(file.as_raw_fd(), command, ptr::null_mut::<c_void>()) };
++        if result < 0 {
++            Err(io::Error::last_os_error())
++        } else {
++            Ok(())
++        }
++    }
++
++    unsafe extern "C" {
++        fn ioctl(fd: c_int, request: c_ulong, ...) -> c_int;
++    }
++}

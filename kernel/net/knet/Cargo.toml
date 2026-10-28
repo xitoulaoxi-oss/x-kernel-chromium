@@ -1,0 +1,74 @@
+[package]
+name = "knet"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "network module"
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+
+[features]
+vsock = ["kclass/vsock"]
+vsock_tipc_bridge = ["vsock", "dep:tipc"]
+
+[dependencies]
+entropy.workspace = true
+anon_inodefs.workspace = true
+unittest = { workspace = true }
+kclass = { workspace = true, features = ["net"] }
+kdevice = { workspace = true }
+kirq = { workspace = true }
+khal = { workspace = true }
+ktime_types = { workspace = true }
+ksync = { workspace = true }
+kspin = { workspace = true }
+ktask = { workspace = true }
+kworkng.workspace = true
+kcpu_id_map.workspace = true
+kprocess = { workspace = true }
+kcred = { workspace = true }
+kerrno = { workspace = true }
+kvfs = { workspace = true }
+kio = { workspace = true, features = ["alloc"] }
+kpoll = { workspace = true }
+tipc = { workspace = true, optional = true }
+linux-raw-sys = { workspace = true, features = ["general"] }
+bitflags = { workspace = true }
+enum_dispatch = { workspace = true }
+etherparse = { workspace = true }
+hashbrown = "0.16"
+lazyinit = { workspace = true }
+klazy.workspace = true
+log = { workspace = true }
+ringbuf = { version = "0.4.8", default-features = false, features = ["alloc"] }
+zerocopy = { workspace = true }
+async-channel = { version = "2.5.0", default-features = false }
+event-listener = { workspace = true }
+async-trait = "0.1.88"
+
+[dependencies.smoltcp]
+workspace = true
+default-features = false
+features = [
+  "alloc",
+  "log",             # no std
+  "async",
+  "medium-ethernet",
+  "medium-ip",
+  "iface-max-addr-count-8",
+  "proto-ipv4",
+  "proto-ipv6",
+  "auto-icmp-echo-reply",
+  "socket-raw",
+  "socket-icmp",
+  "socket-tcp",
+  "socket-dns",
+  # "fragmentation-buffer-size-65536", "proto-ipv4-fragmentation",
+  # "reassembly-buffer-size-65536", "reassembly-buffer-count-32",
+  # "assembler-max-segment-count-32",
+]
+
+[lints]
+workspace = true

@@ -1,0 +1,33 @@
+[package]
+name = "page_table"
+description = "Unified page table implementation for multiarch."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+kerrno = ["dep:kerrno"]
+copy-from = ["dep:bitmaps"]
+smp = []
+
+[dependencies]
+arrayvec = { version = "0.7", default-features = false }
+bitflags = "2.9"
+bitmaps = { version = "3.2", default-features = false, optional = true }
+kiface.workspace = true
+kcpu_id_map.workspace = true
+memaddr = { workspace = true }
+kerrno = { workspace = true, optional = true }
+kbuild_config = { workspace = true }
+karch = { workspace = true }
+unittest.workspace = true
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+x86_64 = { workspace = true }
+
+[lints]
+workspace = true

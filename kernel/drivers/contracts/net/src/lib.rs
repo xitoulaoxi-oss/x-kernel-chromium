@@ -1,0 +1,93 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! Core traits and types for network device drivers.
+
+#![no_std]
+#![cfg_attr(doc, feature(doc_cfg))]
+
+extern crate alloc;
+
+use alloc::sync::Arc;
+
+// #[cfg(feature = "fxmac")]
+// /// fxmac driver for PhytiumPi
+// pub mod fxmac;
+// #[cfg(feature = "ixgbe")]
+// /// ixgbe NIC device driver.
+// pub mod ixgbe;
+#[doc(no_inline)]
+pub use driver_base::{Device, DeviceKind, DriverError, DriverResult};
+
+mod net_buf;
+pub use self::net_buf::{NetBuf, NetBufBox, NetBufHandle, NetBufPool};
+
+/// The hardware (MAC) address of a NIC.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MacAddress(pub [u8; 6]);
+
+/// IRQ-safe receive scheduling hook provided by the network subsystem.
+///
+/// NIC drivers store this capability when the network stack attaches it and
+/// call [`Self::schedule_rx`] after acknowledging RX-related device interrupts.
+/// Implementations must be safe from hardirq context: they must not sleep,
+/// allocate on the hot path, or call back into driver receive routines. The
+/// hook only records RX work for the network subsystem; packet receive progress
+/// remains owned by the network stack.
+pub trait NetRxScheduler: Send + Sync {
+    /// Schedule receive-side network progress.
+    fn schedule_rx(&self);
+}
+
+/// Operations that require a network device (NIC) driver to implement.
+pub trait NetDevice: Device {
+    /// The hardware address of the NIC.
+    fn mac(&self) -> MacAddress;
+
+    /// Whether the device can transmit packets.
+    fn can_tx(&self) -> bool;
+
+    /// Whether the device can receive packets.
+    fn can_rx(&self) -> bool;
+
+    /// Size of the receive queue.
+    fn rx_queue_len(&self) -> usize;
+
+    /// Size of the transmit queue.
+    fn tx_queue_len(&self) -> usize;
+
+    /// Gives back the `rx_buf` to the receive queue for later receiving.
+    ///
+    /// `rx_buf` should be the same as the one returned by
+    /// [`NetDevice::recv`].
+    fn recycle_rx(&self, rx_buf: NetBufHandle) -> DriverResult;
+
+    /// Poll the transmit queue and gives back the buffers for previous transmissions.
+    /// returns [`DriverResult`].
+    fn recycle_tx(&self) -> DriverResult;
+
+    /// Transmits a packet in the buffer to the network, without blocking.
+    fn send(&self, tx_buf: NetBufHandle) -> DriverResult;
+
+    /// Receives a packet from the network and stores it in the [`NetBuf`].
+    ///
+    /// Before receiving, the driver should have already populated some buffers
+    /// in the receive queue by [`NetDevice::recycle_rx`].
+    ///
+    /// If currently no incoming packets, returns an error with type
+    /// [`DriverError::WouldBlock`].
+    fn recv(&self) -> DriverResult<NetBufHandle>;
+
+    /// Allocate a memory buffer of a specified size for network transmission.
+    fn alloc_tx_buf(&self, size: usize) -> DriverResult<NetBufHandle>;
+
+    /// Attach or detach the network subsystem's RX scheduler.
+    ///
+    /// Drivers that support interrupt-driven RX should store `scheduler` and
+    /// call it from their IRQ handler after device interrupt acknowledgement.
+    /// Poll-only drivers may keep the default unsupported implementation.
+    fn set_rx_scheduler(&self, _scheduler: Option<Arc<dyn NetRxScheduler>>) -> DriverResult {
+        Err(DriverError::Unsupported)
+    }
+}

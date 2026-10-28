@@ -1,0 +1,5 @@
+sh /tmp/xk-r1-launch.sh 2>&1
+R1 launched
+kylin-x:~# echo __XK5366397__rc=$?
+__XK5366397__rc=0
+kylin-x:~# [6n

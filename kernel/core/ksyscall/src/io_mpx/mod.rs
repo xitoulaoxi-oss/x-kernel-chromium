@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! I/O multiplexing syscalls.
+//!
+//! This module implements synchronous I/O multiplexing mechanisms including:
+//! - select: Traditional file descriptor multiplexing
+//! - poll: Enhanced multiplexing with better scalability
+//!
+//! Allows monitoring multiple file descriptors for I/O events.
+
+mod epoll;
+mod poll;
+mod select;
+
+use alloc::{sync::Arc, vec::Vec};
+
+use kpoll::{IoEvents, PollContext, PollRegisterError, Pollable};
+use kvfs::VfsFile;
+
+pub(crate) use self::{epoll::*, poll::*, select::*};
+
+struct FdPollSet(pub Vec<(Arc<VfsFile>, IoEvents)>);
+impl Pollable for FdPollSet {
+    fn poll(&self) -> IoEvents {
+        unreachable!()
+    }
+
+    fn register(
+        &self,
+        context: &mut PollContext<'_>,
+        _events: IoEvents,
+    ) -> Result<(), PollRegisterError> {
+        for (file, events) in &self.0 {
+            file.register_poll(context, *events)?;
+        }
+        Ok(())
+    }
+}

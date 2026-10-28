@@ -1,0 +1,158 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! Vsock socket support.
+// pub(crate) mod dgram; todo
+
+#[cfg(feature = "vsock_tipc_bridge")]
+pub(crate) mod bridge;
+#[cfg(feature = "vsock_tipc_bridge")]
+mod bridge_connection;
+#[cfg(feature = "vsock_tipc_bridge")]
+pub(crate) mod bridge_port_map;
+pub(crate) mod connection_manager;
+pub(crate) mod stream;
+
+use alloc::boxed::Box;
+
+use enum_dispatch::enum_dispatch;
+pub use kclass::prelude::{VsockAddr, VsockConnId};
+use kerrno::{KError, KResult};
+use kio::{IoBuf, IoBufMut, Read, Write};
+use kpoll::{IoEvents, PollContext, PollRegisterError, Pollable};
+
+pub use self::stream::VsockStreamTransport;
+use crate::{
+    AcceptOptions, ConnectOptions, RecvOptions, SendOptions, Shutdown, Socket, SocketAddrEx,
+    SocketOps,
+    options::{Configurable, GetSocketOption, OptionHandled, SetSocketOption},
+};
+
+/// Abstract transport trait for vsock sockets.
+#[enum_dispatch]
+pub trait VsockTransportOps: Configurable + Pollable + Send + Sync {
+    fn bind(&self, local_addr: VsockAddr) -> KResult;
+    fn listen(&self) -> KResult;
+    fn connect(&self, peer_addr: VsockAddr) -> KResult;
+    fn accept(&self, nonblocking: bool) -> KResult<(VsockTransport, VsockAddr)>;
+    fn send(&self, src: impl Read + IoBuf, options: SendOptions) -> KResult<usize>;
+    fn recv(&self, dst: impl Write, options: RecvOptions<'_>) -> KResult<usize>;
+    fn shutdown(&self, _how: Shutdown) -> KResult;
+    fn local_addr(&self) -> KResult<Option<VsockAddr>>;
+    fn peer_addr(&self) -> KResult<Option<VsockAddr>>;
+}
+
+#[enum_dispatch(Configurable, VsockTransportOps)]
+pub enum VsockTransport {
+    Stream(VsockStreamTransport),
+    // Dgram(VsockDgramVsockTransport),
+}
+
+impl Pollable for VsockTransport {
+    fn poll(&self) -> IoEvents {
+        match self {
+            VsockTransport::Stream(stream) => stream.poll(),
+            // VsockTransport::Dgram(dgram) => dgram.poll(),
+        }
+    }
+
+    fn register(
+        &self,
+        context: &mut PollContext<'_>,
+        events: IoEvents,
+    ) -> Result<(), PollRegisterError> {
+        match self {
+            VsockTransport::Stream(stream) => stream.register(context, events),
+            // VsockTransport::Dgram(dgram) => dgram.register(context, events),
+        }
+    }
+}
+
+/// A network socket using the vsock protocol.
+/// A network socket using the vsock protocol.
+pub struct VsockSocket {
+    transport: VsockTransport,
+}
+
+impl VsockSocket {
+    /// Create a new vsock socket from a transport.
+    pub fn new(transport: impl Into<VsockTransport>) -> Self {
+        Self {
+            transport: transport.into(),
+        }
+    }
+}
+
+impl Configurable for VsockSocket {
+    fn get_option_inner(&self, opt: &mut GetSocketOption) -> KResult<OptionHandled> {
+        self.transport.get_option_inner(opt)
+    }
+
+    fn set_option_inner(&self, opt: SetSocketOption) -> KResult<OptionHandled> {
+        self.transport.set_option_inner(opt)
+    }
+}
+
+impl SocketOps for VsockSocket {
+    fn bind(&self, local_addr: SocketAddrEx) -> KResult {
+        let local_addr = local_addr.into_vsock()?;
+        self.transport.bind(local_addr)
+    }
+
+    fn connect(&self, remote_addr: SocketAddrEx, _options: ConnectOptions) -> KResult {
+        let remote_addr = remote_addr.into_vsock()?;
+        self.transport.connect(remote_addr)
+    }
+
+    fn listen(&self, _backlog: usize) -> KResult {
+        self.transport.listen()
+    }
+
+    fn accept(&self, options: AcceptOptions) -> KResult<Socket> {
+        self.transport
+            .accept(options.nonblocking)
+            .map(|(transport, _addr)| {
+                let socket = VsockSocket::new(transport);
+                Socket::Vsock(Box::new(socket))
+            })
+    }
+
+    fn send(&self, src: impl Read + IoBuf, options: SendOptions) -> KResult<usize> {
+        self.transport.send(src, options)
+    }
+
+    fn recv(&self, dst: impl Write + IoBufMut, options: RecvOptions<'_>) -> KResult<usize> {
+        self.transport.recv(dst, options)
+    }
+
+    fn local_addr(&self) -> KResult<SocketAddrEx> {
+        Ok(SocketAddrEx::Vsock(
+            self.transport.local_addr()?.ok_or(KError::NotFound)?,
+        ))
+    }
+
+    fn peer_addr(&self) -> KResult<SocketAddrEx> {
+        Ok(SocketAddrEx::Vsock(
+            self.transport.peer_addr()?.ok_or(KError::NotFound)?,
+        ))
+    }
+
+    fn shutdown(&self, how: Shutdown) -> KResult {
+        self.transport.shutdown(how)
+    }
+}
+
+impl Pollable for VsockSocket {
+    fn poll(&self) -> IoEvents {
+        self.transport.poll()
+    }
+
+    fn register(
+        &self,
+        context: &mut PollContext<'_>,
+        events: IoEvents,
+    ) -> Result<(), PollRegisterError> {
+        self.transport.register(context, events)
+    }
+}

@@ -1,0 +1,10 @@
+# Files published on this run's HTTP server, for the guest to fetch by basename.
+# Paths resolve against the harness workspace, which is the repository root when
+# you run the harness from there (see docs/verification.md).
+#
+# The committee's three test pages.  They are NOT in the delivered image (it ships
+# only a 3,024 B placeholder), so they are installed into the guest at run time and
+# the guest script reports the byte counts and SHA-256 it verified itself.
+pages/index.html
+pages/interaction.html
+pages/layout.html

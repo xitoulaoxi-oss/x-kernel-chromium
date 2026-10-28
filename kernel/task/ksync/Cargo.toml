@@ -1,0 +1,31 @@
+[package]
+name = "ksync"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+description = "x-kernel synchronization primitives"
+
+[package.metadata.cargo-shear]
+ignored = ["linkme"]
+
+[features]
+default = []
+watchdog = ["dep:khal"]
+stats = ["dep:klockstat", "dep:linkme", "klockstat/stats"]
+
+[dependencies]
+ktask.workspace = true
+event-listener.workspace = true
+kspin.workspace = true
+klockstat = { workspace = true, optional = true }
+linkme = { workspace = true, optional = true }
+lock_api.workspace = true
+khal = { workspace = true, optional = true }
+unittest = { workspace = true}
+
+[lints]
+workspace = true

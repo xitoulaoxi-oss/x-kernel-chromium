@@ -1,0 +1,152 @@
+diff --git a/net/knet/src/socket/options.rs b/net/knet/src/socket/options.rs
+--- a/net/knet/src/socket/options.rs
++++ b/net/knet/src/socket/options.rs
+@@ -84,6 +84,14 @@
+     NoDelay(bool),
+     MaxSegment(usize),
+     TcpInfo(()),
++    // TCP keep-alive tuning, in the units of the Linux ABI: seconds for the
++    // first two, a probe count for the third.  They are separate options
++    // because Linux keeps them in three independent sysctls
++    // (net.ipv4.tcp_keepalive_{time,intvl,probes}) and callers set them
++    // one at a time.
++    TcpKeepIdle(u32),
++    TcpKeepInterval(u32),
++    TcpKeepCount(u32),
+ 
+     // ---- IP options ----
+     Ttl(u8),
+diff --git a/net/knet/src/transport/tcp.rs b/net/knet/src/transport/tcp.rs
+--- a/net/knet/src/transport/tcp.rs
++++ b/net/knet/src/transport/tcp.rs
+@@ -6,7 +6,7 @@
+ use alloc::{boxed::Box, sync::Arc, vec, vec::Vec};
+ use core::{
+     net::{Ipv4Addr, SocketAddr},
+-    sync::atomic::{AtomicBool, Ordering},
++    sync::atomic::{AtomicBool, AtomicU32, Ordering},
+ };
+ 
+ use hashbrown::HashMap;
+@@ -51,7 +51,25 @@
+     rx_closed: AtomicBool,
+     tx_closed: AtomicBool,
+     poll_rx_closed: Arc<PollSet>,
+-}
++
++    /// Keep-alive tuning, in the units of the Linux ABI.
++    ///
++    /// smoltcp exposes a single keep-alive interval and no probe counter, so
++    /// only `keep_idle` reaches the stack; the other two are stored so that a
++    /// later `getsockopt` reports what was set instead of a made-up constant.
++    /// Accepting a value the stack cannot yet act on is deliberate: Linux
++    /// accepts these calls, and a client that receives `ENOPROTOOPT` here
++    /// abandons or retries a connection that is otherwise fine.
++    keep_idle: AtomicU32,
++    keep_interval: AtomicU32,
++    keep_count: AtomicU32,
++}
++
++/// Linux defaults for the three keep-alive knobs, used before a caller sets
++/// them: net.ipv4.tcp_keepalive_{time,intvl,probes}.
++const TCP_KEEPIDLE_DEFAULT_SECS: u32 = 7200;
++const TCP_KEEPINTVL_DEFAULT_SECS: u32 = 75;
++const TCP_KEEPCNT_DEFAULT: u32 = 9;
+ 
+ impl TcpSocket {
+     /// Creates a new TCP socket.
+@@ -68,6 +86,10 @@
+             rx_closed: AtomicBool::new(false),
+             tx_closed: AtomicBool::new(false),
+             poll_rx_closed: Arc::new(PollSet::new()),
++
++            keep_idle: AtomicU32::new(TCP_KEEPIDLE_DEFAULT_SECS),
++            keep_interval: AtomicU32::new(TCP_KEEPINTVL_DEFAULT_SECS),
++            keep_count: AtomicU32::new(TCP_KEEPCNT_DEFAULT),
+         }
+     }
+ 
+@@ -89,6 +111,10 @@
+             rx_closed: AtomicBool::new(false),
+             tx_closed: AtomicBool::new(false),
+             poll_rx_closed: Arc::new(PollSet::new()),
++
++            keep_idle: AtomicU32::new(TCP_KEEPIDLE_DEFAULT_SECS),
++            keep_interval: AtomicU32::new(TCP_KEEPINTVL_DEFAULT_SECS),
++            keep_count: AtomicU32::new(TCP_KEEPCNT_DEFAULT),
+         };
+         let bound_endpoint = endpoint_from_ip_endpoint(local_endpoint);
+         *result.bound_endpoint.lock() = bound_endpoint;
+@@ -342,6 +368,15 @@
+             O::TcpInfo(_) => {
+                 // TODO(mivik): implement TCP diagnostics
+             }
++            O::TcpKeepIdle(idle) => {
++                **idle = self.keep_idle.load(Ordering::Relaxed);
++            }
++            O::TcpKeepInterval(interval) => {
++                **interval = self.keep_interval.load(Ordering::Relaxed);
++            }
++            O::TcpKeepCount(count) => {
++                **count = self.keep_count.load(Ordering::Relaxed);
++            }
+             _ => return Ok(OptionHandled::No),
+         }
+         Ok(OptionHandled::Yes)
+@@ -362,10 +397,39 @@
+                 network_poller().notify(PollReason::Tx);
+             }
+             O::KeepAlive(keep_alive) => {
++                // Enabling keep-alive uses the idle time currently configured
++                // through TCP_KEEPIDLE, so "`SO_KEEPALIVE=1` then
++                // `TCP_KEEPIDLE=n`" and the reverse order agree -- with the
++                // Linux default of 7200 s standing in until a caller says
++                // otherwise.
++                let idle = self.keep_idle.load(Ordering::Relaxed);
+                 self.with_smol_socket(|socket| {
+-                    socket.set_keep_alive(keep_alive.then(|| Duration::from_secs(75)));
++                    socket.set_keep_alive(keep_alive.then(|| Duration::from_secs(idle.into())));
+                 });
+                 network_poller().notify(PollReason::Timer);
++            }
++            O::TcpKeepIdle(idle) => {
++                // Linux: the connection must be idle this long before the first
++                // probe.  That is the same quantity as smoltcp's single
++                // keep-alive interval, so the value is applied to the stack as
++                // well as recorded -- but only when keep-alive is already on,
++                // because setting TCP_KEEPIDLE must not itself start probing.
++                self.keep_idle.store(*idle, Ordering::Relaxed);
++                if self.with_smol_socket(|socket| socket.keep_alive().is_some()) {
++                    self.with_smol_socket(|socket| {
++                        socket.set_keep_alive(Some(Duration::from_secs((*idle).into())));
++                    });
++                    network_poller().notify(PollReason::Timer);
++                }
++            }
++            O::TcpKeepInterval(interval) => {
++                // Recorded and reported back, not yet acted upon: smoltcp sends
++                // every probe at the one interval above and has no second knob.
++                self.keep_interval.store(*interval, Ordering::Relaxed);
++            }
++            O::TcpKeepCount(count) => {
++                // Same as TCP_KEEPINTVL: accepted and remembered, not enforced.
++                self.keep_count.store(*count, Ordering::Relaxed);
+             }
+             _ => return Ok(OptionHandled::No),
+         }
+diff --git a/posix/net/src/opt.rs b/posix/net/src/opt.rs
+--- a/posix/net/src/opt.rs
++++ b/posix/net/src/opt.rs
+@@ -264,6 +264,12 @@
+             (PROTO_TCP, TCP_NODELAY) => NoDelay as IntBool,
+             (PROTO_TCP, TCP_MAXSEG) => MaxSegment as Int<usize>,
+             (PROTO_TCP, TCP_INFO) => TcpInfo,
++            // Keep-alive tuning.  Linux accepts all three whether or not
++            // keep-alive is enabled; a client that gets ENOPROTOOPT here
++            // retries the whole connection setup instead of proceeding.
++            (PROTO_TCP, TCP_KEEPIDLE) => TcpKeepIdle as Int<u32>,
++            (PROTO_TCP, TCP_KEEPINTVL) => TcpKeepInterval as Int<u32>,
++            (PROTO_TCP, TCP_KEEPCNT) => TcpKeepCount as Int<u32>,
+ 
+             (PROTO_IP, IP_TTL) => Ttl as Int<u8>,
+             (PROTO_IP, IP_RECVERR) => RecvErr as IntBool,

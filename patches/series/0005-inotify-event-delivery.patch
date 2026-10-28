@@ -1,0 +1,547 @@
+diff --git a/process/kfd_objects/src/inotify.rs b/process/kfd_objects/src/inotify.rs
+new file mode 100755
+index 00000000..ecaacf25
+--- /dev/null
++++ b/process/kfd_objects/src/inotify.rs
+@@ -0,0 +1,541 @@
++// SPDX-License-Identifier: Apache-2.0
++// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
++// See LICENSES for license details.
++
++//! `inotify` instance object.
++//!
++//! The kernel keeps the watch table so that `inotify_init1` can hand user space
++//! a real file descriptor instead of a sentinel value. No filesystem event
++//! source is attached yet, so the table is accounting-only: every read waits
++//! (or fails with `EAGAIN` on a non-blocking file) and readiness never
++//! transitions. That is deliberate — a descriptor that reported `POLLIN`
++//! without a queued event would make a polling caller spin.
++//!
++//! [`Inotify::new_file`] creates the file used by the syscall adapter.
++
++use alloc::{
++    collections::VecDeque,
++    string::String,
++    sync::{Arc, Weak},
++    vec::Vec,
++};
++use core::sync::atomic::{AtomicI32, Ordering};
++
++use anon_inodefs::AnonInodeFs;
++use hashbrown::HashMap;
++use kcred::Cred;
++use kerrno::{KError, KResult};
++use kpoll::{IoEvents, PollContext, PollRegisterError, PollSet, Pollable};
++use ksync::Mutex;
++use ktask::future::{block_on, poll_io};
++use kvfs::{FMode, FileOperations, OpenFlags, VfsFile};
++
++/// Largest accepted watch path, excluding the terminator.
++///
++/// Matches Linux `PATH_MAX`; the syscall adapter rejects longer input before
++/// copying so that a hostile caller cannot force an unbounded allocation.
++pub const INOTIFY_PATH_MAX: usize = 4096;
++
++/// Watch descriptor numbers start at 1, as on Linux.
++pub const FIRST_WATCH_DESCRIPTOR: i32 = 1;
++
++/// Mask bit: update an existing watch for the path instead of rejecting it.
++pub const IN_MASK_ADD: u32 = 0x2000_0000;
++
++/// Mask bit: fail with `EEXIST` when the path is already watched.
++pub const IN_MASK_CREATE: u32 = 0x1000_0000;
++
++/// Every event bit user space may subscribe to.
++pub const IN_ALL_EVENTS: u32 = 0x0000_0fff;
++
++/// One registered watch.
++#[derive(Clone, Debug, Eq, PartialEq)]
++struct WatchEntry {
++    /// Event mask currently registered for the path.
++    mask: u32,
++    /// Path bytes exactly as supplied by user space.
++    path: Vec<u8>,
++}
++
++/// A kernel `inotify` instance.
++pub struct Inotify {
++    next_watch_descriptor: AtomicI32,
++    watches: Mutex<HashMap<i32, WatchEntry>>,
++    poll_rx: PollSet,
++    /// Events produced by filesystem activity and not yet read by user space.
++    events: Mutex<VecDeque<InotifyEvent>>,
++}
++
++/// One queued event, held in the layout `read` hands to user space.
++struct InotifyEvent {
++    watch_descriptor: i32,
++    mask: u32,
++    name: Vec<u8>,
++}
++
++/// Bytes of the fixed `struct inotify_event` header: wd, mask, cookie, len.
++const EVENT_HEADER_BYTES: usize = 16;
++
++/// A registered watch, as seen by the filesystem side.
++struct RegistryEntry {
++    instance: Weak<Inotify>,
++    watch_descriptor: i32,
++}
++
++/// Path-to-watches index shared by every inotify instance.
++///
++/// Keyed by the watch path as registered, so a filesystem operation can find the
++/// watches interested in a path without walking every instance.  A `Weak` reference
++/// is held deliberately: an instance user space has closed must not be kept alive by
++/// the registry, or its watch table would leak for the lifetime of the kernel.
++static WATCH_REGISTRY: Mutex<Option<HashMap<Vec<u8>, Vec<RegistryEntry>>>> = Mutex::new(None);
++
++/// Delivers a filesystem event to every watch registered for `path`.
++///
++/// Called from the VFS paths that change a directory entry.  `mask` is the event bit
++/// to report; watches that did not subscribe to it are skipped, which is what the mask
++/// argument of `inotify_add_watch` is for.
++///
++/// `name` is the affected entry's name when the event concerns a child of a watched
++/// directory, and empty when it concerns the watched path itself.
++pub fn notify_path(path: &[u8], mask: u32, name: &[u8]) {
++    let mut registry = WATCH_REGISTRY.lock();
++    let Some(map) = registry.as_mut() else {
++        // No inotify instance has ever registered a watch.
++        return;
++    };
++    let Some(entries) = map.get(path) else {
++        return;
++    };
++    for entry in entries {
++        let Some(instance) = entry.instance.upgrade() else {
++            continue;
++        };
++        let subscribed = instance
++            .watch_mask(entry.watch_descriptor)
++            .is_some_and(|m| m & mask != 0);
++        if subscribed {
++            instance.queue_event(entry.watch_descriptor, mask, name);
++        }
++    }
++}
++
++/// Adds `path` to the shared index for `instance`.
++fn register_watch(path: &[u8], instance: &Arc<Inotify>, watch_descriptor: i32) {
++    let mut registry = WATCH_REGISTRY.lock();
++    let map = registry.get_or_insert_with(Default::default);
++    let entries = map.entry(path.to_vec()).or_default();
++    // Drop dead references while here, so closed instances do not accumulate.
++    entries.retain(|e| e.instance.strong_count() > 0);
++    entries.push(RegistryEntry {
++        instance: Arc::downgrade(instance),
++        watch_descriptor,
++    });
++}
++
++/// Removes one watch from the shared index.
++fn unregister_watch(path: &[u8], watch_descriptor: i32) {
++    let mut registry = WATCH_REGISTRY.lock();
++    if let Some(map) = registry.as_mut()
++        && let Some(entries) = map.get_mut(path)
++    {
++        entries.retain(|e| e.watch_descriptor != watch_descriptor);
++        if entries.is_empty() {
++            map.remove(path);
++        }
++    }
++}
++
++impl Inotify {
++    /// Creates an empty watch table.
++    pub fn new() -> Arc<Self> {
++        Arc::new(Self {
++            next_watch_descriptor: AtomicI32::new(FIRST_WATCH_DESCRIPTOR),
++            watches: Mutex::new(HashMap::new()),
++            poll_rx: PollSet::new(),
++            events: Mutex::new(VecDeque::new()),
++        })
++    }
++
++    /// Appends an event and wakes anyone polling this instance.
++    fn queue_event(&self, watch_descriptor: i32, mask: u32, name: &[u8]) {
++        self.events.lock().push_back(InotifyEvent {
++            watch_descriptor,
++            mask,
++            name: name.to_vec(),
++        });
++        self.poll_rx.wake();
++    }
++
++    /// Creates the anonymous-inode file used by `inotify_init1`.
++    ///
++    /// `cred` is captured as the new file's immutable open credential.
++    ///
++    /// # Errors
++    ///
++    /// Returns `KError::InvalidInput` for unknown open-flag bits and forwards
++    /// errors from anonymous-inode file creation.
++    pub fn new_file(open_flags: u32, cred: Arc<Cred>) -> KResult<Arc<VfsFile>> {
++        let open_flags = OpenFlags::from_bits(open_flags).ok_or(KError::InvalidInput)?;
++        AnonInodeFs::global().get_file(
++            "[inotify]",
++            Arc::new(InotifyFops),
++            Self::new(),
++            FMode::READ | FMode::STREAM,
++            open_flags,
++            cred,
++        )
++    }
++
++    /// Returns the inotify instance attached to an inotify file.
++    ///
++    /// # Errors
++    ///
++    /// Returns `KError::BadFileDescriptor` when the file has no matching private
++    /// data. The adapter maps that to `EINVAL`, matching Linux for a descriptor
++    /// that is not an inotify instance.
++    pub fn from_file(file: &VfsFile) -> KResult<Arc<Self>> {
++        file.private_data_get::<Self>()
++            .ok_or(KError::BadFileDescriptor)
++    }
++
++    /// Registers `path` with `mask`, returning its watch descriptor.
++    ///
++    /// Re-watching a path without [`IN_MASK_ADD`] replaces the previous mask and
++    /// returns the existing descriptor, while [`IN_MASK_CREATE`] turns that same
++    /// condition into `EEXIST`. Unknown event bits are rejected with `EINVAL`,
++    /// and an empty path cannot name a watch.
++    ///
++    /// # Errors
++    ///
++    /// Returns `KError::InvalidInput` for an empty path or an out-of-range mask,
++    /// and `KError::AlreadyExists` when `IN_MASK_CREATE` names a watched path.
++    pub fn add_watch(self: &Arc<Self>, path: &[u8], mask: u32) -> KResult<i32> {
++        if path.is_empty() || path.len() > INOTIFY_PATH_MAX {
++            return Err(KError::InvalidInput);
++        }
++        if mask & !(IN_ALL_EVENTS | IN_MASK_ADD | IN_MASK_CREATE) != 0 {
++            return Err(KError::InvalidInput);
++        }
++
++        // The watches lock is released before touching the registry: `notify_path`
++        // takes the registry lock and then reads `watch_mask`, which takes the
++        // watches lock, so holding watches here would invert that order and risk a
++        // deadlock against a concurrent filesystem event.
++        let (descriptor, is_new_watch) = {
++            let mut watches = self.watches.lock();
++            if let Some((&descriptor, watch)) = watches.iter_mut().find(|(_, w)| w.path == path) {
++                if mask & IN_MASK_CREATE != 0 {
++                    return Err(KError::AlreadyExists);
++                }
++                watch.mask = if mask & IN_MASK_ADD != 0 {
++                    watch.mask | (mask & IN_ALL_EVENTS)
++                } else {
++                    mask & IN_ALL_EVENTS
++                };
++                (descriptor, false)
++            } else {
++                let descriptor = self.next_watch_descriptor.fetch_add(1, Ordering::Relaxed);
++                watches.insert(
++                    descriptor,
++                    WatchEntry {
++                        mask: mask & IN_ALL_EVENTS,
++                        path: path.to_vec(),
++                    },
++                );
++                (descriptor, true)
++            }
++        };
++        if is_new_watch {
++            register_watch(path, self, descriptor);
++        }
++        Ok(descriptor)
++    }
++
++    /// Removes the watch registered under `descriptor`.
++    ///
++    /// # Errors
++    ///
++    /// Returns `KError::InvalidInput` when no such watch exists.
++    pub fn remove_watch(&self, descriptor: i32) -> KResult<()> {
++        let removed = self.watches.lock().remove(&descriptor);
++        match removed {
++            Some(watch) => {
++                unregister_watch(&watch.path, descriptor);
++                Ok(())
++            }
++            None => Err(KError::InvalidInput),
++        }
++    }
++
++    /// Whether at least one event is waiting to be read.
++    fn has_pending_event(&self) -> bool {
++        !self.events.lock().is_empty()
++    }
++
++    /// Copies as many queued events into `buf` as fit, in order.
++    ///
++    /// Mirrors Linux: a buffer too small for the next event yields `EINVAL` rather
++    /// than a partial event, and each event is padded to the next 8-byte boundary
++    /// because user space reads them as an array of `struct inotify_event`.
++    fn drain_events(&self, buf: &mut [u8]) -> kio::Result<usize> {
++        let mut events = self.events.lock();
++        let mut written = 0usize;
++        while let Some(event) = events.front() {
++            let name_len = event.name.len();
++            // The name field is NUL-terminated and then padded to 8 bytes.
++            let padded_name = (name_len + 1).next_multiple_of(8);
++            let total = EVENT_HEADER_BYTES + padded_name;
++            if written + total > buf.len() {
++                if written == 0 {
++                    // Nothing fits: Linux reports EINVAL for a short buffer.
++                    return Err(KError::InvalidInput);
++                }
++                break;
++            }
++            let out = &mut buf[written..written + total];
++            out[..4].copy_from_slice(&event.watch_descriptor.to_ne_bytes());
++            out[4..8].copy_from_slice(&event.mask.to_ne_bytes());
++            // cookie is always 0: this implementation reports no rename pairing.
++            out[8..12].copy_from_slice(&0u32.to_ne_bytes());
++            out[12..16].copy_from_slice(&(name_len as u32).to_ne_bytes());
++            out[EVENT_HEADER_BYTES..EVENT_HEADER_BYTES + name_len].copy_from_slice(&event.name);
++            for byte in &mut out[EVENT_HEADER_BYTES + name_len..] {
++                *byte = 0;
++            }
++            written += total;
++            events.pop_front();
++        }
++        if written == 0 {
++            // Blocking readers only reach here after being woken, so an empty queue
++            // means the event was consumed by another reader of the same instance.
++            return Err(KError::WouldBlock);
++        }
++        Ok(written)
++    }
++
++    /// Number of registered watches. Used by the in-kernel unit tests.
++    pub fn watch_count(&self) -> usize {
++        self.watches.lock().len()
++    }
++
++    /// Reads back the mask registered for `descriptor`. Used by the in-kernel
++    /// unit tests.
++    pub fn watch_mask(&self, descriptor: i32) -> Option<u32> {
++        self.watches.lock().get(&descriptor).map(|watch| watch.mask)
++    }
++
++    /// Path text registered for `descriptor`. Used by the in-kernel unit tests.
++    pub fn watch_path(&self, descriptor: i32) -> Option<String> {
++        self.watches
++            .lock()
++            .get(&descriptor)
++            .map(|watch| String::from_utf8_lossy(&watch.path).into_owned())
++    }
++}
++
++struct InotifyFops;
++
++impl InotifyFops {
++    fn state(file: &VfsFile) -> kio::Result<Arc<Inotify>> {
++        Inotify::from_file(file)
++    }
++}
++
++impl FileOperations for InotifyFops {
++    fn supports_read(&self) -> bool {
++        true
++    }
++
++    /// Never returns a queued event: this mock has no event source.
++    ///
++    /// A non-blocking file fails with `EAGAIN`; a blocking file waits until
++    /// interrupted, exactly like an inotify instance whose filesystem is quiet.
++    fn read(&self, file: &VfsFile, buf: &mut [u8], _offset: u64) -> kio::Result<usize> {
++        let state = Self::state(file)?;
++        if buf.is_empty() {
++            // Linux reports short-buffer failures before touching the queue.
++            return Err(KError::InvalidInput);
++        }
++
++        let is_nonblocking = file.is_nonblocking();
++        // Readiness means "the queue is non-empty", so wait for that first and then
++        // drain.  Waiting on the poll event alone would return EAGAIN to a
++        // non-blocking reader that has events waiting, and would lose a wakeup that
++        // arrived between the readiness check and the drain.
++        let was_ready = state.has_pending_event();
++        if !was_ready {
++            block_on(poll_io(
++                state.as_ref(),
++                IoEvents::IN,
++                is_nonblocking,
++                || Err(KError::WouldBlock),
++            ))?;
++        }
++        state.drain_events(buf)
++    }
++
++    fn poll(&self, file: &VfsFile) -> IoEvents {
++        Self::state(file)
++            .map(|state| state.poll())
++            .unwrap_or_else(|_| IoEvents::empty())
++    }
++
++    fn register_poll(
++        &self,
++        file: &VfsFile,
++        context: &mut PollContext<'_>,
++        events: IoEvents,
++    ) -> Result<(), PollRegisterError> {
++        if let Ok(state) = Self::state(file) {
++            state.register(context, events)?;
++        }
++        Ok(())
++    }
++}
++
++impl Pollable for Inotify {
++    fn poll(&self) -> IoEvents {
++        if self.has_pending_event() {
++            IoEvents::IN
++        } else {
++            IoEvents::empty()
++        }
++    }
++
++    fn register(
++        &self,
++        context: &mut PollContext<'_>,
++        events: IoEvents,
++    ) -> Result<(), PollRegisterError> {
++        if events.contains(IoEvents::IN) {
++            context.register(&self.poll_rx)?;
++        }
++        Ok(())
++    }
++}
++
++#[cfg(unittest)]
++mod inotify_tests {
++    use unittest::def_test;
++
++    use super::*;
++
++    #[def_test]
++    fn add_watch_returns_ascending_descriptors() {
++        let inotify = Inotify::new();
++        let first = inotify.add_watch(b"/etc", IN_ALL_EVENTS).unwrap();
++        let second = inotify.add_watch(b"/tmp", IN_ALL_EVENTS).unwrap();
++
++        assert_eq!(first, FIRST_WATCH_DESCRIPTOR);
++        assert_eq!(second, first + 1);
++        assert_eq!(inotify.watch_count(), 2);
++        assert_eq!(inotify.watch_path(first).as_deref(), Some("/etc"));
++    }
++
++    #[def_test]
++    fn add_watch_replaces_mask_without_mask_add() {
++        let inotify = Inotify::new();
++        let descriptor = inotify.add_watch(b"/etc", IN_ALL_EVENTS).unwrap();
++        let again = inotify.add_watch(b"/etc", 0x2).unwrap();
++
++        assert_eq!(descriptor, again);
++        assert_eq!(inotify.watch_count(), 1);
++        assert_eq!(inotify.watch_mask(descriptor), Some(0x2));
++    }
++
++    #[def_test]
++    fn add_watch_with_mask_add_merges_bits() {
++        let inotify = Inotify::new();
++        let descriptor = inotify.add_watch(b"/etc", 0x2).unwrap();
++        let again = inotify.add_watch(b"/etc", IN_MASK_ADD | 0x4).unwrap();
++
++        assert_eq!(descriptor, again);
++        assert_eq!(inotify.watch_mask(descriptor), Some(0x6));
++    }
++
++    #[def_test]
++    fn add_watch_with_mask_create_rejects_duplicate() {
++        let inotify = Inotify::new();
++        inotify.add_watch(b"/etc", IN_ALL_EVENTS).unwrap();
++
++        assert_eq!(
++            inotify.add_watch(b"/etc", IN_MASK_CREATE | IN_ALL_EVENTS),
++            Err(KError::AlreadyExists)
++        );
++    }
++
++    #[def_test]
++    fn add_watch_rejects_empty_path_and_unknown_bits() {
++        let inotify = Inotify::new();
++
++        assert_eq!(
++            inotify.add_watch(b"", IN_ALL_EVENTS),
++            Err(KError::InvalidInput)
++        );
++        assert_eq!(
++            inotify.add_watch(b"/etc", 0x0000_1000),
++            Err(KError::InvalidInput)
++        );
++        assert_eq!(inotify.add_watch(b"/etc", 1 << 5), Err(KError::InvalidInput));
++    }
++
++    #[def_test]
++    fn add_watch_masks_are_confined_to_event_bits() {
++        let inotify = Inotify::new();
++        let descriptor = inotify.add_watch(b"/etc", IN_ALL_EVENTS).unwrap();
++
++        assert_eq!(inotify.watch_mask(descriptor), Some(IN_ALL_EVENTS));
++    }
++
++    #[def_test]
++    fn remove_watch_reports_missing_descriptor() {
++        let inotify = Inotify::new();
++        let descriptor = inotify.add_watch(b"/etc", IN_ALL_EVENTS).unwrap();
++
++        assert_eq!(inotify.remove_watch(descriptor), Ok(()));
++        assert_eq!(inotify.remove_watch(descriptor), Err(KError::InvalidInput));
++        assert_eq!(inotify.watch_count(), 0);
++    }
++
++    #[def_test]
++    fn poll_is_never_ready_without_an_event_source() {
++        let inotify = Inotify::new();
++        inotify.add_watch(b"/etc", IN_ALL_EVENTS).unwrap();
++
++        assert!(!inotify.poll().contains(IoEvents::IN));
++    }
++
++    #[def_test]
++    fn empty_read_is_rejected() {
++        let file = Inotify::new_file(0, kcred::initial_cred()).expect("inotify file opens");
++        let mut buf = [0u8; 0];
++        let mut pos = 0;
++
++        assert_eq!(file.read_from(&mut buf, &mut pos), Err(KError::InvalidInput));
++    }
++
++    #[def_test]
++    fn new_file_rejects_unknown_open_flags() {
++        assert!(Inotify::new_file(1 << 30, kcred::initial_cred()).is_err());
++    }
++
++    #[def_test]
++    fn nonblocking_read_reports_would_block() {
++        let file = Inotify::new_file(0, kcred::initial_cred()).expect("inotify file opens");
++        file.set_nonblocking(true);
++
++        let mut buf = [0u8; 64];
++        let mut pos = 0;
++        assert_eq!(file.read_from(&mut buf, &mut pos), Err(KError::WouldBlock));
++    }
++
++    #[def_test]
++    fn watch_state_is_reachable_through_file_private_data() {
++        let file = Inotify::new_file(0, kcred::initial_cred()).expect("inotify file opens");
++        let inotify = Inotify::from_file(&file).expect("inotify file exposes its state");
++        let descriptor = inotify.add_watch(b"/etc", IN_ALL_EVENTS).unwrap();
++
++        assert_eq!(inotify.watch_mask(descriptor), Some(IN_ALL_EVENTS));
++    }
++}

@@ -1,0 +1,240 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! A small, fixed-capacity LRU cache utility.
+
+use alloc::vec::Vec;
+use core::mem::replace;
+
+/// A simple LRU Cache implementation based on a fixed-size array.
+///
+/// It maintains a fixed-capacity storage and uses doubly-linked list indices
+/// to track the usage order from MRU to LRU.
+#[derive(Debug, Clone)]
+pub(super) struct LruCache<V, const CAP: usize> {
+    storage: Vec<CacheNode<V>>,
+    mru_idx: u16,
+    lru_idx: u16,
+}
+
+/// Internal node for the LRU cache linked list.
+#[derive(Debug, Clone)]
+struct CacheNode<V> {
+    payload: V,
+    prev: u16,
+    next: u16,
+}
+
+impl<V, const CAP: usize> Default for LruCache<V, CAP> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<V, const CAP: usize> LruCache<V, CAP> {
+    /// Creates a new empty LRU cache.
+    pub(super) const fn new() -> Self {
+        Self {
+            storage: Vec::new(),
+            mru_idx: 0,
+            lru_idx: 0,
+        }
+    }
+
+    /// Inserts a value into the cache.
+    ///
+    /// The inserted value becomes the most-recently-used item.
+    /// If the cache is full, the least-recently-used item is removed and
+    /// returned.
+    pub(super) fn put(&mut self, val: V) -> Option<V> {
+        let node = CacheNode {
+            payload: val,
+            prev: 0,
+            next: 0,
+        };
+
+        if self.storage.len() >= CAP {
+            let idx = self.pop_lru();
+            let old = replace(&mut self.storage[idx as usize], node);
+            self.push_mru(idx);
+            Some(old.payload)
+        } else {
+            let idx = self.storage.len() as u16;
+            self.storage.push(node);
+            self.push_mru(idx);
+            None
+        }
+    }
+
+    /// Accesses an item in the cache that matches the predicate.
+    ///
+    /// If an item is found, it is promoted to the most-recently-used position,
+    /// and the function returns `true`.
+    /// Otherwise, it returns `false`.
+    pub(super) fn access<F>(&mut self, mut pred: F) -> bool
+    where
+        F: FnMut(&V) -> bool,
+    {
+        for i in 0..self.storage.len() {
+            if pred(&self.storage[i].payload) {
+                self.promote(i as u16);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Returns a reference to the most-recently-used item.
+    ///
+    /// This does not change the cache state.
+    #[cfg(unittest)]
+    pub(super) fn peek_mru(&self) -> Option<&V> {
+        self.storage.get(self.mru_idx as usize).map(|n| &n.payload)
+    }
+
+    /// Returns an iterator over the cache items, ordered from MRU to LRU.
+    pub(super) fn items(&self) -> LruIter<'_, V, CAP> {
+        LruIter::<V, CAP> {
+            cache: self,
+            pos: self.mru_idx,
+        }
+    }
+
+    /// Clears all items from the cache.
+    pub(super) fn flush(&mut self) {
+        self.storage.clear();
+    }
+
+    fn promote(&mut self, idx: u16) {
+        if idx != self.mru_idx {
+            self.unlink(idx);
+            self.push_mru(idx);
+        }
+    }
+
+    fn unlink(&mut self, idx: u16) {
+        let prev = self.storage[idx as usize].prev;
+        let next = self.storage[idx as usize].next;
+
+        if idx == self.mru_idx {
+            self.mru_idx = next;
+        } else {
+            self.storage[prev as usize].next = next;
+        }
+
+        if idx == self.lru_idx {
+            self.lru_idx = prev;
+        } else {
+            self.storage[next as usize].prev = prev;
+        }
+    }
+
+    fn push_mru(&mut self, idx: u16) {
+        if self.storage.len() == 1 {
+            self.lru_idx = idx;
+        } else {
+            self.storage[idx as usize].next = self.mru_idx;
+            self.storage[self.mru_idx as usize].prev = idx;
+        }
+        self.mru_idx = idx;
+    }
+
+    fn pop_lru(&mut self) -> u16 {
+        let idx = self.lru_idx;
+        let prev = self.storage[idx as usize].prev;
+        self.lru_idx = prev;
+        idx
+    }
+}
+
+/// Iterator over the `LruCache` items, from MRU to LRU.
+pub(super) struct LruIter<'a, V, const CAP: usize> {
+    cache: &'a LruCache<V, CAP>,
+    pos: u16,
+}
+
+impl<'a, V, const CAP: usize> Iterator for LruIter<'a, V, CAP> {
+    type Item = &'a V;
+
+    fn next(&mut self) -> Option<&'a V> {
+        if self.cache.storage.is_empty() {
+            return None;
+        }
+        if self.pos as usize >= CAP {
+            return None;
+        }
+
+        let node = &self.cache.storage[self.pos as usize];
+        let val = &node.payload;
+
+        let current_pos = self.pos;
+        if current_pos == self.cache.lru_idx {
+            self.pos = CAP as u16;
+        } else {
+            self.pos = node.next;
+        }
+        Some(val)
+    }
+}
+
+#[unittest::mod_test]
+mod tests {
+    use unittest::def_test;
+
+    use super::LruCache;
+
+    #[def_test]
+    fn test_lru_put_evict() {
+        let mut cache: LruCache<u32, 2> = LruCache::new();
+        assert_eq!(cache.put(1), None);
+        assert_eq!(cache.put(2), None);
+        assert_eq!(cache.put(3), Some(1));
+        assert_eq!(cache.peek_mru().copied(), Some(3));
+    }
+
+    #[def_test]
+    fn test_lru_access_promote() {
+        let mut cache: LruCache<u32, 3> = LruCache::new();
+        cache.put(1);
+        cache.put(2);
+        cache.put(3);
+        assert!(cache.access(|v| *v == 1));
+        let items: alloc::vec::Vec<u32> = cache.items().copied().collect();
+        assert_eq!(items.first().copied(), Some(1));
+    }
+
+    #[def_test]
+    fn test_lru_flush() {
+        let mut cache: LruCache<u32, 2> = LruCache::new();
+        cache.put(10);
+        cache.put(20);
+        cache.flush();
+        assert!(cache.peek_mru().is_none());
+        assert_eq!(cache.items().count(), 0);
+    }
+
+    #[def_test]
+    fn test_lru_access_miss_and_iteration_order() {
+        let mut cache: LruCache<u32, 3> = LruCache::new();
+        cache.put(1);
+        cache.put(2);
+        cache.put(3);
+
+        assert!(!cache.access(|v| *v == 99));
+        let items: alloc::vec::Vec<u32> = cache.items().copied().collect();
+        assert_eq!(items, alloc::vec![3, 2, 1]);
+    }
+
+    #[def_test]
+    fn test_lru_put_reuses_lru_slot_after_promotion() {
+        let mut cache: LruCache<u32, 2> = LruCache::new();
+        cache.put(1);
+        cache.put(2);
+        assert!(cache.access(|v| *v == 1));
+
+        assert_eq!(cache.put(3), Some(2));
+        let items: alloc::vec::Vec<u32> = cache.items().copied().collect();
+        assert_eq!(items, alloc::vec![3, 1]);
+    }
+}

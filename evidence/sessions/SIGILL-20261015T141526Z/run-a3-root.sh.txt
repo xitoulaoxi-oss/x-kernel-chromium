@@ -1,0 +1,23 @@
+sh /tmp/xk-a3-root.sh 2>&1
+R1
+R2 xsock=y xorg=1
+R3 started
+[37m[ 33.517194 1:55 ksyscall::dispatch:885] [33mUnimplemented syscall: landlock_create_ruleset (tid=55)[m
+[mR4 procs=8 rend=0 gpu=0 log=1770
+R5-window
+_NET_CLIENT_LIST(WINDOW): window id # 
+R6
+[67:67:1015/141600.243946:ERROR:content/app/content_main_runner_impl.cc:429] Failed to initialize cpuinfo
+[65:65:1015/141600.244048:ERROR:content/app/content_main_runner_impl.cc:429] Failed to initialize cpuinfo
+[55:72:1015/141601.146434:ERROR:base/files/file_path_watcher_inotify.cc:923] Failed to read /proc/sys/fs/inotify/max_user_watches
+[55:74:1015/141601.174462:ERROR:dbus/bus.cc:408] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[55:74:1015/141611.066588:ERROR:dbus/bus.cc:408] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[55:74:1015/141611.075066:ERROR:dbus/bus.cc:408] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[55:74:1015/141611.087910:ERROR:dbus/bus.cc:408] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+[55:71:1015/141611.077291:ERROR:net/base/address_tracker_linux.cc:242] Could not bind NETLINK socket: Not supported (95)
+[55:74:1015/141614.148992:ERROR:dbus/bus.cc:408] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[55:74:1015/141618.237749:ERROR:dbus/bus.cc:408] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+R7
+kylin-x:~# echo __XK7804992__rc=$?
+__XK7804992__rc=0
+kylin-x:~# [6n

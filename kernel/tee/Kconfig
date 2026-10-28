@@ -1,0 +1,63 @@
+menu "Trusted Execution Environment (TEE)"
+
+config KFEAT_TEE
+    bool "Enable TEE support"
+    help
+      Enable the kernel's TEE integration, including TEE syscalls, task
+      loading hooks, and the platform/runtime support used by current TEE
+      capable targets.
+
+if KFEAT_TEE
+
+config KFEAT_DICE
+    bool "Enable DICE handover integration"
+    depends on ARCH_AARCH64
+    help
+      Enable the DICE device integration, including devfs exposure and the
+      TEE-side hardware unique key flow based on the incoming DICE handover.
+
+config KFEAT_TEE_TA_SIGN
+    bool "Enable TA ELF signature verification"
+    help
+      Enable `.ta_signature` verification for TA ELF images loaded through the
+      TEE path.
+
+config KFEAT_VIRTCCA_HUK_KEY
+    bool "Enable VirtCCA HUK key derivation"
+    depends on ARCH_AARCH64
+    default n
+    help
+      Enable the TEE hardware unique key path for ARM VirtCCA guests.
+      The key is derived from the VirtCCA image key flow, so enable this
+      only when running in a VirtCCA confidential guest environment.
+
+config KFEAT_CSV_HUK_KEY
+    bool "Enable CSV HUK key derivation"
+    depends on ARCH_X86_64
+    default n
+    help
+      Enable the TEE hardware unique key path for x86_64 CSV guests.
+      The key is derived from the CSV sealing key flow, so enable this
+      only when running in a CSV confidential guest environment.
+
+config KFEAT_TA_VERIFY_WITH_ROOT
+    bool "Enable TA ELF signature verification with root certificate"
+    depends on KFEAT_TEE_TA_SIGN
+    default n
+    help
+      Enable TA ELF signature verification using an embedded PEM root CA chain.
+      The certificate is compiled into the kernel image; enable only when you
+      intend to enforce chain verification against that trust anchor.
+
+      Third-party builds may supply their own root certificate: place a PEM file
+      named tee-ta-sign-root.pem under tee/tee_task_iface/certs (this path and
+      filename are required for the embedded include).
+
+      The default PEM checked in-tree is sourced from Kylin Desktop V10/V11
+      certaide-kylin package file bjcasm2.p7b (converted to PEM).
+
+endif #KFEAT_TEE
+
+source "tee/tipc/Kconfig"
+
+endmenu

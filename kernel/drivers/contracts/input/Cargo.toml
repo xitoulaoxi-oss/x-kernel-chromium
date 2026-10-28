@@ -1,0 +1,16 @@
+[package]
+name = "input"
+edition.workspace = true
+description = "Common traits and types for input device drivers"
+version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+
+[dependencies]
+driver_base = { workspace = true }
+strum = { workspace = true }
+
+[lints]
+workspace = true

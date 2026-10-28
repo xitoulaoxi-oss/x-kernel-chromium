@@ -1,0 +1,22 @@
+change_in_place: true
+# Imported source retains the upstream authors and declared license choices.
+excludes:
+  - ^third_party/flatten_objects/
+
+licenses:
+  - files: any
+    ident: Apache-2.0
+    authors:
+      - name: KylinSoft Co., Ltd.
+    template: |
+      SPDX-License-Identifier: [ident]
+      Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+      See LICENSES for license details.
+    unwrap_text: false
+
+comments:
+  - extension: rs
+    commenter:
+      type: line
+      comment_char: "//"
+      trailing_lines: 1

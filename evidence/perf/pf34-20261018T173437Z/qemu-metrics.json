@@ -1,0 +1,12 @@
+{
+    "qemu_pid":  28700,
+    "peak_working_set_b":  2122924032,
+    "cpu_seconds":  382.31,
+    "has_exited":  false,
+    "wall_seconds":  190.86,
+    "smp_cpus":  4,
+    "guest_mem_mb":  4096,
+    "host_ram_b":  34243506176,
+    "host_logical_cpus":  16,
+    "qemu_threads":  14
+}

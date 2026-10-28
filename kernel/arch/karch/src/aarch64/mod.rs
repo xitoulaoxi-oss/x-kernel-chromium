@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! AArch64 low-level architecture operations.
+
+mod asid;
+mod barrier;
+mod cache;
+mod cpu;
+mod fp;
+mod irq;
+mod mmu;
+mod rng;
+mod tlb;
+mod trap;
+
+pub use asid::{
+    USER_ASID_BITS, encode_user_page_table_root, user_asid_from_ttbr, user_page_table_root_paddr,
+};
+pub use barrier::dsb_ishst;
+pub use cache::{
+    clean_dcache_line_to_poc, clean_dcache_range_to_poc, dma_read_barrier, flush_icache_all,
+    flush_icache_all_local, flush_icache_range, flush_icache_remote,
+};
+pub use cpu::{idle_wait, stop_cpu};
+pub use fp::enable_fp;
+#[cfg(feature = "nmi-hardware")]
+pub use irq::{allint_active, allint_clear, allint_is_set, allint_set, mark_allint_active};
+pub use irq::{
+    disable_local_irq, enable_local_irq, local_irq_enabled, pmr, prepare_enter_user_irq,
+    restore_irq, save_irq_and_disable,
+};
+pub use mmu::{
+    HwPageTableRoot, read_kernel_page_table, read_user_page_table, write_kernel_page_table,
+    write_user_page_table,
+};
+pub use rng::{cpu_rng_available, init_cpu_rng, read_cpu_random};
+pub use tlb::{flush_tlb, flush_tlb_asid, flush_tlb_va_asid};
+pub use trap::write_trap_vector_base;

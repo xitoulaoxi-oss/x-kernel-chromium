@@ -1,0 +1,31 @@
+[package]
+name = "watchdog"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Watchdog timer with NMI support for embedded systems"
+keywords = ["watchdog", "nmi", "embedded", "no_std"]
+categories = ["no-std", "embedded", "hardware-support"]
+
+[features]
+default = []
+nmi = ["khal/nmi"]
+# Requires exactly one workqueue inspection provider when enabled.
+workqueue-stall-check = ["dep:kiface"]
+
+[dependencies]
+karch.workspace = true
+khal.workspace = true
+ktime_types.workspace = true
+kspin.workspace = true
+ktask = { workspace = true, features = ["watchdog"] }
+log.workspace = true
+kcpu_slot.workspace = true
+kbuild_config = { workspace = true }
+kcpu_id_map = { workspace = true }
+unittest.workspace = true
+kiface = { workspace = true, optional = true }
+
+[lints]
+workspace = true

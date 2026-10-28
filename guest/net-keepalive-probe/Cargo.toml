@@ -1,0 +1,22 @@
+[package]
+name = "net-keepalive-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Standalone package, like io/drmdevice/abi-tests/drm-identity: it must not be
+# pulled into any workspace.
+[workspace]
+
+[[bin]]
+name = "net_keepalive_probe"
+path = "main.rs"
+
+# Keep the artefact small: it is copied into the guest, and the delivered rootfs
+# has no interpreter, so a static binary is the only way to call setsockopt there.
+[profile.release]
+opt-level = "z"
+lto = true
+panic = "abort"
+strip = true
+codegen-units = 1

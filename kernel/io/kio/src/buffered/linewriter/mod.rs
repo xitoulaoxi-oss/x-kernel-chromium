@@ -1,0 +1,116 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+//
+// This file reuses the implementation from Rust's standard library
+// (std::io::buffered::linewriter) for a no_std environment.
+// Because this project cannot depend on the standard library directly,
+// a local copy is maintained in this repository.
+//
+// Source: https://github.com/rust-lang/rust/blob/main/library/std/src/io/buffered/linewriter.rs
+// License: MIT
+
+mod shim;
+
+use core::fmt;
+
+use self::shim::LineWriterShim;
+use crate::{BufWriter, IntoInnerError, IoBufMut, Result, Write};
+/// Buffers output and sends completed newline-terminated lines to the inner writer.
+///
+/// A partial line remains buffered until space is needed or the writer is flushed.
+/// Short writes can leave pending complete lines in the buffer for a later call.
+///
+/// Like [`BufWriter`], a `LineWriter`’s buffer will also be flushed when the
+/// `LineWriter` goes out of scope or when its internal buffer is full.
+///
+/// If there's still a partial line in the buffer when the `LineWriter` is
+/// dropped, it attempts to write those contents; errors are discarded.
+/// Explicitly call [`Write::flush`] when errors must be observed.
+///
+/// See [`std::io::LineWriter`](https://doc.rust-lang.org/std/io/struct.LineWriter.html)
+/// for more details.
+pub struct LineWriter<W: ?Sized + Write> {
+    inner: BufWriter<W>,
+}
+
+impl<W: Write> LineWriter<W> {
+    /// Creates a line-buffered writer with [`crate::DEFAULT_BUF_SIZE`] bytes of capacity.
+    pub fn new(inner: W) -> LineWriter<W> {
+        LineWriter {
+            inner: BufWriter::new(inner),
+        }
+    }
+
+    /// Creates a line-buffered writer with at least `capacity` bytes of storage.
+    #[cfg(feature = "alloc")]
+    pub fn with_capacity(capacity: usize, inner: W) -> LineWriter<W> {
+        LineWriter {
+            inner: BufWriter::with_capacity(capacity, inner),
+        }
+    }
+
+    /// Unwraps this `LineWriter`, returning the underlying writer.
+    /// An [`Err`] will be returned if an error occurs while flushing the buffer.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`IntoInnerError`] retaining this writer and the error from
+    /// writing pending data, including [`crate::Error::WriteZero`] on no progress.
+    /// It does not call the underlying writer's `flush` method.
+    #[cfg_attr(not(feature = "alloc"), allow(clippy::result_large_err))]
+    pub fn into_inner(self) -> core::result::Result<W, IntoInnerError<LineWriter<W>>> {
+        self.inner
+            .into_inner()
+            .map_err(|err| err.new_wrapped(|inner| LineWriter { inner }))
+    }
+}
+
+impl<W: ?Sized + Write> LineWriter<W> {
+    /// Gets a reference to the underlying writer.
+    pub fn get_ref(&self) -> &W {
+        self.inner.get_ref()
+    }
+
+    /// Gets a mutable reference to the underlying writer.
+    pub fn get_mut(&mut self) -> &mut W {
+        self.inner.get_mut()
+    }
+}
+
+impl<W: ?Sized + Write> Write for LineWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        LineWriterShim::new(&mut self.inner).write(buf)
+    }
+
+    fn flush(&mut self) -> Result<()> {
+        self.inner.flush()
+    }
+
+    fn write_all(&mut self, buf: &[u8]) -> Result<()> {
+        LineWriterShim::new(&mut self.inner).write_all(buf)
+    }
+
+    fn write_fmt(&mut self, fmt: fmt::Arguments<'_>) -> Result<()> {
+        LineWriterShim::new(&mut self.inner).write_fmt(fmt)
+    }
+}
+
+impl<W: ?Sized + Write + fmt::Debug> fmt::Debug for LineWriter<W> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt.debug_struct("LineWriter")
+            .field("writer", &self.get_ref())
+            .field(
+                "buffer",
+                &format_args!("{}/{}", self.inner.buffer().len(), self.inner.capacity()),
+            )
+            .finish_non_exhaustive()
+    }
+}
+
+impl<W: ?Sized + Write + IoBufMut> IoBufMut for LineWriter<W> {
+    #[inline]
+    fn remaining_mut(&self) -> usize {
+        self.inner.remaining_mut()
+    }
+}

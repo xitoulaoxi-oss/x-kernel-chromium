@@ -1,0 +1,24 @@
+diff --git a/io/drmdevice/tests/Cargo.toml b/io/drmdevice/tests/Cargo.toml
+index 963b0df..1718088 100644
+--- a/io/drmdevice/tests/Cargo.toml
++++ b/io/drmdevice/tests/Cargo.toml
+@@ -1,9 +1,17 @@
+ [package]
+-name = "drm-identity-regression"
++name = "drm-regression"
+ edition = "2024"
+ publish = false
+ 
+ [workspace]
+ 
+-[lib]
++# One package, two independent test binaries.  Each file is a normal `tests/`
++# target, so `cargo test` runs them separately and `--no-run` produces two
++# executables to copy into the guest.
++[[test]]
++name = "identity"
+ path = "identity.rs"
++
++[[test]]
++name = "mode"
++path = "mode.rs"

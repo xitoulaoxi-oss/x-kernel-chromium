@@ -1,0 +1,419 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! Common device metadata types shared by the driver framework.
+
+use core::fmt::Debug;
+
+use driver_base::DeviceKind;
+
+use crate::{BusId, DriverId, ResourceSet};
+
+/// Opaque descriptor identifier assigned before a runtime device object exists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DeviceDescId(u64);
+
+impl DeviceDescId {
+    /// Wraps a raw numeric descriptor id.
+    pub const fn new(raw: u64) -> Self {
+        Self(raw)
+    }
+
+    /// Returns the raw numeric value.
+    pub const fn raw(self) -> u64 {
+        self.0
+    }
+}
+
+/// Opaque, globally-unique device identifier assigned by the device manager.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DeviceId(u64);
+
+impl DeviceId {
+    /// Wraps a raw numeric device id.
+    pub const fn new(raw: u64) -> Self {
+        Self(raw)
+    }
+
+    /// Returns the raw numeric value.
+    pub const fn raw(self) -> u64 {
+        self.0
+    }
+}
+
+/// Linux-style device number (`dev_t`) encoded from major and minor numbers.
+///
+/// This is distinct from [`DeviceId`], which identifies a device-model object.
+#[derive(Default, Clone, PartialEq, Eq, PartialOrd, Ord, Copy, Hash)]
+pub struct DeviceNumber(pub u64);
+
+impl DeviceNumber {
+    /// Creates a device number from major and minor components.
+    pub const fn new(major: u32, minor: u32) -> Self {
+        let major = major as u64;
+        let minor = minor as u64;
+        Self(
+            (major & 0xffff_f000) << 32
+                | (major & 0x0000_0fff) << 8
+                | (minor & 0xffff_ff00) << 12
+                | (minor & 0x0000_00ff),
+        )
+    }
+
+    /// Returns the major component.
+    pub const fn major(self) -> u32 {
+        ((self.0 >> 32) & 0xffff_f000 | (self.0 >> 8) & 0x0000_0fff) as u32
+    }
+
+    /// Returns the minor component.
+    pub const fn minor(self) -> u32 {
+        ((self.0 >> 12) & 0xffff_ff00 | self.0 & 0x0000_00ff) as u32
+    }
+}
+
+impl Debug for DeviceNumber {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("DeviceNumber")
+            .field("major", &self.major())
+            .field("minor", &self.minor())
+            .finish()
+    }
+}
+
+impl DeviceState {
+    /// Stable short name for the lifecycle state.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Discovered => "discovered",
+            Self::Matched => "matched",
+            Self::Bound => "bound",
+            Self::Active => "active",
+            Self::Removing => "removing",
+            Self::Removed => "removed",
+        }
+    }
+}
+
+/// Where on the bus hierarchy this device lives.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeviceLocation {
+    /// PCI Bus / Device / Function.
+    Pci {
+        /// PCI segment (domain) number.
+        segment: u16,
+        /// Bus number within the segment.
+        bus: u8,
+        /// Device number on the bus.
+        device: u8,
+        /// Function number of the device.
+        function: u8,
+    },
+    /// MMIO transport (e.g. virtio-mmio).
+    Mmio {
+        /// Physical base address of the transport registers.
+        base: usize,
+        /// Size of the transport register region in bytes.
+        size: usize,
+    },
+    /// Firmware-described platform device.
+    FirmwareNode {
+        /// Backend-local firmware node id.
+        id: u16,
+    },
+    /// Non-enumerable platform-static device.
+    PlatformStatic {
+        /// Stable backend-local id for the static device.
+        id: u16,
+    },
+    /// Bus controller / bridge published by a backend (e.g. PCI host bridge).
+    ///
+    /// Devices at this location are not matched by endpoint drivers; the
+    /// owning backend adopts them directly so they can serve as parents for
+    /// the endpoints they enumerate.
+    Bridge {
+        /// PCI domain (segment) owned by the bridge.
+        domain: u16,
+    },
+}
+
+/// Where the device description originally came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiscoveryOrigin {
+    /// Flattened Device Tree.
+    DeviceTree,
+    /// ACPI tables.
+    Acpi,
+    /// Hard-coded platform constants.
+    PlatformStatic,
+}
+
+/// PCI device identity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PciIdentity {
+    /// PCI vendor id from the configuration-space vendor register.
+    pub vendor_id: u16,
+    /// PCI device id from the configuration-space device register.
+    pub device_id: u16,
+    /// PCI base class code.
+    pub class: u8,
+    /// PCI subclass code within the base class.
+    pub subclass: u8,
+}
+
+/// Platform device identity, carrying firmware and kernel-internal identifiers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlatformIdentity {
+    /// Stable kernel-internal alias used for platform-static fallback devices.
+    pub alias: Option<&'static str>,
+    /// Raw firmware identity string from DT `compatible` or ACPI `_HID`.
+    pub firmware_id: Option<&'static str>,
+}
+
+/// Transport-layer information independent of bus/identity.
+///
+/// Some devices are pure transports of an upper-layer protocol (currently
+/// only VirtIO). Carrying the transport descriptor at descriptor level keeps
+/// bus identities (`PciIdentity` / `PlatformIdentity`) free of upper-layer
+/// concerns and lets matchers branch on transport without re-deriving it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransportInfo {
+    /// VirtIO transport (PCI or MMIO underneath, distinguished by bus).
+    Virtio {
+        /// VirtIO device type code (1 = net, 2 = block, ...).
+        device_type: u32,
+    },
+}
+
+/// Identity information used for driver matching.
+///
+/// Each variant corresponds to a bus-type-specific identity structure whose
+/// interpretation is owned by the matching domain (`BusTypeObject`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeviceIdentity {
+    /// PCI / PCIe device identity (including VirtIO-over-PCI).
+    Pci(PciIdentity),
+    /// Platform device identity (firmware-static, DT, ACPI, virtio-mmio).
+    Platform(PlatformIdentity),
+}
+
+/// Discovery-stage device description.
+///
+/// A descriptor represents a device candidate and its resources. It is not a
+/// runtime device instance and must not carry bound-driver or lifecycle state.
+#[derive(Debug, Clone)]
+pub struct DeviceDesc {
+    /// Descriptor id assigned by the backend's enumeration context.
+    id: DeviceDescId,
+    /// Bus instance the device was discovered on.
+    bus_id: BusId,
+    /// Parent device (controller / bridge), if discovery named one.
+    parent: Option<DeviceId>,
+    /// Where on the bus hierarchy the device lives.
+    location: DeviceLocation,
+    /// Which firmware source described the device.
+    origin: DiscoveryOrigin,
+    /// Bus-specific identity used for driver matching.
+    identity: DeviceIdentity,
+    /// Upper-layer transport descriptor, if any.
+    transport: Option<TransportInfo>,
+    /// Resources (MMIO, IRQ, ...) described for the device.
+    resources: ResourceSet,
+}
+
+impl DeviceDesc {
+    /// Build a new discovery-stage device description.
+    pub fn new(
+        id: DeviceDescId,
+        bus_id: BusId,
+        location: DeviceLocation,
+        origin: DiscoveryOrigin,
+        identity: DeviceIdentity,
+        transport: Option<TransportInfo>,
+        resources: ResourceSet,
+    ) -> Self {
+        Self::new_with_parent(
+            id, bus_id, None, location, origin, identity, transport, resources,
+        )
+    }
+
+    /// Build a descriptor that records a parent device for adoption.
+    ///
+    /// The parent linkage is materialized once the descriptor is published as
+    /// a runtime `DeviceObject` (either through the probe path or boot
+    /// adoption). Backends use this to publish endpoints as children of a
+    /// controller they already adopted.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "CG-024-lint-exceptions: clippy::too_many_arguments: Construct one device \
+                  descriptor from its identity, parent, resources and matching metadata"
+    )]
+    pub fn new_with_parent(
+        id: DeviceDescId,
+        bus_id: BusId,
+        parent: Option<DeviceId>,
+        location: DeviceLocation,
+        origin: DiscoveryOrigin,
+        identity: DeviceIdentity,
+        transport: Option<TransportInfo>,
+        resources: ResourceSet,
+    ) -> Self {
+        Self {
+            id,
+            bus_id,
+            parent,
+            location,
+            origin,
+            identity,
+            transport,
+            resources,
+        }
+    }
+
+    /// Descriptor ID.
+    pub const fn id(&self) -> DeviceDescId {
+        self.id
+    }
+
+    /// Bus instance this candidate was discovered under.
+    pub const fn bus_id(&self) -> BusId {
+        self.bus_id
+    }
+
+    /// Parent device the descriptor should be attached under, if any.
+    pub const fn parent(&self) -> Option<DeviceId> {
+        self.parent
+    }
+
+    /// Clear the recorded parent linkage.
+    ///
+    /// Driver-core-internal: used when the parent device is removed so a
+    /// later reprobe does not try to attach under a stale parent id.
+    pub(crate) fn clear_parent(&mut self) {
+        self.parent = None;
+    }
+
+    /// Where this candidate lives.
+    pub const fn location(&self) -> DeviceLocation {
+        self.location
+    }
+
+    /// Original description source.
+    pub const fn origin(&self) -> DiscoveryOrigin {
+        self.origin
+    }
+
+    /// Identity used for driver matching.
+    pub const fn identity(&self) -> DeviceIdentity {
+        self.identity
+    }
+
+    /// Transport layer (currently only VirtIO), if any.
+    pub const fn transport(&self) -> Option<TransportInfo> {
+        self.transport
+    }
+
+    /// Resources discovered for this candidate.
+    pub fn resources(&self) -> &ResourceSet {
+        &self.resources
+    }
+
+    /// Clone resources for handoff into a later probe/compatibility path.
+    pub fn resources_snapshot(&self) -> ResourceSet {
+        self.resources.clone()
+    }
+}
+
+/// Device lifecycle state tracked by the live device object.
+///
+/// The `#[repr(u8)]` annotation lets `DeviceObject` store the lifecycle as
+/// an `AtomicU8` so hot read paths (`state()`, `is_removing()`) can avoid
+/// taking the per-object spinlock.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum DeviceState {
+    /// Discovered on a bus but not yet bound to a driver.
+    Discovered = 0,
+    /// At least one driver matched and the probe pipeline is evaluating candidates.
+    Matched    = 1,
+    /// Bound to a driver.
+    Bound      = 2,
+    /// Activated and available for subsystem consumption.
+    Active     = 3,
+    /// Removal is in progress (driver.remove and bus-type cleanup running).
+    Removing   = 4,
+    /// Removed (hot-unplug or driver unbind).
+    Removed    = 5,
+}
+
+impl DeviceState {
+    /// Encoding used by the atomic lifecycle field.
+    pub const fn as_u8(self) -> u8 {
+        self as u8
+    }
+
+    /// Decode the atomic lifecycle representation.
+    ///
+    /// Returns `None` if `raw` is not a valid discriminant. The kernel writes
+    /// the atomic only via [`Self::as_u8`], so an invalid value would indicate
+    /// memory corruption; callers on lock-free read paths choose a safe
+    /// fallback rather than panicking.
+    pub const fn from_u8(raw: u8) -> Option<Self> {
+        match raw {
+            0 => Some(Self::Discovered),
+            1 => Some(Self::Matched),
+            2 => Some(Self::Bound),
+            3 => Some(Self::Active),
+            4 => Some(Self::Removing),
+            5 => Some(Self::Removed),
+            _ => None,
+        }
+    }
+}
+
+/// Metadata-only snapshot of a live device object.
+#[derive(Debug, Clone)]
+pub struct DeviceRecord {
+    /// Globally-unique device id.
+    pub id: DeviceId,
+    /// Bus instance the device lives on.
+    pub bus_id: BusId,
+    /// Parent controller / bridge device, if any.
+    pub parent: Option<DeviceId>,
+    /// Bus instance produced by this device, if it is a controller / bridge.
+    pub child_bus: Option<BusId>,
+    /// Where on the bus hierarchy the device lives.
+    pub location: DeviceLocation,
+    /// Which firmware source described the device.
+    pub origin: DiscoveryOrigin,
+    /// Bus-specific identity used for driver matching.
+    pub identity: DeviceIdentity,
+    /// Upper-layer transport descriptor, if any.
+    pub transport: Option<TransportInfo>,
+    /// Resources (MMIO, IRQ, ...) described for the device.
+    pub resources: ResourceSet,
+    /// Name of the bound driver, once bound.
+    pub driver_name: Option<&'static str>,
+    /// Id of the bound driver, once bound.
+    pub driver_id: Option<DriverId>,
+    /// Device kind reported at publish, once active.
+    pub device_kind: Option<DeviceKind>,
+    /// Current lifecycle state.
+    pub state: DeviceState,
+}
+
+#[unittest::mod_test]
+mod tests {
+    use unittest::def_test;
+
+    use super::DeviceNumber;
+
+    #[def_test]
+    fn device_number_round_trips_linux_components() {
+        for (major, minor) in [(0, 0), (1, 2), (0x1234, 0x5678), (u32::MAX, u32::MAX)] {
+            let device = DeviceNumber::new(major, minor);
+            assert_eq!(device.major(), major);
+            assert_eq!(device.minor(), minor);
+        }
+    }
+}

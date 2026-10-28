@@ -1,0 +1,54 @@
+diff --git a/io/drmdevice/src/card0.rs b/io/drmdevice/src/card0.rs
+--- a/io/drmdevice/src/card0.rs
++++ b/io/drmdevice/src/card0.rs
+@@ -193,9 +193,7 @@
+         // legitimately branch on this: a libdrm client that is told `atomic` was
+         // accepted will go on to issue atomic commits.
+         match cap.capability {
+-            DRM_CLIENT_CAP_STEREO_3D
+-            | DRM_CLIENT_CAP_UNIVERSAL_PLANES
+-            | DRM_CLIENT_CAP_ATOMIC => {}
++            DRM_CLIENT_CAP_STEREO_3D | DRM_CLIENT_CAP_UNIVERSAL_PLANES | DRM_CLIENT_CAP_ATOMIC => {}
+             _ => return Err(VfsError::OperationNotSupported),
+         }
+         if cap.value > 1 {
+@@ -1332,7 +1330,13 @@
+     const CMD: u32 = iowr::<DrmModeCursor>(DRM_TYPE, 0xA3);
+ 
+     fn handle(dev: &DrmCard, _file: &Arc<DrmFile>, cursor: &mut Self) -> VfsResult<usize> {
+-        dev.set_cursor(cursor.crtc_id, cursor.flags, cursor.x, cursor.y, cursor.handle)
++        dev.set_cursor(
++            cursor.crtc_id,
++            cursor.flags,
++            cursor.x,
++            cursor.y,
++            cursor.handle,
++        )
+     }
+ }
+ 
+@@ -1343,7 +1347,13 @@
+         // The hotspot is only meaningful to a hardware cursor plane, which this
+         // driver does not expose; validating it would reject requests the device
+         // is happy to treat as a plain move.
+-        dev.set_cursor(cursor.crtc_id, cursor.flags, cursor.x, cursor.y, cursor.handle)
++        dev.set_cursor(
++            cursor.crtc_id,
++            cursor.flags,
++            cursor.x,
++            cursor.y,
++            cursor.handle,
++        )
+     }
+ }
+ 
+@@ -1459,7 +1469,8 @@
+         _x: i32,
+         _y: i32,
+         handle: u32,
+-    ) -> VfsResult<usize> {        if crtc_id != CRTC_ID {
++    ) -> VfsResult<usize> {
++        if crtc_id != CRTC_ID {
+             return Err(VfsError::InvalidInput);
+         }
+         if flags & !(DRM_MODE_CURSOR_BO | DRM_MODE_CURSOR_MOVE) != 0 {

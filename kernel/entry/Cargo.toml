@@ -1,0 +1,53 @@
+[package]
+name = "entry"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "X TeeOS Entry Crate"
+license.workspace = true
+homepage.workspace = true
+
+[features]
+unittest = [
+    "dep:kworkerpool_ng",
+    "dep:kworkqueue_ng",
+    "dep:kworkng",
+    "dep:unittest",
+    "dep:unittest_support",
+]
+dma-trace = ["kfeat/dma-trace"]
+
+[dependencies]
+kvfs.workspace = true
+kcred.workspace = true
+fs_context.workspace = true
+xcover.workspace = true
+kfeat.workspace = true
+khal.workspace = true
+kiface.workspace = true
+klogger.workspace = true
+kruntime.workspace = true
+ktask.workspace = true
+kprocess.workspace = true
+kuaccess.workspace = true
+ksyscall.workspace = true
+kbuild_config.workspace = true
+kernel-image-metadata = { workspace = true, features = ["kernel"] }
+kcpu_id_map.workspace = true
+linux-raw-sys.workspace = true
+posix-process.workspace = true
+kworkerpool_ng = { workspace = true, optional = true }
+kworkqueue_ng = { workspace = true, optional = true, features = ["stall-check", "self-wait-check"] }
+kworkng = { workspace = true, optional = true, features = ["self-wait-check"] }
+unittest = { workspace = true, optional = true }
+unittest_support = { workspace = true, optional = true }
+
+[target.'cfg(any(target_arch = "aarch64", target_arch = "x86_64"))'.dependencies]
+tee_kernel.workspace = true
+
+[package.metadata.vendor-filter]
+platforms = ["riscv64gc-unknown-none-elf", "loongarch64-unknown-none-softfloat"]
+all-features = true
+
+[lints]
+workspace = true

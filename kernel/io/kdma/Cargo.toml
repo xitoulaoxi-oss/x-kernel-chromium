@@ -1,0 +1,29 @@
+[package]
+name = "kdma"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+repository.workspace = true
+documentation.workspace = true
+
+[features]
+dma-trace = []
+
+[dependencies]
+alloc-engine = { workspace = true, features = ["tlsf"] }
+kalloc.workspace = true
+kerrno.workspace = true
+khal = { workspace = true }
+kplat = { workspace = true }
+kiface.workspace = true
+kspin.workspace = true
+log.workspace = true
+memaddr.workspace = true
+kbuild_config = { workspace = true }
+
+[lints]
+workspace = true

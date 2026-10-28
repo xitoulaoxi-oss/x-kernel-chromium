@@ -1,0 +1,443 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+// The import layout and user-context definition in this file follow common
+// Rust module organization and standard X86-64 user-space context conventions.
+// Similar structure across kernels is expected for clarity and ABI alignment,
+// and should not be interpreted as literal duplication of project-specific
+
+//! Structures and functions for user space.
+
+use kerrno::LinuxError;
+use memaddr::VirtAddr;
+use x86_64::{
+    registers::{
+        control::Cr2,
+        model_specific::{Efer, EferFlags, KernelGsBase, LStar, SFMask, Star},
+        mxcsr::MxCsr,
+        rflags::RFlags,
+    },
+    structures::idt::ExceptionVector,
+};
+
+use super::{
+    FxStateBlock, TrapFrame,
+    excp::{IRQ_VECTOR_END, IRQ_VECTOR_START, LEGACY_SYSCALL_VECTOR, err_code_to_flags},
+    gdt,
+};
+pub use crate::userspace_common::{ExceptionKind, ReturnReason};
+
+/// Context to enter user space.
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct UserContext {
+    tf: TrapFrame,
+    /// FS Segment Base
+    pub fs_base: u64,
+    /// GS Segment Base
+    pub gs_base: u64,
+}
+
+/// Private frame used by `enter_user` while running user space.
+///
+/// The x86_64 entry assembly uses `tf` as a temporary trap stack: TSS.rsp0
+/// points to the end of `tf`, and hardware trap frames grow down into it.
+/// `kernel_rsp` is kept immediately before `tf` so the return path can recover
+/// the Rust caller's kernel stack without storing that private value in
+/// [`UserContext`] or any user-visible signal frame.
+#[repr(C, align(16))]
+struct EnterUserFrame {
+    kernel_rsp: u64,
+    tf: TrapFrame,
+}
+
+/// User-space state saved outside the ABI `mcontext_t` signal payload.
+///
+/// Besides the segment bases this carries a full `FXSAVE` snapshot of the
+/// x87/MMX/XMM/MXCSR state. A caught signal handler may clobber the live
+/// FP/SIMD registers, so the interrupted state must be captured per signal
+/// frame (including nested signals) and restored on `rt_sigreturn`.
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct UserRestorableContext {
+    fs_base: u64,
+    gs_base: u64,
+    fp: FxStateBlock,
+}
+
+/// Fallback `MXCSR` feature mask for CPUs whose `FXSAVE` reports none.
+///
+/// Every `MXCSR` bit the `x86_64` crate models except denormals-are-zero.
+/// Linux `fpu__init_system_mxcsr()` uses the same fallback for CPUs that
+/// leave `mxcsr_mask` zero.
+#[cfg(feature = "fp-simd")]
+const MXCSR_FALLBACK_FEATURE_MASK: u32 = MxCsr::all().bits() & !MxCsr::DENORMALS_ARE_ZEROS.bits();
+
+/// Returns the trusted `MXCSR` feature mask reported by `FXSAVE`.
+///
+/// A signal frame lives in user memory and can be corrupted before
+/// `rt_sigreturn`, so the mask stored inside a frame cannot be trusted. It is
+/// probed once from the CPU and cached; CPUs that report no mask use
+/// [`MXCSR_FALLBACK_FEATURE_MASK`].
+#[cfg(feature = "fp-simd")]
+fn mxcsr_feature_mask() -> u32 {
+    use core::sync::atomic::{AtomicU32, Ordering};
+
+    static MASK: AtomicU32 = AtomicU32::new(0);
+
+    let cached = MASK.load(Ordering::Relaxed);
+    if cached != 0 {
+        return cached;
+    }
+
+    let mut probe = FxStateBlock::initial();
+    // SAFETY: `probe` is a 16-byte aligned `FxStateBlock`, matching FXSAVE64.
+    unsafe { core::arch::x86_64::_fxsave64(&mut probe as *mut _ as *mut u8) };
+    let mask = if probe.sse_mxcsr_mask == 0 {
+        MXCSR_FALLBACK_FEATURE_MASK
+    } else {
+        probe.sse_mxcsr_mask
+    };
+    MASK.store(mask, Ordering::Relaxed);
+    mask
+}
+
+pub(super) const KERNEL_RSP_TO_TRAPFRAME_OFFSET: usize =
+    core::mem::offset_of!(EnterUserFrame, tf) - core::mem::offset_of!(EnterUserFrame, kernel_rsp);
+
+const _: () = assert!(KERNEL_RSP_TO_TRAPFRAME_OFFSET == core::mem::size_of::<u64>());
+
+impl UserContext {
+    /// Creates a new context with the given entry point, user stack pointer,
+    /// and the argument.
+    pub fn new(entry: usize, ustack_top: VirtAddr, arg0: usize) -> Self {
+        use x86_64::registers::rflags::RFlags;
+        Self {
+            tf: TrapFrame {
+                rdi: arg0 as _,
+                rip: entry as _,
+                cs: gdt::UCODE64.0 as _,
+                rflags: RFlags::INTERRUPT_FLAG.bits(), // IOPL = 0, IF = 1
+                rsp: ustack_top.as_usize() as _,
+                ss: gdt::UDATA.0 as _,
+                orig_rax: u64::MAX,
+                ..Default::default()
+            },
+            fs_base: 0,
+            gs_base: 0,
+        }
+    }
+
+    /// Gets the TLS area.
+    pub const fn tls(&self) -> usize {
+        self.fs_base as _
+    }
+
+    /// Saves user-restorable state that is not carried by signal `mcontext_t`.
+    ///
+    /// Captures the live FP/SIMD state while the interrupted user context is
+    /// still current, so a signal handler's own FP/SIMD use cannot leak back
+    /// into the interrupted code after `rt_sigreturn`.
+    pub fn save_user_restorable(&self) -> UserRestorableContext {
+        let mut fp = FxStateBlock::initial();
+        #[cfg(feature = "fp-simd")]
+        // SAFETY: `fp` is a 16-byte aligned `FxStateBlock`, matching FXSAVE64.
+        unsafe {
+            core::arch::x86_64::_fxsave64(&mut fp as *mut _ as *mut u8)
+        };
+        UserRestorableContext {
+            fs_base: self.fs_base,
+            gs_base: self.gs_base,
+            fp,
+        }
+    }
+
+    /// Restores user state that is not carried by signal `mcontext_t`.
+    ///
+    /// The FP/SIMD block comes from a user-writable signal frame, so unsupported
+    /// `MXCSR` bits are cleared against the trusted feature mask before
+    /// `FXRSTOR`; an unvalidated value would otherwise raise `#GP` in kernel
+    /// mode. The remaining `FXSAVE` fields cannot fault `FXRSTOR`.
+    pub fn restore_user_restorable(&mut self, saved: UserRestorableContext) {
+        self.fs_base = saved.fs_base;
+        self.gs_base = saved.gs_base;
+        self.ss = gdt::UDATA.0 as _;
+        self.orig_rax = u64::MAX;
+
+        #[cfg(feature = "fp-simd")]
+        {
+            let mut fp = saved.fp;
+            fp.sse_mxcsr &= mxcsr_feature_mask();
+            // SAFETY: `fp` is a 16-byte aligned `FxStateBlock` with a validated
+            // MXCSR, matching FXRSTOR64.
+            unsafe { core::arch::x86_64::_fxrstor64(&fp as *const _ as *const u8) };
+        }
+    }
+
+    /// Sets the TLS area.
+    pub const fn set_tls(&mut self, tls_area: usize) {
+        self.fs_base = tls_area as _;
+    }
+
+    /// Resets the general-purpose registers before entering a freshly
+    /// loaded executable.
+    ///
+    /// A successful `execve` must not leak the old program's registers into
+    /// the new image. On x86-64 the third `execve` argument `envp` sits in
+    /// `rdx`; glibc's static `_start` passes `rdx` to `__libc_start_main` as
+    /// the `rtld_fini` callback, which must be zero for a statically linked
+    /// binary. A stale value would be registered as an exit handler and then
+    /// called from `__run_exit_handlers`, faulting into the old heap.
+    ///
+    /// The x86-64 ELF entry ABI only defines `rsp`, `rip`, and (for dynamic
+    /// entry) `rdx`, so every other general-purpose register is cleared along
+    /// with the user GS base and the "not from syscall" marker. Control fields
+    /// (`cs`/`ss`/`rflags`, `rip`, `rsp`, `fs_base`) are left for the caller
+    /// to re-establish via `set_ip`/`set_sp`/`set_tls`.
+    pub fn reset_for_exec(&mut self) {
+        self.rax = 0;
+        self.rcx = 0;
+        self.rdx = 0;
+        self.rbx = 0;
+        self.rbp = 0;
+        self.rsi = 0;
+        self.rdi = 0;
+        self.r8 = 0;
+        self.r9 = 0;
+        self.r10 = 0;
+        self.r11 = 0;
+        self.r12 = 0;
+        self.r13 = 0;
+        self.r14 = 0;
+        self.r15 = 0;
+        self.orig_rax = u64::MAX;
+        self.gs_base = 0;
+    }
+
+    /// Enters user space.
+    ///
+    /// It restores the user registers and jumps to the user entry point
+    /// (saved in `rip`).
+    ///
+    /// This function returns when an exception or syscall occurs.
+    ///
+    /// Invokes `on_user_enter` immediately before entering user space and
+    /// `on_user_exit` after restoring kernel context, before IRQ dispatch.
+    /// Both callbacks run with local IRQs masked and must return with them
+    /// masked, without sleeping or scheduling.
+    pub fn run(
+        &mut self,
+        on_user_enter: impl FnOnce(),
+        on_user_exit: impl FnOnce(),
+    ) -> ReturnReason {
+        unsafe extern "C" {
+            unsafe fn enter_user(frame: &mut EnterUserFrame);
+        }
+
+        assert_eq!(self.cs, gdt::UCODE64.0 as _);
+        assert_eq!(self.ss, gdt::UDATA.0 as _);
+
+        karch::disable_local_irq();
+
+        on_user_enter();
+        let kernel_fs_base = karch::read_thread_pointer();
+        // SAFETY: Setting FS base to the user value; the kernel value is saved and restored after `enter_user` returns.
+        unsafe { karch::write_thread_pointer(self.fs_base as _) };
+        KernelGsBase::write(x86_64::VirtAddr::new_truncate(self.gs_base));
+
+        let mut frame = EnterUserFrame {
+            kernel_rsp: 0,
+            tf: self.tf,
+        };
+
+        // SAFETY: `enter_user` switches to user mode using the private
+        // `EnterUserFrame` layout above. `self.tf` was initialized by `new()` or
+        // restored from validated signal state with user segment selectors.
+        unsafe { enter_user(&mut frame) };
+        self.tf = frame.tf;
+
+        self.gs_base = KernelGsBase::read().as_u64();
+        self.fs_base = karch::read_thread_pointer() as _;
+        // SAFETY: Restoring the kernel FS base that was saved before entering user mode.
+        unsafe { karch::write_thread_pointer(kernel_fs_base) };
+        on_user_exit();
+
+        #[expect(
+            clippy::unwrap_used,
+            reason = "CG-021-no-panic-on-reachable-failure: kernel four-level paging records \
+                      canonical page-fault addresses in CR2; no kernel path writes a noncanonical \
+                      CR2 value"
+        )]
+        let cr2 = Cr2::read().unwrap().as_u64() as usize;
+        let vector = self.vector as u8;
+
+        const PAGE_FAULT_VECTOR: u8 = ExceptionVector::Page as u8;
+
+        let ret = match vector {
+            PAGE_FAULT_VECTOR if let Ok(flags) = err_code_to_flags(self.error_code) => {
+                ReturnReason::PageFault(va!(cr2), flags)
+            }
+            LEGACY_SYSCALL_VECTOR => ReturnReason::Syscall,
+            IRQ_VECTOR_START..=IRQ_VECTOR_END => {
+                handle_trap!(IRQ, vector as _);
+                ReturnReason::Interrupt
+            }
+            _ => ReturnReason::Exception(ExceptionInfo {
+                vector,
+                error_code: self.error_code,
+                cr2,
+            }),
+        };
+
+        karch::enable_local_irq();
+        ret
+    }
+
+    /// Returns the saved Linux restart error when this context stopped after a syscall.
+    pub fn syscall_restart_error(&self) -> Option<LinuxError> {
+        if !self.is_from_syscall() {
+            return None;
+        }
+
+        let retval = self.retval() as isize;
+        [
+            LinuxError::ERESTARTSYS,
+            LinuxError::ERESTARTNOINTR,
+            LinuxError::ERESTARTNOHAND,
+            LinuxError::ERESTART_RESTARTBLOCK,
+        ]
+        .into_iter()
+        .find(|err| retval == -(err.into_raw() as isize))
+    }
+}
+
+impl_user_context_deref!(TrapFrame, tf);
+
+/// Information about an exception that occurred in user space.
+#[derive(Debug, Clone, Copy)]
+pub struct ExceptionInfo {
+    /// The exception vector.
+    pub vector: u8,
+    /// The error code.
+    pub error_code: u64,
+    /// The faulting virtual address (if applicable).
+    pub cr2: usize,
+}
+
+impl ExceptionInfo {
+    /// Returns a generalized kind of this exception.
+    pub fn kind(&self) -> ExceptionKind {
+        match ExceptionVector::try_from(self.vector) {
+            Ok(ExceptionVector::Breakpoint) => ExceptionKind::Breakpoint,
+            Ok(ExceptionVector::InvalidOpcode) => ExceptionKind::IllegalInstruction,
+            _ => ExceptionKind::Other,
+        }
+    }
+}
+
+/// Initializes syscall support and setups the syscall handler.
+pub(super) fn init_syscall() {
+    unsafe extern "C" {
+        unsafe fn syscall_entry();
+    }
+
+    LStar::write(x86_64::VirtAddr::new_truncate(
+        syscall_entry as *const () as usize as _,
+    ));
+    #[expect(
+        clippy::unwrap_used,
+        reason = "CG-021-no-panic-on-reachable-failure: the fixed GDT selectors satisfy STAR \
+                  ordering: UCODE64 follows UDATA and KDATA follows KCODE64"
+    )]
+    Star::write(gdt::UCODE64, gdt::UDATA, gdt::KCODE64, gdt::KDATA).unwrap();
+    SFMask::write(
+        RFlags::TRAP_FLAG
+            | RFlags::INTERRUPT_FLAG
+            | RFlags::DIRECTION_FLAG
+            | RFlags::IOPL_LOW
+            | RFlags::IOPL_HIGH
+            | RFlags::NESTED_TASK
+            | RFlags::ALIGNMENT_CHECK,
+    ); // TF | IF | DF | IOPL | AC | NT (0x47700)
+    // SAFETY: Enabling the SCE (System Call Extensions) bit in EFER. `syscall_entry` is defined in `excp.S` and resides in kernel code space. Segment selectors in `Star` are compile-time constants from `gdt.rs`.
+    unsafe {
+        Efer::update(|efer| *efer |= EferFlags::SYSTEM_CALL_EXTENSIONS);
+    }
+}
+
+#[cfg(all(unittest, target_arch = "x86_64"))]
+mod tests {
+    use unittest::def_test;
+
+    use super::*;
+
+    /// Writes a 64-bit value into XMM0.
+    #[cfg(feature = "fp-simd")]
+    fn write_xmm0(value: u64) {
+        // SAFETY: `movq` moves a general register into XMM0; the `out("xmm0")`
+        // operand tells the compiler the register is clobbered.
+        unsafe {
+            core::arch::asm!("movq xmm0, {v}", v = in(reg) value, out("xmm0") _);
+        }
+    }
+
+    /// Reads the low 64 bits of XMM0.
+    #[cfg(feature = "fp-simd")]
+    fn read_xmm0() -> u64 {
+        let value: u64;
+        // SAFETY: reads the current XMM0; declaring it `out` is conservative
+        // but lets the compiler reference the register.
+        unsafe {
+            core::arch::asm!("movq {v}, xmm0", v = out(reg) value, out("xmm0") _);
+        }
+        value
+    }
+
+    #[cfg(feature = "fp-simd")]
+    #[def_test]
+    fn test_user_restorable_context_round_trips_fp_state() {
+        let ctx = UserContext::new(0x1004, VirtAddr::from_usize(0x2000), 7);
+
+        write_xmm0(0x1122_3344_5566_7788);
+        let reset = MxCsr::default();
+        x86_64::registers::mxcsr::write(reset);
+
+        let saved = ctx.save_user_restorable();
+
+        // Clobber the live FP/SIMD state the way a signal handler would.
+        write_xmm0(0);
+        x86_64::registers::mxcsr::write(reset & !MxCsr::PRECISION_MASK);
+
+        let mut restored = ctx;
+        restored.restore_user_restorable(saved);
+
+        assert_eq!(
+            read_xmm0(),
+            0x1122_3344_5566_7788,
+            "XMM0 must be restored from the signal restorable context"
+        );
+        assert_eq!(
+            x86_64::registers::mxcsr::read(),
+            reset,
+            "MXCSR must be restored from the signal restorable context"
+        );
+    }
+
+    #[cfg(feature = "fp-simd")]
+    #[def_test]
+    fn test_restore_masks_unsupported_mxcsr_bits() {
+        let mut ctx = UserContext::new(0x1004, VirtAddr::from_usize(0x2000), 7);
+        let mut saved = ctx.save_user_restorable();
+        saved.fp.sse_mxcsr = u32::MAX;
+
+        // Must not raise #GP in kernel mode.
+        ctx.restore_user_restorable(saved);
+
+        assert_eq!(
+            x86_64::registers::mxcsr::read().bits() & !mxcsr_feature_mask(),
+            0,
+            "unsupported MXCSR bits must be cleared before FXRSTOR"
+        );
+    }
+}

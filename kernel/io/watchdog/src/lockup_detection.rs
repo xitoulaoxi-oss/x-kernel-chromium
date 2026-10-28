@@ -1,0 +1,269 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! Soft/hard lockup detection state and helpers.
+use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+
+use karch::cache::CacheAligned;
+use kcpu_slot::cpu_slot_cell;
+use ktime_types::{MonotonicInstant, TimeSpan};
+
+use crate::watchdog_task::WatchdogTask;
+
+/// Default soft-lockup detection threshold.
+pub const DEFAULT_SOFTLOCKUP_THRESHOLD: TimeSpan = TimeSpan::from_secs(20);
+
+/// Default hard-lockup detection threshold.
+pub const DEFAULT_HARDLOCKUP_THRESHOLD: TimeSpan = TimeSpan::from_secs(10);
+
+/// Independent watchdog sample period (Linux `sample_period`).
+///
+/// Softlockup threshold / 5 so the oneshot hrtimer has several heartbeats
+/// before a hardlockup NMI window. With a 20s soft threshold this is 4s.
+pub const DEFAULT_WATCHDOG_SAMPLE_PERIOD: TimeSpan = TimeSpan::from_secs(4);
+
+/// Per-CPU lockup detection state.
+#[repr(C)]
+pub struct LockupDetection {
+    state: CacheAligned<LockupState>,
+}
+
+#[repr(C)]
+struct LockupState {
+    // === Softlockup Detection ===
+    /// Timestamp when watchdog thread last ran (nanoseconds).
+    /// Updated by watchdog thread, checked by timer interrupt.
+    soft_timestamp: AtomicU64,
+    soft_timestamp_initialized: AtomicBool,
+
+    // === Hardlockup Detection ===
+    /// Timestamp of the last hardlockup heartbeat (nanoseconds).
+    ///
+    /// Written on every local timer IRQ and read from NMI. Compared against
+    /// wall time so the check does not depend on the PMU NMI interval.
+    hard_timestamp: AtomicU64,
+    hard_timestamp_initialized: AtomicBool,
+}
+
+impl Default for LockupDetection {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl LockupDetection {
+    /// Create a new LockupDetection instance.
+    pub const fn new() -> Self {
+        Self {
+            state: CacheAligned::new(LockupState {
+                soft_timestamp: AtomicU64::new(0),
+                soft_timestamp_initialized: AtomicBool::new(false),
+                hard_timestamp: AtomicU64::new(0),
+                hard_timestamp_initialized: AtomicBool::new(false),
+            }),
+        }
+    }
+
+    // =========================================================================
+    // Softlockup detection
+    // =========================================================================
+
+    /// Update the soft timestamp (called by watchdog thread).
+    ///
+    /// The watchdog thread should call this every time it gets scheduled.
+    #[inline]
+    pub fn touch_softlockup(&self, timestamp: MonotonicInstant) {
+        self.state
+            .soft_timestamp
+            .store(timestamp.as_nanos_u64_saturating(), Ordering::Release);
+        self.state
+            .soft_timestamp_initialized
+            .store(true, Ordering::Release);
+    }
+
+    /// Get the soft timestamp.
+    #[inline]
+    pub fn soft_timestamp(&self) -> Option<MonotonicInstant> {
+        if !self
+            .state
+            .soft_timestamp_initialized
+            .load(Ordering::Acquire)
+        {
+            return None;
+        }
+        Some(MonotonicInstant::from_span_since_origin(
+            TimeSpan::from_nanos(self.state.soft_timestamp.load(Ordering::Acquire)),
+        ))
+    }
+
+    /// Check for softlockup condition.
+    ///
+    /// Call this from timer interrupt context.
+    /// Returns true if softlockup is detected.
+    #[inline]
+    pub fn check_softlockup(&self, now: MonotonicInstant, threshold: TimeSpan) -> bool {
+        let Some(last) = self.soft_timestamp() else {
+            return false;
+        };
+        now.saturating_duration_since(last) > threshold
+    }
+
+    // =========================================================================
+    // Hardlockup detection
+    // =========================================================================
+
+    /// Record a watchdog sample from the local timer IRQ.
+    #[inline]
+    pub fn timer_tick(&self, now: MonotonicInstant) {
+        self.state
+            .hard_timestamp
+            .store(now.as_nanos_u64_saturating(), Ordering::Release);
+        self.state
+            .hard_timestamp_initialized
+            .store(true, Ordering::Release);
+    }
+
+    /// Check for hardlockup condition (called from NMI).
+    ///
+    /// Returns true when no watchdog sample has landed for longer than
+    /// `threshold`. Wall time is required because the NMI source is a PMU
+    /// cycle budget at an assumed CPU frequency: two NMIs can fall between
+    /// 4s samples on a live CPU.
+    ///
+    /// # Examples
+    ///
+    /// The local timer IRQ must refresh the heartbeat before an NMI checks it:
+    ///
+    /// ```no_run
+    /// use ktime_types::{MonotonicInstant, TimeSpan};
+    ///
+    /// // Local timer IRQ: refresh this CPU's heartbeat.
+    /// fn on_timer_irq(now: MonotonicInstant) {
+    ///     watchdog::timer_tick(now);
+    /// }
+    ///
+    /// // Pseudo-NMI: report when the heartbeat is stale.
+    /// fn on_nmi(det: &watchdog::LockupDetection, now: MonotonicInstant, threshold: TimeSpan) {
+    ///     if det.check_hardlockup(now, threshold) {
+    ///         // report and enter the hard-lockup rendezvous
+    ///     }
+    /// }
+    /// ```
+    #[inline]
+    pub fn check_hardlockup(&self, now: MonotonicInstant, threshold: TimeSpan) -> bool {
+        if !self
+            .state
+            .hard_timestamp_initialized
+            .load(Ordering::Acquire)
+        {
+            return false;
+        }
+        let last = MonotonicInstant::from_span_since_origin(TimeSpan::from_nanos(
+            self.state.hard_timestamp.load(Ordering::Acquire),
+        ));
+        now.saturating_duration_since(last) > threshold
+    }
+}
+
+/// Per-CPU soft/hard lockup detection state.
+///
+/// Only accessed on the owning CPU, from the pinned watchdog thread
+/// (soft-lockup timestamp), timer interrupt (tick / soft-lockup check),
+/// and NMI (hard-lockup check) contexts.
+// SAFETY: the template contains only atomic integers and booleans initialized
+// to their const reset state; each copied area owns independent atomics.
+unsafe impl kcpu_slot::StaticSlotValue for LockupDetection {}
+
+cpu_slot_cell! {
+    static LOCKUP_DETECTION: crate::lockup_detection::LockupDetection =
+        crate::lockup_detection::LockupDetection::new();
+}
+
+#[inline]
+fn current_lockup_detection() -> &'static LockupDetection {
+    #[expect(
+        clippy::expect_used,
+        reason = "CG-021-no-panic-on-reachable-failure: CPU startup publishes the local slot \
+                  before invoking lockup detection"
+    )]
+    let area = kcpu_slot::area(khal::percpu::this_cpu_id())
+        .expect("current CPU lockup-detection area is not published");
+    LOCKUP_DETECTION.shared_at(area)
+}
+
+/// Touch softlockup timestamp from the per-CPU watchdog task.
+#[inline]
+pub fn touch_softlockup(timestamp: MonotonicInstant) {
+    current_lockup_detection().touch_softlockup(timestamp);
+}
+
+/// Refresh the hardlockup heartbeat.
+///
+/// Called from every local timer IRQ. A live CPU that still takes timer
+/// interrupts will keep this timestamp fresh even if the watchdog task is
+/// delayed.
+#[inline]
+pub fn timer_tick(now: MonotonicInstant) {
+    current_lockup_detection().timer_tick(now);
+}
+
+/// Check softlockup of a CPU.
+#[inline]
+pub fn check_softlockup(now: MonotonicInstant) -> bool {
+    current_lockup_detection().check_softlockup(now, DEFAULT_SOFTLOCKUP_THRESHOLD)
+}
+
+/// Register the hard lockup detection task on the current CPU.
+pub fn register_hardlockup_detection_task() {
+    // The returned `&'static` reference is valid for the kernel lifetime
+    // (per-CPU slot storage is never torn down). Called once during init on
+    // the owning CPU.
+    let task: &'static LockupDetection = current_lockup_detection();
+    crate::watchdog_task::register_watchdog_task(task);
+}
+
+impl WatchdogTask for LockupDetection {
+    fn name(&self) -> &str {
+        "HardLockupDetection"
+    }
+
+    fn check(&self) -> bool {
+        !self.check_hardlockup(khal::time::monotonic_time(), DEFAULT_HARDLOCKUP_THRESHOLD)
+    }
+}
+
+#[unittest::mod_test]
+mod tests {
+    use unittest::{assert, assert_eq, def_test};
+
+    use super::*;
+
+    fn instant_secs(secs: u64) -> MonotonicInstant {
+        MonotonicInstant::from_span_since_origin(TimeSpan::from_secs(secs))
+    }
+
+    #[def_test]
+    fn lockup_state_uses_shared_cache_alignment() {
+        let states = [LockupDetection::new(), LockupDetection::new()];
+        let first = core::ptr::from_ref(&states[0]).addr();
+        let second = core::ptr::from_ref(&states[1]).addr();
+        let alignment = karch::cache::SMP_CACHE_BYTES;
+        assert_eq!(first % alignment, 0);
+        assert_eq!(second % alignment, 0);
+        assert!(size_of::<LockupDetection>().is_multiple_of(alignment));
+        assert!((first + size_of::<LockupDetection>() - 1) / alignment < second / alignment);
+    }
+
+    #[def_test]
+    fn hardlockup_uses_wall_time_not_nmi_spacing() {
+        let det = LockupDetection::new();
+        let t0 = instant_secs(1);
+        assert!(!det.check_hardlockup(t0, DEFAULT_HARDLOCKUP_THRESHOLD));
+
+        det.timer_tick(t0);
+        assert!(!det.check_hardlockup(instant_secs(5), DEFAULT_HARDLOCKUP_THRESHOLD));
+        assert!(!det.check_hardlockup(instant_secs(11), DEFAULT_HARDLOCKUP_THRESHOLD));
+        assert!(det.check_hardlockup(instant_secs(12), DEFAULT_HARDLOCKUP_THRESHOLD));
+    }
+}

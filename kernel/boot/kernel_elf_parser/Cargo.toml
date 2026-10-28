@@ -1,0 +1,20 @@
+[package]
+name = "kernel-elf-parser"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license = "Apache-2.0"
+documentation.workspace = true
+repository.workspace = true
+description = "An lightweight ELF parser that parses ELF files and converts them into information needed for kernel building"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+keywords = ["ELF", "kernel"]
+categories = ["no-std"]
+
+[dependencies]
+xmas-elf.workspace = true
+zero = "0.1.3"
+zerocopy = { version = "0.8.26", features = ["derive"] }
+
+[lints]
+workspace = true

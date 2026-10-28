@@ -1,0 +1,107 @@
+diff --git a/io/drmdevice/src/drm.rs b/io/drmdevice/src/drm.rs
+--- a/io/drmdevice/src/drm.rs
++++ b/io/drmdevice/src/drm.rs
+@@ -210,13 +210,10 @@
+     pub handle: u32,
+ }
+ 
+-#[repr(C)]
+-#[derive(Debug, Default, Clone, Copy, AnyBitPattern, UserRead, UserWrite)]
+-pub(crate) struct DrmModeGetPlaneRes {
+ /// `struct drm_mode_connector_set_property`, the legacy connector-only setter.
+ ///
+-/// Its field order is `value` first; a 16-byte structure with no trailing
+-/// padding, so `DRM_IOCTL_MODE_SETPROPERTY` carries size 0x10.
++/// `value` comes first and the structure is 16 bytes with no trailing padding, so
++/// `DRM_IOCTL_MODE_SETPROPERTY` carries size 0x10.
+ #[repr(C)]
+ #[derive(Debug, Default, Clone, Copy, AnyBitPattern, UserRead, UserWrite)]
+ pub(crate) struct DrmModeConnectorSetProperty {
+@@ -227,10 +224,10 @@
+ 
+ /// `struct drm_mode_obj_set_property`, the object-typed setter.
+ ///
+-/// Rust's `repr(C)` lays this out exactly as the uapi does: `value` at 0,
+-/// `prop_id` at 8, `obj_id` at 12, `obj_type` at 16, and the structure is padded
+-/// to 24 because it aligns to 8.  The assertions below keep that true, because a
+-/// size change silently changes the command word.
++/// `value` at 0, `prop_id` at 8, `obj_id` at 12, `obj_type` at 16, padded to 24
++/// because the structure aligns to 8.  The asserts below keep that true: the size
++/// is part of the command word, so a layout change that goes unnoticed would leave
++/// the handler registered under a number no client sends.
+ #[repr(C)]
+ #[derive(Debug, Default, Clone, Copy, AnyBitPattern, UserRead, UserWrite)]
+ pub(crate) struct DrmModeObjSetProperty {
+@@ -243,6 +240,9 @@
+ const _: () = assert!(core::mem::size_of::<DrmModeConnectorSetProperty>() == 16);
+ const _: () = assert!(core::mem::size_of::<DrmModeObjSetProperty>() == 24);
+ 
++#[repr(C)]
++#[derive(Debug, Default, Clone, Copy, AnyBitPattern, UserRead, UserWrite)]
++pub(crate) struct DrmModeGetPlaneRes {
+     pub plane_id_ptr: UserPtr<u32>,
+     pub count_planes: u32,
+     pub abi_pad: u32,
+diff --git a/io/drmdevice/src/card0.rs b/io/drmdevice/src/card0.rs
+--- a/io/drmdevice/src/card0.rs
++++ b/io/drmdevice/src/card0.rs
+@@ -1073,7 +1073,6 @@
+     }
+ }
+ 
+-impl DrmIoctl for DrmModeObjGetProperties {
+ impl DrmIoctl for DrmModeConnectorSetProperty {
+     // DRM_IOCTL_MODE_SETPROPERTY = DRM_IOWR(0xAB, struct
+     // drm_mode_connector_set_property): a 16-byte write-read.
+@@ -1102,10 +1101,9 @@
+     const CMD: u32 = iowr::<DrmModeObjSetProperty>(DRM_TYPE, 0xBA);
+ 
+     fn handle(dev: &DrmCard, _file: &Arc<DrmFile>, req: &mut Self) -> VfsResult<usize> {
+-        // The object type travels in the request, so it has to agree with the id;
+-        // this is the same check MODE_ATOMIC applies to every entry of its object
+-        // list, and it is what stops a client from writing a plane property onto
+-        // the CRTC.
++        // The object type travels in the request, so it has to agree with the id.
++        // This is the check MODE_ATOMIC applies to every entry of its object list,
++        // and it is what stops a client from writing a plane property onto the CRTC.
+         if object_type_of(req.obj_id) != Some(req.obj_type) {
+             return Err(VfsError::NotFound);
+         }
+@@ -1113,14 +1111,22 @@
+     }
+ }
+ 
+-/// Write one property, with the same commit sequence `MODE_ATOMIC` uses.
++/// Write one property from a non-atomic entry point.
+ ///
+-/// The property is applied to a copy of the state, the copy is committed only if
+-/// the write succeeded, and the scanout is refreshed if the plane's framebuffer
+-/// moved.  Doing this in one place is what keeps the three entry points
+-/// (`MODE_ATOMIC`, `MODE_SETPROPERTY`, `MODE_OBJ_SETPROPERTY`) from drifting
+-/// apart, and an unknown property is reported as `ENOENT`, which is what Linux's
+-/// `drm_mode_setproperty_user()` returns.
++/// The sequence is a copy of the one `MODE_ATOMIC` performs inline: apply to a
++/// copy of the state, commit the copy only if the write succeeded, publish a new
++/// mode blob if the write produced one, and refresh the scanout whenever the
++/// committed plane framebuffer is non-zero.  `MODE_ATOMIC` is deliberately left
++/// alone here: it carries `TEST_ONLY` and page-flip-event handling that this
++/// helper has no business absorbing, and moving it would change the errno of a
++/// path Xorg already drives.
++///
++/// That leaves one observable difference, which is worth stating instead of
++/// hiding: an unknown property answers `ENOENT` from these two entry points and
++/// `EINVAL` from `MODE_ATOMIC`.  Linux returns `ENOENT` from both
++/// `drm_mode_setproperty_user()` and `drm_atomic_set_property()`, so the value
++/// here is the correct one and the atomic path is the one that should follow --
++/// as a separate change, with its own verification.
+ fn set_one_property(
+     dev: &DrmCard,
+     obj_type: u32,
+@@ -1146,6 +1152,7 @@
+     Ok(0)
+ }
+ 
++impl DrmIoctl for DrmModeObjGetProperties {
+     const CMD: u32 = iowr::<DrmModeObjGetProperties>(DRM_TYPE, 0xB9);
+ 
+     fn handle(dev: &DrmCard, _file: &Arc<DrmFile>, q: &mut Self) -> VfsResult<usize> {

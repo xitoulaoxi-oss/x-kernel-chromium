@@ -1,0 +1,346 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+// The control flow and instruction-dispatch structure in this file follow
+// common LoongArch64 unaligned-access emulation practices used in low-level
+// systems code. Similar match patterns and register transfer helpers are
+// conventional for clarity and architectural correctness, not project-specific
+// literal copying.
+
+//! Unaligned access emulation for LoongArch64.
+
+use core::{arch::asm, fmt};
+
+use loongArch64::register::badv;
+
+use crate::{GeneralRegisters, TrapFrame};
+
+core::arch::global_asm!(include_asm_macros!(), include_str!("unaligned.S"));
+
+static_assertions::const_assert_eq!(
+    core::mem::size_of::<GeneralRegisters>(),
+    32 * core::mem::size_of::<usize>()
+);
+
+unsafe extern "C" {
+    fn _unaligned_read(addr: u64, value: &mut u64, n: u64, symbol: bool) -> i32;
+    fn _unaligned_write(addr: u64, value: u64, n: u64) -> i32;
+}
+
+/// Error type for unaligned access operations.
+#[derive(Copy, Eq, PartialEq, Clone, Debug)]
+pub struct UnalignedError {
+    addr: u64,
+    n: Option<u64>,
+}
+
+impl fmt::Display for UnalignedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(n) = self.n {
+            write!(f, "unaligned access at {:#x} (n={})", self.addr, n)
+        } else {
+            write!(f, "unaligned access at {:#x} (unknown op)", self.addr)
+        }
+    }
+}
+
+impl core::error::Error for UnalignedError {}
+
+fn unaligned_read(addr: u64, value: &mut u64, n: u64, symbol: bool) -> Result<(), UnalignedError> {
+    // SAFETY: `addr` is the faulting virtual address from BADV. `_unaligned_read`
+    // in assembly performs a safe byte-by-byte read with exception table entries.
+    if unsafe { _unaligned_read(addr, value, n, symbol) } == -1 {
+        return Err(UnalignedError { addr, n: Some(n) });
+    }
+    Ok(())
+}
+
+fn unaligned_write(addr: u64, value: u64, n: u64) -> Result<(), UnalignedError> {
+    // SAFETY: `addr` is the faulting virtual address from BADV. `_unaligned_write`
+    // in assembly performs a safe byte-by-byte write with exception table entries.
+    if unsafe { _unaligned_write(addr, value, n) } == -1 {
+        return Err(UnalignedError { addr, n: Some(n) });
+    }
+    Ok(())
+}
+
+macro_rules! define_asm_write_fpr {
+    ($fn_name:ident, $fpr:literal) => {
+        #[inline]
+        fn $fn_name(val: u64) {
+            // SAFETY: `movgr2fr.d` only transfers the provided general-purpose
+            // register value into the fixed FPR selected in this macro
+            // instantiation, without touching memory or stack state.
+            unsafe { asm!(concat!("movgr2fr.d $f", $fpr, ", {val}"), val = in(reg) val) }
+        }
+    };
+}
+
+macro_rules! define_asm_read_fpr {
+    ($fn_name:ident, $fpr:literal) => {
+        #[inline]
+        fn $fn_name() -> u64 {
+            let value: u64;
+            // SAFETY: `movfr2gr.d` only transfers the contents of the fixed
+            // FPR selected in this macro instantiation into a general-purpose
+            // output register, without touching memory or stack state.
+            unsafe { asm!(concat!("movfr2gr.d {val}, $f", $fpr), val = out(reg) value) }
+            value
+        }
+    };
+}
+
+define_asm_write_fpr!(asm_write_fpr_0, "0");
+define_asm_write_fpr!(asm_write_fpr_1, "1");
+define_asm_write_fpr!(asm_write_fpr_2, "2");
+define_asm_write_fpr!(asm_write_fpr_3, "3");
+define_asm_write_fpr!(asm_write_fpr_4, "4");
+define_asm_write_fpr!(asm_write_fpr_5, "5");
+define_asm_write_fpr!(asm_write_fpr_6, "6");
+define_asm_write_fpr!(asm_write_fpr_7, "7");
+define_asm_write_fpr!(asm_write_fpr_8, "8");
+define_asm_write_fpr!(asm_write_fpr_9, "9");
+define_asm_write_fpr!(asm_write_fpr_10, "10");
+define_asm_write_fpr!(asm_write_fpr_11, "11");
+define_asm_write_fpr!(asm_write_fpr_12, "12");
+define_asm_write_fpr!(asm_write_fpr_13, "13");
+define_asm_write_fpr!(asm_write_fpr_14, "14");
+define_asm_write_fpr!(asm_write_fpr_15, "15");
+define_asm_write_fpr!(asm_write_fpr_16, "16");
+define_asm_write_fpr!(asm_write_fpr_17, "17");
+define_asm_write_fpr!(asm_write_fpr_18, "18");
+define_asm_write_fpr!(asm_write_fpr_19, "19");
+define_asm_write_fpr!(asm_write_fpr_20, "20");
+define_asm_write_fpr!(asm_write_fpr_21, "21");
+define_asm_write_fpr!(asm_write_fpr_22, "22");
+define_asm_write_fpr!(asm_write_fpr_23, "23");
+define_asm_write_fpr!(asm_write_fpr_24, "24");
+define_asm_write_fpr!(asm_write_fpr_25, "25");
+define_asm_write_fpr!(asm_write_fpr_26, "26");
+define_asm_write_fpr!(asm_write_fpr_27, "27");
+define_asm_write_fpr!(asm_write_fpr_28, "28");
+define_asm_write_fpr!(asm_write_fpr_29, "29");
+define_asm_write_fpr!(asm_write_fpr_30, "30");
+define_asm_write_fpr!(asm_write_fpr_31, "31");
+
+define_asm_read_fpr!(asm_read_fpr_0, "0");
+define_asm_read_fpr!(asm_read_fpr_1, "1");
+define_asm_read_fpr!(asm_read_fpr_2, "2");
+define_asm_read_fpr!(asm_read_fpr_3, "3");
+define_asm_read_fpr!(asm_read_fpr_4, "4");
+define_asm_read_fpr!(asm_read_fpr_5, "5");
+define_asm_read_fpr!(asm_read_fpr_6, "6");
+define_asm_read_fpr!(asm_read_fpr_7, "7");
+define_asm_read_fpr!(asm_read_fpr_8, "8");
+define_asm_read_fpr!(asm_read_fpr_9, "9");
+define_asm_read_fpr!(asm_read_fpr_10, "10");
+define_asm_read_fpr!(asm_read_fpr_11, "11");
+define_asm_read_fpr!(asm_read_fpr_12, "12");
+define_asm_read_fpr!(asm_read_fpr_13, "13");
+define_asm_read_fpr!(asm_read_fpr_14, "14");
+define_asm_read_fpr!(asm_read_fpr_15, "15");
+define_asm_read_fpr!(asm_read_fpr_16, "16");
+define_asm_read_fpr!(asm_read_fpr_17, "17");
+define_asm_read_fpr!(asm_read_fpr_18, "18");
+define_asm_read_fpr!(asm_read_fpr_19, "19");
+define_asm_read_fpr!(asm_read_fpr_20, "20");
+define_asm_read_fpr!(asm_read_fpr_21, "21");
+define_asm_read_fpr!(asm_read_fpr_22, "22");
+define_asm_read_fpr!(asm_read_fpr_23, "23");
+define_asm_read_fpr!(asm_read_fpr_24, "24");
+define_asm_read_fpr!(asm_read_fpr_25, "25");
+define_asm_read_fpr!(asm_read_fpr_26, "26");
+define_asm_read_fpr!(asm_read_fpr_27, "27");
+define_asm_read_fpr!(asm_read_fpr_28, "28");
+define_asm_read_fpr!(asm_read_fpr_29, "29");
+define_asm_read_fpr!(asm_read_fpr_30, "30");
+define_asm_read_fpr!(asm_read_fpr_31, "31");
+
+/// Writes a value to the specified floating-point register.
+fn write_fpr(fd: usize, val: u64) {
+    match fd {
+        0 => asm_write_fpr_0(val),
+        1 => asm_write_fpr_1(val),
+        2 => asm_write_fpr_2(val),
+        3 => asm_write_fpr_3(val),
+        4 => asm_write_fpr_4(val),
+        5 => asm_write_fpr_5(val),
+        6 => asm_write_fpr_6(val),
+        7 => asm_write_fpr_7(val),
+        8 => asm_write_fpr_8(val),
+        9 => asm_write_fpr_9(val),
+        10 => asm_write_fpr_10(val),
+        11 => asm_write_fpr_11(val),
+        12 => asm_write_fpr_12(val),
+        13 => asm_write_fpr_13(val),
+        14 => asm_write_fpr_14(val),
+        15 => asm_write_fpr_15(val),
+        16 => asm_write_fpr_16(val),
+        17 => asm_write_fpr_17(val),
+        18 => asm_write_fpr_18(val),
+        19 => asm_write_fpr_19(val),
+        20 => asm_write_fpr_20(val),
+        21 => asm_write_fpr_21(val),
+        22 => asm_write_fpr_22(val),
+        23 => asm_write_fpr_23(val),
+        24 => asm_write_fpr_24(val),
+        25 => asm_write_fpr_25(val),
+        26 => asm_write_fpr_26(val),
+        27 => asm_write_fpr_27(val),
+        28 => asm_write_fpr_28(val),
+        29 => asm_write_fpr_29(val),
+        30 => asm_write_fpr_30(val),
+        31 => asm_write_fpr_31(val),
+        _ => {
+            panic!("Undefined Float Register")
+        }
+    }
+}
+
+/// Reads the value of the specified floating-point register.
+fn read_fpr(fd: usize) -> u64 {
+    let value: u64;
+    match fd {
+        0 => value = asm_read_fpr_0(),
+        1 => value = asm_read_fpr_1(),
+        2 => value = asm_read_fpr_2(),
+        3 => value = asm_read_fpr_3(),
+        4 => value = asm_read_fpr_4(),
+        5 => value = asm_read_fpr_5(),
+        6 => value = asm_read_fpr_6(),
+        7 => value = asm_read_fpr_7(),
+        8 => value = asm_read_fpr_8(),
+        9 => value = asm_read_fpr_9(),
+        10 => value = asm_read_fpr_10(),
+        11 => value = asm_read_fpr_11(),
+        12 => value = asm_read_fpr_12(),
+        13 => value = asm_read_fpr_13(),
+        14 => value = asm_read_fpr_14(),
+        15 => value = asm_read_fpr_15(),
+        16 => value = asm_read_fpr_16(),
+        17 => value = asm_read_fpr_17(),
+        18 => value = asm_read_fpr_18(),
+        19 => value = asm_read_fpr_19(),
+        20 => value = asm_read_fpr_20(),
+        21 => value = asm_read_fpr_21(),
+        22 => value = asm_read_fpr_22(),
+        23 => value = asm_read_fpr_23(),
+        24 => value = asm_read_fpr_24(),
+        25 => value = asm_read_fpr_25(),
+        26 => value = asm_read_fpr_26(),
+        27 => value = asm_read_fpr_27(),
+        28 => value = asm_read_fpr_28(),
+        29 => value = asm_read_fpr_29(),
+        30 => value = asm_read_fpr_30(),
+        31 => value = asm_read_fpr_31(),
+        _ => {
+            panic!("Undefined Float Register")
+        }
+    }
+    value
+}
+
+const LDH_OP: u32 = 0xa1;
+const LDHU_OP: u32 = 0xa9;
+const LDW_OP: u32 = 0xa2;
+const LDWU_OP: u32 = 0xaa;
+const LDD_OP: u32 = 0xa3;
+const STH_OP: u32 = 0xa5;
+const STW_OP: u32 = 0xa6;
+const STD_OP: u32 = 0xa7;
+
+const LDPTRW_OP: u32 = 0x24;
+const LDPTRD_OP: u32 = 0x26;
+const STPTRW_OP: u32 = 0x25;
+const STPTRD_OP: u32 = 0x27;
+
+const LDXH_OP: u32 = 0x7048;
+const LDXHU_OP: u32 = 0x7008;
+const LDXW_OP: u32 = 0x7010;
+const LDXWU_OP: u32 = 0x7050;
+const LDXD_OP: u32 = 0x7018;
+const STXH_OP: u32 = 0x7028;
+const STXW_OP: u32 = 0x7030;
+const STXD_OP: u32 = 0x7038;
+
+const FLDS_OP: u32 = 0xac;
+const FLDD_OP: u32 = 0xae;
+const FSTS_OP: u32 = 0xad;
+const FSTD_OP: u32 = 0xaf;
+
+const FSTXS_OP: u32 = 0x7070;
+const FSTXD_OP: u32 = 0x7078;
+const FLDXS_OP: u32 = 0x7060;
+const FLDXD_OP: u32 = 0x7068;
+
+impl TrapFrame {
+    /// Emulates an unaligned memory access triggered by a trap.
+    ///
+    /// # Safety
+    /// This function uses raw pointers and inline assembly to handle unaligned memory accesses,
+    /// so it must only be called in a valid trap context with a properly initialized TrapFrame.
+    pub unsafe fn emulate_unaligned(&mut self) -> Result<(), UnalignedError> {
+        let mut value: u64 = 0;
+
+        let badv = badv::read().vaddr() as u64;
+        // SAFETY: `self.era` points to the faulting instruction in the code segment,
+        // readable in the current trap context.
+        let badi = unsafe { core::ptr::read(self.era as *const u32) };
+        let rd = (badi & 0x1f) as usize;
+
+        // SAFETY: `GeneralRegisters` is `repr(C)` and consists of exactly 32 consecutive
+        // `usize` fields, so its storage can be viewed as a mutable `[usize]` for indexed
+        // register access during emulation.
+        let regs = unsafe {
+            core::slice::from_raw_parts_mut(core::ptr::from_mut(&mut self.regs).cast::<usize>(), 32)
+        };
+
+        if (badi >> 22) == LDD_OP || (badi >> 24) == LDPTRD_OP || (badi >> 15) == LDXD_OP {
+            unaligned_read(badv, &mut value, 8, true)?;
+            regs[rd] = value as usize;
+        } else if (badi >> 22) == LDW_OP || (badi >> 24) == LDPTRW_OP || (badi >> 15) == LDXW_OP {
+            unaligned_read(badv, &mut value, 4, true)?;
+            regs[rd] = value as usize;
+        } else if (badi >> 22) == LDWU_OP || (badi >> 15) == LDXWU_OP {
+            unaligned_read(badv, &mut value, 4, false)?;
+            regs[rd] = value as usize;
+        } else if (badi >> 22) == LDH_OP || (badi >> 15) == LDXH_OP {
+            unaligned_read(badv, &mut value, 2, true)?;
+            regs[rd] = value as usize;
+        } else if (badi >> 22) == LDHU_OP || (badi >> 15) == LDXHU_OP {
+            unaligned_read(badv, &mut value, 2, false)?;
+            regs[rd] = value as usize;
+        } else if (badi >> 22) == STD_OP || (badi >> 24) == STPTRD_OP || (badi >> 15) == STXD_OP {
+            value = regs[rd] as u64;
+            unaligned_write(badv, value, 8)?;
+        } else if (badi >> 22) == STW_OP || (badi >> 24) == STPTRW_OP || (badi >> 15) == STXW_OP {
+            value = regs[rd] as u64;
+            unaligned_write(badv, value, 4)?;
+        } else if (badi >> 22) == STH_OP || (badi >> 15) == STXH_OP {
+            value = regs[rd] as u64;
+            unaligned_write(badv, value, 2)?;
+        } else if (badi >> 22) == FLDD_OP || (badi >> 15) == FLDXD_OP {
+            unaligned_read(badv, &mut value, 8, true)?;
+            write_fpr(rd, value);
+        } else if (badi >> 22) == FLDS_OP || (badi >> 15) == FLDXS_OP {
+            unaligned_read(badv, &mut value, 4, true)?;
+            write_fpr(rd, value);
+        } else if (badi >> 22) == FSTD_OP || (badi >> 15) == FSTXD_OP {
+            value = read_fpr(rd);
+            unaligned_write(badv, value, 8)?;
+        } else if (badi >> 22) == FSTS_OP || (badi >> 15) == FSTXS_OP {
+            value = read_fpr(rd);
+            unaligned_write(badv, value, 4)?;
+        } else {
+            return Err(UnalignedError {
+                addr: badv,
+                n: None,
+            });
+        }
+
+        self.era += 4;
+
+        Ok(())
+    }
+}

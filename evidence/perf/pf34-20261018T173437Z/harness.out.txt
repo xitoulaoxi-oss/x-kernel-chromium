@@ -1,0 +1,222 @@
+== xkwin (Windows-native guest harness) ==
+  kernel  : D:\x-kernel-dsh-bridge\pr\kernel\kernel-procfs.bin
+  disk    : D:\x-kernel-dsh-bridge\delivered\agentos-disk.img (-snapshot)
+  display : none  +  vnc :0 (port 5900)
+  console : tcp 127.0.0.1:49410
+  qmp     : tcp 127.0.0.1:49411
+  output  : D:\x-kernel-dsh-bridge\pr\evidence\perf\pf34-20261018T173437Z
+
+  connected to guest console and QMP.
+[37m[  0.672107 0:18446462599824926736 knet:203] [33m  No vsock device found![m
+[march = aarch64
+platform = kplat-aarch64
+target = aarch64-unknown-none-softfloat
+build_mode = release
+build_machine = xitoulaoxi@xitoulaoxi-desktop
+build_time = 2026-10-16T10:52:47.384545672Z
+log_level = warn
+backtrace = false
+nr_cpus_max = 4
+vmm = off
+config_sha256 = c27d8b2b3414d219359808f56611284945306fd50a28dbed81a9b252807d955c
+git_commit = d3a6ec95a9dded154db2c1aadd4fef44eadb1612
+git_dirty = true
+build_id = 815e69c2d51f6ffafa36a7162b8062c2074706004196edb46647447a17a966da
+smp = 4
+Welcome to [96m[1mKylin X[0m!
+SHLVL=1
+HOME=/root
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PWD=/
+
+Use [1m[3mapt[0m to install packages.
+
+init: handing off to /sbin/init (inittab present, /dev/console present)
+init: must be run as PID 1
+init: /sbin/init exited immediately; falling back to an interactive shell
+kylin-x:~# [6n  guest shell prompt reached.
+
+kylin-x:~# [6n    shot 00-before: 640x480 colors=2 dominant=0.9989 blank=True
+  staged for the guest (3): index.html, interaction.html, layout.html
+  upload server verified: http://10.0.2.2:56436/ (guest view)
+  staged for the guest (3): index.html, interaction.html, layout.html
+
+--- guest$ export XK_HTTP
+export XK_HTTP=http://10.0.2.2:56436; echo XK_HTTP=http://10.0.2.2:56436
+XK_HTTP=http://10.0.2.2:56436
+kylin-x:~# echo __XK4515050__rc=$?
+__XK4515050__rc=0
+kylin-x:~# [6n    [rc=0]
+
+--- guest$ fetch c2-perf-launch.sh
+wget -q -O /tmp/xk-c2-perf-launch.sh 'http://10.0.2.2:56436/c2-perf-launch.sh' && sha256sum /tmp/xk
+
+-c2-perf-launch.sh
+6832fbf9f444e55a8038aeeda27f0bdb25eaa7610cbd7b3c6d77a725194fbce0  /tmp/xk-c2-perf-launch.sh
+kylin-x:~# echo __XK6351215__rc=$?
+__XK6351215__rc=0
+kylin-x:~# [6n    [rc=0]
+    c2-perf-launch.sh: 764 bytes, sha256 verified over HTTP
+chmod +x /tmp/xk-c2-perf-launch.sh
+kylin-x:~# echo __XK3829538__rc=$?
+__XK3829538__rc=0
+kylin-x:~# [6n
+--- guest$ fetch c2-perf-monitor.sh
+wget -q -O /tmp/xk-c2-perf-monitor.sh 'http://10.0.2.2:56436/c2-perf-monitor.sh' && sha256sum /tmp/
+
+xk-c2-perf-monitor.sh
+88c4cf65f36050a8071543fb7c0d0de67a1b381c85c3330a597e78af4c9b83ea  /tmp/xk-c2-perf-monitor.sh
+kylin-x:~# echo __XK8286191__rc=$?
+__XK8286191__rc=0
+kylin-x:~# [6n    [rc=0]
+    c2-perf-monitor.sh: 1534 bytes, sha256 verified over HTTP
+chmod +x /tmp/xk-c2-perf-monitor.sh
+kylin-x:~# echo __XK1098587__rc=$?
+__XK1098587__rc=0
+kylin-x:~# [6n
+--- guest$ fetch c1-perf-harvest.sh
+wget -q -O /tmp/xk-c1-perf-harvest.sh 'http://10.0.2.2:56436/c1-perf-harvest.sh' && sha256sum /tmp/
+
+xk-c1-perf-harvest.sh
+a0c53cffe479cd5da41d544e526e283ebed2538d453b13d341167f618c17cb82  /tmp/xk-c1-perf-harvest.sh
+kylin-x:~# echo __XK7250230__rc=$?
+__XK7250230__rc=0
+kylin-x:~# [6n    [rc=0]
+    c1-perf-harvest.sh: 526 bytes, sha256 verified over HTTP
+chmod +x /tmp/xk-c1-perf-harvest.sh
+kylin-x:~# echo __XK6152443__rc=$?
+__XK6152443__rc=0
+kylin-x:~# [6n
+--- guest$ fetch 06-fetch-pages.sh
+wget -q -O /tmp/xk-06-fetch-pages.sh 'http://10.0.2.2:56436/06-fetch-pages.sh' && sha256sum /tmp/xk
+
+-06-fetch-pages.sh
+907d8ac4f5c6ab32f70cf181cec3287a46d4d8e099977c954a31bceb7cdfc016  /tmp/xk-06-fetch-pages.sh
+kylin-x:~# echo __XK6813222__rc=$?
+__XK6813222__rc=0
+kylin-x:~# [6n    [rc=0]
+    06-fetch-pages.sh: 1135 bytes, sha256 verified over HTTP
+chmod +x /tmp/xk-06-fetch-pages.sh
+kylin-x:~# echo __XK4546765__rc=$?
+__XK4546765__rc=0
+kylin-x:~# [6n=== run 06-fetch-pages.sh ===
+
+--- guest$ sh 06-fetch-pages.sh
+sh /tmp/xk-06-fetch-pages.sh 2>&1
+P index bytes=5730 sha=831cf28f3748940b
+P interaction bytes=10991 sha=58130daa4a2f426f
+P layout bytes=11444 sha=a1b04f9aba81b4b7
+P1 ok=3 bad=0
+P2 url=file:///usr/share/kiosk/official/index.html
+total 0
+-rw-r--r--    1 root     root          5730 Oct 18 17:34 [0;0mindex.html[m
+-rw-r--r--    1 root     root         10991 Oct 18 17:34 [0;0minteraction.html[m
+-rw-r--r--    1 root     root         11444 Oct 18 17:34 [0;0mlayout.html[m
+P3
+kylin-x:~# echo __XK1899243__rc=$?
+__XK1899243__rc=0
+kylin-x:~# [6n    [rc=0]
+    shot 01-after-06-fetch-pages: 640x480 colors=2 dominant=0.9989 blank=True
+
+--- guest$ fetch c1-perf-x.sh
+wget -q -O /tmp/xk-c1-perf-x.sh 'http://10.0.2.2:56436/c1-perf-x.sh' && sha256sum /tmp/xk-c1-perf-x
+
+.sh
+5184d9b6a553a6d5906ff1a15f12ef3c8b1a6561f5fa894e6a84522216447367  /tmp/xk-c1-perf-x.sh
+kylin-x:~# echo __XK5395611__rc=$?
+__XK5395611__rc=0
+kylin-x:~# [6n    [rc=0]
+    c1-perf-x.sh: 1079 bytes, sha256 verified over HTTP
+chmod +x /tmp/xk-c1-perf-x.sh
+kylin-x:~# echo __XK4253846__rc=$?
+__XK4253846__rc=0
+kylin-x:~# [6n=== run c1-perf-x.sh ===
+
+--- guest$ sh c1-perf-x.sh
+sh /tmp/xk-c1-perf-x.sh 2>&1
+P1-BEGIN
+xorg_s=1
+jwm_s=2
+P1-END
+kylin-x:~# echo __XK3219836__rc=$?
+__XK3219836__rc=0
+kylin-x:~# [6n    [rc=0]
+    shot 02-after-c1-perf-x: 640x480 colors=2 dominant=0.9989 blank=True
+
+--- guest$ fetch c2-perf-prep.sh
+wget -q -O /tmp/xk-c2-perf-prep.sh 'http://10.0.2.2:56436/c2-perf-prep.sh' && sha256sum /tmp/xk-c2-
+
+perf-prep.sh
+1f54b63fd1d73d488d82c687dd5cadcab3633342440fb964199e5cc87e75328b  /tmp/xk-c2-perf-prep.sh
+kylin-x:~# echo __XK4382402__rc=$?
+__XK4382402__rc=0
+kylin-x:~# [6n    [rc=0]
+    c2-perf-prep.sh: 425 bytes, sha256 verified over HTTP
+chmod +x /tmp/xk-c2-perf-prep.sh
+kylin-x:~# echo __XK4244059__rc=$?
+__XK4244059__rc=0
+kylin-x:~# [6n=== run c2-perf-prep.sh ===
+
+--- guest$ sh c2-perf-prep.sh
+sh /tmp/xk-c2-perf-prep.sh 2>&1
+prep_dir=/tmp/pr
+PREP-END
+kylin-x:~# echo __XK9409914__rc=$?
+__XK9409914__rc=0
+kylin-x:~# [6n    [rc=0]
+    shot 03-after-c2-perf-prep: 640x480 colors=2 dominant=0.9989 blank=True
+
+=== frame watch: dispatch 'sh /tmp/xk-c2-perf-launch.sh' at t=0, then 2s cadence for 140s ===
+    fw 001  t=   0.02s
+sh /tmp/xk-c2-perf-launch.sh
+    fw 002  t=   2.02s
+t0=1792344899
+launch_epoch=1792344905
+LAUNCH-END
+kylin-x:~# 
+kylin-x:~# [6n    fw 003  t=   4.03s
+[37m[ 41.841193 0:73 ksyscall::dispatch:885] [33mUnimplemented syscall: landlock_create_ruleset (tid=73)[m
+[m    fw 010  t=  18.05s
+    fw 020  t=  38.05s
+    fw 030  t=  58.05s
+    fw 040  t=  78.04s
+    fw 050  t=  98.04s
+    fw 060  t= 118.04s
+    fw 070  t= 138.05s
+  frame watch: 70 frames over 140.0s
+  frames=70 baseline_colors=28 threshold=100
+first_frame_s=66.051 (bracket 64.054..66.051, colors 91 -> 264)
+  threshold   30 -> 54.054
+  threshold   50 -> 54.054
+  threshold  100 -> 66.051
+  threshold  200 -> 66.051
+  threshold  300 -> None
+  threshold  500 -> None
+
+=== guest cmd: sh /tmp/xk-c1-perf-harvest.sh ===
+
+--- guest$ sh /tmp/xk-c1-perf-harvest.sh
+sh /tmp/xk-c1-perf-harvest.sh
+chrome_s=7
+renderer_s=41
+renderer_pid=232
+renderer_threads=2
+zygote_pids= 136 138
+marks_loops=23
+done=1
+log_bytes=10807
+chrome_pids=10
+win=_NET_CLIENT_LIST(WINDOW): window id # 0x400003
+HARVEST-END
+kylin-x:~# echo __XK4656001__rc=$?
+__XK4656001__rc=0
+kylin-x:~# [6n    [rc=0]
+    shot 04-after-step-cmd: 1280x800 colors=262 dominant=0.6804 blank=False
+
+--- reading the console for 20s more (async guest output) ---
+    shot zz-final: 1280x800 colors=264 dominant=0.6804 blank=False
+
+== shutting down ==
+  qemu metrics      : peak_ws=2,122,924,032 B  cpu=382.31 s
+  console transcript : D:\x-kernel-dsh-bridge\pr\evidence\perf\pf34-20261018T173437Z\console.log
+  evidence directory : D:\x-kernel-dsh-bridge\pr\evidence\perf\pf34-20261018T173437Z

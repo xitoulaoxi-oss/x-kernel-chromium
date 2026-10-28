@@ -1,0 +1,18 @@
+[package]
+name = "memaddr"
+description = "Wrappers and helper functions for physical and virtual addresses"
+documentation.workspace = true
+keywords = ["address", "virtual-memory"]
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+
+[dependencies]
+unittest.workspace = true
+
+[lints]
+workspace = true

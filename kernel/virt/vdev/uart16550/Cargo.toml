@@ -1,0 +1,17 @@
+[package]
+name = "vdev-uart16550"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Virtual 16550A UART device"
+
+[dependencies]
+klogger.workspace = true
+ksync.workspace = true
+vdev-core.workspace = true
+
+[lints]
+workspace = true

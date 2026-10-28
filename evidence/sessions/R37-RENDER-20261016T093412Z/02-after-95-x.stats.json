@@ -1,0 +1,19 @@
+{
+  "file": "D:\\x-kernel-dsh-bridge\\new\\verify-out\\R37-RENDER-20261016T093412Z\\02-after-95-x.png",
+  "width": 1280,
+  "height": 800,
+  "sampled_pixels": 64000,
+  "colors": 1,
+  "dominant_fraction": 1.0,
+  "blank": true,
+  "top_colors": [
+    [
+      [
+        0,
+        0,
+        0
+      ],
+      64000
+    ]
+  ]
+}

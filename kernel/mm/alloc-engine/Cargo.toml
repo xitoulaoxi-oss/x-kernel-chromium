@@ -1,0 +1,42 @@
+[package]
+name = "alloc-engine"
+description = "Allocator implementations behind a unified interface"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+full = ["buddy-page", "tlsf", "slab", "buddy", "allocator_api"]
+
+buddy-page = []
+
+tlsf = ["dep:rlsf"]
+slab = []
+buddy = ["dep:buddy_system_allocator"]
+
+allocator_api = []
+
+
+kerrno = ["dep:kerrno"]
+
+[dependencies]
+intrusive-collections.workspace = true
+kerrno = { workspace = true, optional = true }
+rlsf = { version = "0.2", optional = true }
+buddy_system_allocator = { version = "0.10", default-features = false, optional = true }
+unittest.workspace = true
+
+[dev-dependencies]
+rand = { version = "0.8", features = ["small_rng"] }
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "collections"
+harness = false
+
+[lints]
+workspace = true

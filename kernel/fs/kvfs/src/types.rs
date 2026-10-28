@@ -1,0 +1,335 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! Common VFS data types.
+
+/// Device number stored in special inodes (`dev_t`).
+pub use kdevice::DeviceNumber as DeviceId;
+use ktime_types::SystemTime;
+
+/// Filesystem node type values.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum NodeType {
+    Unknown         = 0,
+    Fifo            = 0o1,
+    CharacterDevice = 0o2,
+    Directory       = 0o4,
+    BlockDevice     = 0o6,
+    RegularFile     = 0o10,
+    Symlink         = 0o12,
+    Socket          = 0o14,
+}
+
+impl NodeType {
+    const fn from_mode_type(value: u8) -> Self {
+        match value {
+            0o1 => Self::Fifo,
+            0o2 => Self::CharacterDevice,
+            0o4 => Self::Directory,
+            0o6 => Self::BlockDevice,
+            0o10 => Self::RegularFile,
+            0o12 => Self::Symlink,
+            0o14 => Self::Socket,
+            _ => Self::Unknown,
+        }
+    }
+
+    pub(crate) const fn is_special(self) -> bool {
+        matches!(
+            self,
+            Self::CharacterDevice | Self::BlockDevice | Self::Fifo | Self::Socket
+        )
+    }
+}
+
+impl From<u8> for NodeType {
+    fn from(value: u8) -> Self {
+        Self::from_mode_type(value)
+    }
+}
+
+bitflags::bitflags! {
+    /// Inode permission mode.
+    #[derive(Debug, Clone, Copy)]
+    pub struct NodePermission: u16 {
+        /// Set user ID on execution.
+        const SET_UID = 0o4000;
+        /// Set group ID on execution.
+        const SET_GID = 0o2000;
+        /// Sticky bit.
+        const STICKY = 0o1000;
+
+        /// Owner has read permission.
+        const OWNER_READ = 0o400;
+        /// Owner has write permission.
+        const OWNER_WRITE = 0o200;
+        /// Owner has execute permission.
+        const OWNER_EXEC = 0o100;
+
+        /// Group has read permission.
+        const GROUP_READ = 0o40;
+        /// Group has write permission.
+        const GROUP_WRITE = 0o20;
+        /// Group has execute permission.
+        const GROUP_EXEC = 0o10;
+
+        /// Others have read permission.
+        const OTHER_READ = 0o4;
+        /// Others have write permission.
+        const OTHER_WRITE = 0o2;
+        /// Others have execute permission.
+        const OTHER_EXEC = 0o1;
+    }
+}
+
+impl Default for NodePermission {
+    fn default() -> Self {
+        Self::from_bits_truncate(0o666)
+    }
+}
+
+const NODE_TYPE_SHIFT: u16 = 12;
+const NODE_TYPE_MASK: u16 = 0o170000;
+const PERMISSION_MASK: u16 = 0o7777;
+
+/// Inode mode value encoded with Linux `umode_t` layout.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Umode(u16);
+
+impl Umode {
+    /// Creates a mode value from raw Linux mode bits.
+    pub const fn from_bits(bits: u16) -> Self {
+        Self(bits)
+    }
+
+    /// Creates a mode value from a node type and permission bits.
+    pub const fn new(node_type: NodeType, permission: NodePermission) -> Self {
+        Self(((node_type as u16) << NODE_TYPE_SHIFT) | (permission.bits() & PERMISSION_MASK))
+    }
+
+    /// Returns the raw Linux mode bits.
+    pub const fn bits(self) -> u16 {
+        self.0
+    }
+
+    /// Returns the file type encoded in this mode.
+    pub const fn node_type(self) -> NodeType {
+        NodeType::from_mode_type(((self.0 & NODE_TYPE_MASK) >> NODE_TYPE_SHIFT) as u8)
+    }
+
+    const fn type_bits(self) -> u16 {
+        self.0 & NODE_TYPE_MASK
+    }
+
+    /// Returns the node type requested through a Linux `mknod(2)` mode.
+    ///
+    /// An absent type field denotes a regular file. Unsupported or malformed
+    /// type fields are returned as their decoded [`NodeType`] so the namei
+    /// boundary can assign the operation-specific error.
+    pub const fn mknod_node_type(self) -> NodeType {
+        match self.type_bits() {
+            0 => NodeType::RegularFile,
+            _ => self.node_type(),
+        }
+    }
+
+    /// Returns the permission bits encoded in this mode.
+    pub const fn permission(self) -> NodePermission {
+        NodePermission::from_bits_truncate(self.0 & PERMISSION_MASK)
+    }
+
+    /// Returns this mode with new permission bits and the same file type.
+    pub const fn with_permission(self, permission: NodePermission) -> Self {
+        Self((self.0 & NODE_TYPE_MASK) | (permission.bits() & PERMISSION_MASK))
+    }
+
+    /// Returns this mode with a new file type and the same permission bits.
+    pub const fn with_node_type(self, node_type: NodeType) -> Self {
+        Self(((node_type as u16) << NODE_TYPE_SHIFT) | (self.0 & PERMISSION_MASK))
+    }
+}
+
+/// Filesystem node metadata.
+#[derive(Clone, Debug)]
+pub struct Metadata {
+    /// ID of device containing file
+    pub device: u64,
+    /// Inode number
+    pub inode: u64,
+    /// Number of hard links
+    pub nlink: u64,
+    /// File type and permission mode.
+    pub mode: Umode,
+    /// User ID of owner
+    pub uid: u32,
+    /// Group ID of owner
+    pub gid: u32,
+    /// Total size in bytes
+    pub size: u64,
+    /// Block size for filesystem I/O
+    pub block_size: u64,
+    /// Number of 512B blocks allocated
+    pub blocks: u64,
+    /// Device ID (if special file)
+    pub rdev: DeviceId,
+
+    /// Time of last access
+    pub atime: SystemTime,
+    /// Time of last modification
+    pub mtime: SystemTime,
+    /// Time of last status change
+    pub ctime: SystemTime,
+}
+
+/// Inode access, modification, and status-change timestamps.
+///
+/// A cheap copyable snapshot of the resident timestamps read under a single
+/// storage lock; the timestamp-only counterpart to [`Metadata`]. Field names
+/// follow the `VfsInode` timestamp setter family and correspond to
+/// [`Metadata::atime`], [`Metadata::mtime`], and [`Metadata::ctime`].
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct InodeTimes {
+    /// Time of last access
+    pub accessed_at: SystemTime,
+    /// Time of last modification
+    pub modified_at: SystemTime,
+    /// Time of last status change
+    pub changed_at: SystemTime,
+}
+
+/// Filesystem node metadata update.
+#[derive(Default, Clone, Debug)]
+pub struct MetadataUpdate {
+    /// File size
+    pub size: Option<u64>,
+    /// Permission mode
+    pub mode: Option<NodePermission>,
+    /// The owner (uid, gid)
+    pub owner: Option<(u32, u32)>,
+
+    /// Time of last access
+    pub atime: Option<SystemTime>,
+    /// Time of last modification
+    pub mtime: Option<SystemTime>,
+    /// Time of last status change
+    pub ctime: Option<SystemTime>,
+}
+
+/// Requested timestamp value together with its authorization semantics.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SetattrTime {
+    /// Set the timestamp to the current wall-clock value.
+    Current(SystemTime),
+    /// Set the timestamp to a caller-supplied value.
+    Explicit(SystemTime),
+}
+
+impl SetattrTime {
+    /// Returns the resolved timestamp written to the filesystem.
+    pub const fn value(self) -> SystemTime {
+        match self {
+            Self::Current(value) | Self::Explicit(value) => value,
+        }
+    }
+}
+
+#[unittest::mod_test]
+mod tests {
+    use unittest::{assert, assert_eq, def_test};
+
+    use super::*;
+    use crate::{SuperBlock, VfsError};
+
+    #[def_test]
+    fn test_node_type_conversion() {
+        assert_eq!(NodeType::from(0o1), NodeType::Fifo);
+        assert_eq!(NodeType::from(0o2), NodeType::CharacterDevice);
+        assert_eq!(NodeType::from(0o4), NodeType::Directory);
+        assert_eq!(NodeType::from(0o6), NodeType::BlockDevice);
+        assert_eq!(NodeType::from(0o10), NodeType::RegularFile);
+        assert_eq!(NodeType::from(0o12), NodeType::Symlink);
+        assert_eq!(NodeType::from(0o14), NodeType::Socket);
+        assert_eq!(NodeType::from(0o0), NodeType::Unknown);
+        assert_eq!(NodeType::from(0o77), NodeType::Unknown);
+    }
+
+    #[def_test]
+    fn test_node_permission_bitflags() {
+        let rwx =
+            NodePermission::OWNER_READ | NodePermission::OWNER_WRITE | NodePermission::OWNER_EXEC;
+        assert!(rwx.contains(NodePermission::OWNER_READ));
+        assert!(rwx.contains(NodePermission::OWNER_WRITE));
+        assert!(rwx.contains(NodePermission::OWNER_EXEC));
+        assert!(!rwx.contains(NodePermission::GROUP_READ));
+
+        let default = NodePermission::default();
+        assert!(default.contains(NodePermission::OWNER_READ));
+        assert!(default.contains(NodePermission::OWNER_WRITE));
+        assert!(!default.contains(NodePermission::OWNER_EXEC));
+        assert!(default.contains(NodePermission::GROUP_READ));
+        assert!(default.contains(NodePermission::GROUP_WRITE));
+        assert!(default.contains(NodePermission::OTHER_READ));
+        assert!(default.contains(NodePermission::OTHER_WRITE));
+
+        let special = NodePermission::SET_UID | NodePermission::SET_GID | NodePermission::STICKY;
+        assert!(special.contains(NodePermission::SET_UID));
+        assert!(special.contains(NodePermission::SET_GID));
+        assert!(special.contains(NodePermission::STICKY));
+    }
+
+    #[def_test]
+    fn mknod_node_type_decodes_linux_type_field() {
+        assert_eq!(
+            Umode::from_bits(0o600).mknod_node_type(),
+            NodeType::RegularFile
+        );
+        assert_eq!(
+            Umode::from_bits(0o100600).mknod_node_type(),
+            NodeType::RegularFile
+        );
+        assert_eq!(Umode::from_bits(0o010600).mknod_node_type(), NodeType::Fifo);
+        assert_eq!(
+            Umode::from_bits(0o020600).mknod_node_type(),
+            NodeType::CharacterDevice
+        );
+        assert_eq!(
+            Umode::from_bits(0o060600).mknod_node_type(),
+            NodeType::BlockDevice
+        );
+        assert_eq!(
+            Umode::from_bits(0o140600).mknod_node_type(),
+            NodeType::Socket
+        );
+        assert_eq!(
+            Umode::from_bits(0o040700).mknod_node_type(),
+            NodeType::Directory
+        );
+        assert_eq!(
+            Umode::from_bits(0o120777).mknod_node_type(),
+            NodeType::Symlink
+        );
+        assert_eq!(
+            Umode::from_bits(0o030600).mknod_node_type(),
+            NodeType::Unknown
+        );
+    }
+
+    #[def_test]
+    fn test_vfs_error_types() {
+        let _not_found = VfsError::NotFound;
+        let _already_exists = VfsError::AlreadyExists;
+        let _not_a_directory = VfsError::NotADirectory;
+        let _is_a_directory = VfsError::IsADirectory;
+        let _directory_not_empty = VfsError::DirectoryNotEmpty;
+        let _permission_denied = VfsError::PermissionDenied;
+        let _invalid_input = VfsError::InvalidInput;
+    }
+
+    #[def_test]
+    fn test_super_block_handle_type_constraints() {
+        fn assert_traits<T: Send + Sync + Clone>() {}
+        assert_traits::<alloc::sync::Arc<SuperBlock>>();
+    }
+}

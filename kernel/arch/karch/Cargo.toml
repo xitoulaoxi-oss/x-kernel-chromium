@@ -1,0 +1,49 @@
+[package]
+name = "karch"
+description = "Lightweight architecture-specific low-level operations (TLB flush, cache maintenance, CPU halt, interrupt management, thread pointer access)"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+arm-el2 = []
+nmi-hardware = []
+nmi-pseudo = []
+smp = []
+
+[dependencies]
+cfg-if = { workspace = true }
+memaddr = { workspace = true }
+kbuild_config = { workspace = true }
+kcpu_id_map = { workspace = true }
+kiface = { workspace = true }
+kcpu_slot = { workspace = true }
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+x86 = "0.52"
+x86_64 = { workspace = true }
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+aarch64-cpu.workspace = true
+
+[target.'cfg(any(target_arch = "riscv32", target_arch = "riscv64"))'.dependencies]
+riscv = "0.14"
+
+[target.'cfg(target_arch = "loongarch64")'.dependencies]
+loongArch64 = "0.2.4"
+
+[package.metadata.docs.rs]
+all-features = true
+targets = [
+    "x86_64-unknown-none",
+    "aarch64-unknown-none-softfloat",
+    "riscv64gc-unknown-none-elf",
+    "loongarch64-unknown-none-softfloat",
+]
+
+[lints]
+workspace = true

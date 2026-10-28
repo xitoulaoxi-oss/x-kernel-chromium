@@ -1,0 +1,31 @@
+[package]
+name = "ktracing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+smp = ["kspin/smp"]
+tracepoint = []
+
+[dependencies]
+ktracepoint = { workspace = true }
+karch = { workspace = true }
+khal = { workspace = true }
+static-keys = { workspace = true }
+kspin = { workspace = true }
+klazy = { workspace = true }
+lock_api = { workspace = true }
+memspace = { workspace = true }
+memaddr = { workspace = true }
+ktask = { workspace = true }
+unittest = { workspace = true }
+
+[lints]
+workspace = true

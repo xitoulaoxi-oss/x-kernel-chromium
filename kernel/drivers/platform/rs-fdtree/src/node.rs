@@ -1,0 +1,603 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+use crate::{
+    LinuxFdt,
+    parsing::{BigEndianU32, CStr, FdtData},
+};
+
+const FDT_BEGIN_NODE: u32 = 1;
+const FDT_END_NODE: u32 = 2;
+const FDT_PROP: u32 = 3;
+pub(crate) const FDT_NOP: u32 = 4;
+const FDT_END: u32 = 9;
+const MAX_NODE_DEPTH: usize = 63;
+
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+struct FdtProperty {
+    len: crate::parsing::BigEndianU32,
+    name_offset: crate::parsing::BigEndianU32,
+}
+
+impl FdtProperty {
+    fn from_bytes(bytes: &mut FdtData<'_>) -> Option<Self> {
+        Some(Self {
+            len: bytes.u32()?,
+            name_offset: bytes.u32()?,
+        })
+    }
+}
+
+/// A device-tree node: its name plus borrowed views of its property bytes
+/// and (optionally) its parent's property bytes for `#*-cells` lookups.
+#[derive(Debug, Clone, Copy)]
+pub struct FdtNode<'b, 'a> {
+    /// Node name (may include unit address, e.g., "uart@10000000")
+    pub name: &'a str,
+    pub(crate) header: &'b LinuxFdt<'a>,
+    props: &'a [u8],
+    parent_props: Option<&'a [u8]>,
+}
+
+impl<'b, 'a: 'b> FdtNode<'b, 'a> {
+    /// Returns an iterator over the current node properties.
+    pub fn properties(self) -> impl Iterator<Item = NodeProperty<'a>> + 'b {
+        let mut stream = FdtData::new(self.props);
+        let mut done = false;
+
+        core::iter::from_fn(move || {
+            if stream.is_empty() || done {
+                return None;
+            }
+
+            stream.skip_nops();
+            if stream.peek_u32()?.get() != FDT_PROP {
+                done = true;
+                return None;
+            }
+
+            Some(NodeProperty::parse(&mut stream, self.header))
+        })
+    }
+
+    /// Returns the named property if present.
+    pub fn property(self, name: &str) -> Option<NodeProperty<'a>> {
+        self.properties().find(|prop| prop.name == name)
+    }
+
+    /// Returns the named property interpreted as a C-string.
+    pub fn property_str(self, name: &str) -> Option<&'a str> {
+        let prop = self.property(name)?;
+        CStr::new(prop.value)?.as_str()
+    }
+
+    /// Returns the named property interpreted as a big-endian u32.
+    pub fn property_u32(self, name: &str) -> Option<u32> {
+        Some(BigEndianU32::from_bytes(self.property(name)?.value)?.get())
+    }
+
+    /// Returns the named property from the direct parent node if present.
+    pub fn parent_property(self, name: &str) -> Option<NodeProperty<'a>> {
+        let props = self.parent_props?;
+        let mut stream = FdtData::new(props);
+        let mut done = false;
+
+        core::iter::from_fn(move || {
+            if stream.is_empty() || done {
+                return None;
+            }
+
+            stream.skip_nops();
+            if stream.peek_u32()?.get() != FDT_PROP {
+                done = true;
+                return None;
+            }
+
+            Some(NodeProperty::parse(&mut stream, self.header))
+        })
+        .find(|prop| prop.name == name)
+    }
+
+    /// Returns the named property from the direct parent node interpreted as a
+    /// big-endian u32.
+    pub fn parent_property_u32(self, name: &str) -> Option<u32> {
+        Some(BigEndianU32::from_bytes(self.parent_property(name)?.value)?.get())
+    }
+
+    /// Returns an iterator over all compatible strings, in firmware order.
+    pub fn compatibles(self) -> impl Iterator<Item = &'a str> + 'b {
+        let mut bytes = self
+            .property("compatible")
+            .map(|prop| prop.value)
+            .unwrap_or(&[]);
+        core::iter::from_fn(move || {
+            if bytes.is_empty() {
+                return None;
+            }
+            let end = bytes.iter().position(|&b| b == 0)?;
+            let compat = core::str::from_utf8(&bytes[..end]).ok()?;
+            bytes = &bytes[end + 1..];
+            Some(compat)
+        })
+    }
+
+    /// Returns the first compatible string if present.
+    pub fn compatible(self) -> Option<&'a str> {
+        self.compatibles().next()
+    }
+
+    /// Returns whether the node matches any compatible string in its list.
+    pub fn is_compatible(self, compatible: &str) -> bool {
+        self.compatibles().any(|candidate| candidate == compatible)
+    }
+}
+
+pub(crate) fn all_nodes<'b, 'a: 'b>(
+    header: &'b LinuxFdt<'a>,
+) -> impl Iterator<Item = FdtNode<'b, 'a>> {
+    let mut stream = FdtData::new(header.structs_block());
+    let mut done = false;
+    let mut parents: [&[u8]; MAX_NODE_DEPTH + 1] = [&[]; MAX_NODE_DEPTH + 1];
+    let mut parent_index = 0usize;
+
+    core::iter::from_fn(move || {
+        if stream.is_empty() || done {
+            return None;
+        }
+
+        stream.skip_nops();
+        while stream.peek_u32()?.get() == FDT_END_NODE {
+            parent_index = parent_index.saturating_sub(1);
+            stream.skip(4);
+            stream.skip_nops();
+        }
+
+        if stream.peek_u32()?.get() == FDT_END {
+            done = true;
+            return None;
+        }
+
+        stream.skip_nops();
+        if stream.u32()?.get() != FDT_BEGIN_NODE {
+            return None;
+        }
+
+        let unit_name = CStr::new(stream.remaining())?.as_str()?;
+        let full_name_len = unit_name.len() + 1;
+        skip_4_aligned(&mut stream, full_name_len);
+        let curr_node = stream.remaining();
+
+        parent_index += 1;
+        parents[parent_index] = curr_node;
+
+        stream.skip_nops();
+        while stream.peek_u32()?.get() == FDT_PROP {
+            let _ = NodeProperty::parse(&mut stream, header);
+            stream.skip_nops();
+        }
+
+        Some(FdtNode {
+            name: if unit_name.is_empty() { "/" } else { unit_name },
+            header,
+            props: curr_node,
+            parent_props: if parent_index == 1 {
+                None
+            } else {
+                Some(parents[parent_index - 1])
+            },
+        })
+    })
+}
+
+/// A raw property: its name and uninterpreted big-endian payload bytes.
+#[derive(Debug, Clone, Copy)]
+pub struct NodeProperty<'a> {
+    /// Property name as stored in the strings block.
+    pub name: &'a str,
+    /// Property payload bytes, in firmware byte order.
+    pub value: &'a [u8],
+}
+
+impl<'a> NodeProperty<'a> {
+    fn parse(stream: &mut FdtData<'a>, header: &LinuxFdt<'a>) -> Self {
+        #[expect(
+            clippy::expect_used,
+            reason = "CG-021-no-panic-on-reachable-failure: LinuxFdt construction validates every \
+                      property header, string offset and node name before traversal"
+        )]
+        let tag = stream.u32().expect("FDT property tag").get();
+        assert_eq!(tag, FDT_PROP, "bad prop, tag: {}", tag);
+
+        #[expect(
+            clippy::expect_used,
+            reason = "CG-021-no-panic-on-reachable-failure: LinuxFdt construction validates every \
+                      property header, string offset and node name before traversal"
+        )]
+        let prop = FdtProperty::from_bytes(stream).expect("FDT property");
+        let data_len = prop.len.get() as usize;
+        let data = &stream.remaining()[..data_len];
+        skip_4_aligned(stream, data_len);
+
+        NodeProperty {
+            name: {
+                #[expect(
+                    clippy::expect_used,
+                    reason = "CG-021-no-panic-on-reachable-failure: LinuxFdt construction \
+                              validates every property header, string offset and node name before \
+                              traversal"
+                )]
+                header
+                    .string_at_offset(prop.name_offset.get() as usize)
+                    .expect("invalid FDT string offset")
+            },
+            value: data,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CellSizes {
+    pub address_cells: usize,
+    pub size_cells: usize,
+}
+
+impl Default for CellSizes {
+    fn default() -> Self {
+        Self {
+            address_cells: 2,
+            size_cells: 1,
+        }
+    }
+}
+
+/// A physical memory region described by the device tree: a start address
+/// and a size in bytes.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MemoryRegion {
+    /// Start address (physical for firmware-described regions).
+    pub starting_address: *const u8,
+    /// Region size in bytes.
+    pub size: usize,
+}
+
+/// Iterator over the `reg` entries of one node, decoding address/size
+/// pairs with the node's `#address-cells` / `#size-cells` widths.
+#[derive(Debug, Clone)]
+pub struct RegIter<'a> {
+    stream: FdtData<'a>,
+    sizes: CellSizes,
+}
+
+impl<'a> RegIter<'a> {
+    /// Creates an iterator over `reg` entries decoded with `sizes`.
+    pub fn new(stream: FdtData<'a>, sizes: CellSizes) -> Self {
+        Self { stream, sizes }
+    }
+}
+
+impl<'a> Iterator for RegIter<'a> {
+    type Item = MemoryRegion;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let base = match self.sizes.address_cells {
+            1 => self.stream.u32()?.get() as usize,
+            2 => self.stream.u64()?.get() as usize,
+            _ => return None,
+        } as *const u8;
+
+        let size = match self.sizes.size_cells {
+            1 => self.stream.u32()?.get() as usize,
+            2 => self.stream.u64()?.get() as usize,
+            _ => return None,
+        };
+
+        Some(MemoryRegion {
+            starting_address: base,
+            size,
+        })
+    }
+}
+
+impl<'b, 'a: 'b> FdtNode<'b, 'a> {
+    /// Returns an iterator over this node's `reg` entries, honoring the
+    /// parent's cell widths; `None` when the node has no `reg` property or
+    /// the cell widths exceed the supported 2-cell maximum.
+    pub fn reg(self) -> Option<RegIter<'a>> {
+        let sizes = self.parent_cell_sizes();
+        if sizes.address_cells > 2 || sizes.size_cells > 2 {
+            return None;
+        }
+
+        Some(RegIter::new(
+            FdtData::new(self.property("reg")?.value),
+            sizes,
+        ))
+    }
+
+    /// Returns this node's `#address-cells` / `#size-cells`, falling back
+    /// to the spec defaults (2 and 1).
+    pub fn cell_sizes(self) -> CellSizes {
+        let mut cell_sizes = CellSizes::default();
+
+        for property in self.properties() {
+            match property.name {
+                "#address-cells" => {
+                    if let Some(val) = BigEndianU32::from_bytes(property.value) {
+                        cell_sizes.address_cells = val.get() as usize;
+                    }
+                }
+                "#size-cells" => {
+                    if let Some(val) = BigEndianU32::from_bytes(property.value) {
+                        cell_sizes.size_cells = val.get() as usize;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        cell_sizes
+    }
+
+    fn parent_cell_sizes(self) -> CellSizes {
+        if let Some(parent) = self.parent_props {
+            return FdtNode {
+                name: "",
+                header: self.header,
+                props: parent,
+                parent_props: None,
+            }
+            .cell_sizes();
+        }
+
+        CellSizes::default()
+    }
+}
+
+pub(crate) fn find_node<'b, 'a: 'b>(
+    stream: &mut FdtData<'a>,
+    name: &str,
+    header: &'b LinuxFdt<'a>,
+    parent_props: Option<&'a [u8]>,
+) -> Option<FdtNode<'b, 'a>> {
+    let mut parts = name.splitn(2, '/');
+    let looking_for = parts.next()?;
+
+    stream.skip_nops();
+    let curr_data = stream.remaining();
+
+    if stream.u32()?.get() != FDT_BEGIN_NODE {
+        return None;
+    }
+
+    let unit_name = CStr::new(stream.remaining())?.as_str()?;
+    let full_name_len = unit_name.len() + 1;
+    skip_4_aligned(stream, full_name_len);
+
+    let looking_contains_addr = looking_for.contains('@');
+    let addr_name_same = unit_name == looking_for;
+    let base_name_same = unit_name.split('@').next()? == looking_for;
+
+    if (looking_contains_addr && !addr_name_same) || (!looking_contains_addr && !base_name_same) {
+        *stream = FdtData::new(curr_data);
+        skip_current_node(stream, header);
+        return None;
+    }
+
+    let next_part = match parts.next() {
+        None | Some("") => {
+            return Some(FdtNode {
+                name: unit_name,
+                header,
+                props: stream.remaining(),
+                parent_props,
+            });
+        }
+        Some(part) => part,
+    };
+
+    stream.skip_nops();
+    let parent_props = Some(stream.remaining());
+
+    while stream.peek_u32()?.get() == FDT_PROP {
+        let _ = NodeProperty::parse(stream, header);
+        stream.skip_nops();
+    }
+
+    loop {
+        stream.skip_nops();
+        if stream.peek_u32()?.get() != FDT_BEGIN_NODE {
+            break;
+        }
+        if let Some(node) = find_node(stream, next_part, header, parent_props) {
+            return Some(node);
+        }
+    }
+
+    stream.skip_nops();
+    if stream.u32()?.get() != FDT_END_NODE {
+        return None;
+    }
+
+    None
+}
+
+pub(crate) fn reserved_memory_regions<'b, 'a: 'b>(
+    header: &'b LinuxFdt<'a>,
+) -> impl Iterator<Item = MemoryRegion> + 'b {
+    reserved_memory_nodes(header).flat_map(|node| node.reg().into_iter().flatten())
+}
+
+pub(crate) fn reserved_memory_nodes<'b, 'a: 'b>(
+    header: &'b LinuxFdt<'a>,
+) -> impl Iterator<Item = FdtNode<'b, 'a>> + 'b {
+    let reserved = find_node(
+        &mut FdtData::new(header.structs_block()),
+        "/reserved-memory",
+        header,
+        None,
+    )
+    .map(|node| node.props);
+
+    all_nodes(header).filter(move |node| {
+        let Some(reserved_props) = reserved else {
+            return false;
+        };
+        let Some(parent_props) = node.parent_props else {
+            return false;
+        };
+        parent_props.as_ptr() == reserved_props.as_ptr()
+            && parent_props.len() == reserved_props.len()
+    })
+}
+
+pub(crate) fn memory_regions<'b, 'a: 'b>(
+    header: &'b LinuxFdt<'a>,
+) -> impl Iterator<Item = MemoryRegion> + 'b {
+    all_nodes(header)
+        .filter(|node| {
+            let is_memory_name = node.name == "memory" || node.name.starts_with("memory@");
+            let is_memory_type = node.property_str("device_type") == Some("memory");
+            is_memory_name || is_memory_type
+        })
+        .flat_map(|node| node.reg().into_iter().flatten())
+}
+
+pub(crate) fn skip_current_node<'a>(stream: &mut FdtData<'a>, header: &LinuxFdt<'a>) {
+    #[expect(
+        clippy::unwrap_used,
+        reason = "CG-021-no-panic-on-reachable-failure: constructor validation proves this node \
+                  has a complete BEGIN_NODE token"
+    )]
+    let tag = stream.u32().unwrap().get();
+    assert_eq!(tag, FDT_BEGIN_NODE, "bad node");
+    #[expect(
+        clippy::unwrap_used,
+        reason = "CG-021-no-panic-on-reachable-failure: constructor validation proves every node \
+                  name is NUL-terminated UTF-8"
+    )]
+    #[expect(
+        clippy::expect_used,
+        reason = "CG-021-no-panic-on-reachable-failure: LinuxFdt construction validates every \
+                  property header, string offset and node name before traversal"
+    )]
+    let unit_name = CStr::new(stream.remaining())
+        .expect("unit_name C str")
+        .as_str()
+        .unwrap();
+    skip_4_aligned(stream, unit_name.len() + 1);
+
+    stream.skip_nops();
+    #[expect(
+        clippy::unwrap_used,
+        reason = "CG-021-no-panic-on-reachable-failure: validated property records and balanced \
+                  nodes always leave a following token"
+    )]
+    while stream.peek_u32().unwrap().get() == FDT_PROP {
+        NodeProperty::parse(stream, header);
+        stream.skip_nops();
+    }
+    loop {
+        stream.skip_nops();
+        #[expect(
+            clippy::unwrap_used,
+            reason = "CG-021-no-panic-on-reachable-failure: constructor validation proves a token \
+                      follows each property or completed child"
+        )]
+        let next = stream.peek_u32().unwrap().get();
+        if next != FDT_BEGIN_NODE {
+            break;
+        }
+        skip_current_node(stream, header);
+    }
+    stream.skip_nops();
+    #[expect(
+        clippy::unwrap_used,
+        reason = "CG-021-no-panic-on-reachable-failure: constructor validation balances every \
+                  BEGIN_NODE with a complete END_NODE token"
+    )]
+    let tag = stream.u32().unwrap().get();
+    assert_eq!(tag, FDT_END_NODE, "bad node");
+}
+
+fn skip_4_aligned(stream: &mut FdtData<'_>, len: usize) {
+    stream.skip((len + 3) & !0x3);
+}
+
+/// Validates the complete token grammar before a LinuxFdt can be published.
+/// The bounded stack also proves the depth bound used by all_nodes/recursion.
+pub(crate) fn validate_structure(bytes: &[u8], strings: &[u8]) -> Result<(), crate::FdtError> {
+    use crate::FdtError::ParseError;
+
+    let mut stream = FdtData::new(bytes);
+    let mut has_children = [false; MAX_NODE_DEPTH];
+    let mut depth = 0;
+    loop {
+        // This parser also runs at physical addresses before paging is enabled.
+        // Keep NOPs and the final END outside the node-token dispatch: a dense
+        // five-token match generates absolute virtual-address jump tables on
+        // RISC-V, which cannot be used in that boot phase.
+        stream.skip_nops();
+        match stream.u32().ok_or(ParseError)?.get() {
+            FDT_BEGIN_NODE => {
+                if depth == MAX_NODE_DEPTH {
+                    return Err(ParseError);
+                }
+                let name = CStr::new(stream.remaining())
+                    .and_then(|name| name.as_str())
+                    .ok_or(ParseError)?;
+                if (depth == 0 && !name.is_empty())
+                    || (depth != 0 && name.is_empty())
+                    || name.contains('/')
+                {
+                    return Err(ParseError);
+                }
+                take_aligned(&mut stream, name.len().checked_add(1).ok_or(ParseError)?)?;
+                if depth > 0 {
+                    has_children[depth - 1] = true;
+                }
+                has_children[depth] = false;
+                depth += 1;
+            }
+            FDT_END_NODE => {
+                depth = depth.checked_sub(1).ok_or(ParseError)?;
+                if depth == 0 {
+                    stream.skip_nops();
+                    return if stream.u32().ok_or(ParseError)?.get() == FDT_END && stream.is_empty()
+                    {
+                        Ok(())
+                    } else {
+                        Err(ParseError)
+                    };
+                }
+            }
+            FDT_PROP => {
+                if depth == 0 || has_children[depth - 1] {
+                    return Err(ParseError);
+                }
+                let property = FdtProperty::from_bytes(&mut stream).ok_or(ParseError)?;
+                let name_bytes = strings
+                    .get(property.name_offset.get() as usize..)
+                    .ok_or(ParseError)?;
+                let name = CStr::new(name_bytes)
+                    .and_then(|name| name.as_str())
+                    .ok_or(ParseError)?;
+                if name.is_empty() {
+                    return Err(ParseError);
+                }
+                take_aligned(&mut stream, property.len.get() as usize)?;
+            }
+            _ => return Err(ParseError),
+        }
+    }
+}
+
+fn take_aligned(stream: &mut FdtData<'_>, len: usize) -> Result<(), crate::FdtError> {
+    use crate::FdtError::ParseError;
+    let padded_len = len.checked_add(3).ok_or(ParseError)? & !3;
+    // Padding is not interpreted. Some deployed DTBs (including crosvm.dtb)
+    // retain nonzero bytes there; only its presence is needed for safe traversal.
+    stream.take(padded_len).ok_or(ParseError)?;
+    Ok(())
+}

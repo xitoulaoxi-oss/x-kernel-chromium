@@ -1,0 +1,20 @@
+diff --git a/io/drmdevice/src/card0.rs b/io/drmdevice/src/card0.rs
+--- a/io/drmdevice/src/card0.rs
++++ b/io/drmdevice/src/card0.rs
+@@ -1149,10 +1149,15 @@
+     }
+     let current_fb = proposed.plane_fb_id;
+     *state = proposed;
+-    drop(state);
++    // Publish the blob before releasing `state`.  `apply_prop` takes the same two
++    // locks in this order, so doing the store here keeps that order; releasing
++    // `state` first would let a second writer commit its own `crtc_mode_id` in
++    // the gap, and `GET_BLOB` would then find a blob id that no longer matches the
++    // reference and answer with another mode's timings instead of an error.
+     if let Some(new_ref) = new_mode_blob {
+         *dev.mode_id_blob_ref.lock() = new_ref;
+     }
++    drop(state);
+     if current_fb != 0 {
+         dev.present_fb(current_fb);
+     }

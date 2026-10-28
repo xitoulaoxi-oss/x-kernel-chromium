@@ -1,0 +1,176 @@
+diff --git a/io/drmdevice/src/card0.rs b/io/drmdevice/src/card0.rs
+--- a/io/drmdevice/src/card0.rs
++++ b/io/drmdevice/src/card0.rs
+@@ -188,10 +188,11 @@
+         // was granted.
+         //
+         // Answering Ok(0) to everything - which is what this used to do - turns
+-        // every "does the driver support X?" probe into a false positive, and
+-        // leaves `atomic`/`universal_planes` with no observable effect. Clients
++        // every "does the driver support X?" probe into a false positive. Clients
+         // legitimately branch on this: a libdrm client that is told `atomic` was
+-        // accepted will go on to issue atomic commits.
++        // accepted will go on to issue atomic commits.  The granted bits are read
++        // back by `DrmModeAtomic`; see `DrmFile::client_caps` for why the other
++        // two are recorded rather than enforced.
+         match cap.capability {
+             DRM_CLIENT_CAP_STEREO_3D | DRM_CLIENT_CAP_UNIVERSAL_PLANES | DRM_CLIENT_CAP_ATOMIC => {}
+             _ => return Err(VfsError::OperationNotSupported),
+@@ -407,6 +408,12 @@
+     /// Linux keeps this on `drm_file`, i.e. per open file description, and so
+     /// does this driver: two clients of the same card must not share the
+     /// `atomic` / `universal_planes` bits they negotiated independently.
++    ///
++    /// Only `DRM_CLIENT_CAP_ATOMIC` is read back, by `DrmModeAtomic`, which
++    /// answers `EOPNOTSUPP` until the client has negotiated it.  The other
++    /// accepted bits are recorded because clients branch on the answer to the
++    /// setter, not because anything here acts on them: plane enumeration is the
++    /// same with or without `DRM_CLIENT_CAP_UNIVERSAL_PLANES`.
+     client_caps: AtomicU64,
+ }
+ 
+@@ -1476,17 +1483,18 @@
+     /// Answer a legacy `MODE_CURSOR` / `MODE_CURSOR2` request.
+     ///
+     /// The bound display exposes a single primary plane, so there is no hardware
+-    /// cursor to program and `MODE_CURSOR` cannot be reported as unsupported
+-    /// either: `GET_CAP` already advertises a 64x64 cursor
+-    /// (`DRM_CURSOR_COMPAT_SIZE`), and libdrm-based clients such as Xorg's
+-    /// modesetting driver issue the request once the CRTC is up and treat
+-    /// `EOPNOTSUPP` as a fatal initialisation error.
++    /// cursor to program.  A bare move is answered with success -- libdrm-based
++    /// clients such as Xorg's modesetting driver issue it once the CRTC is up and
++    /// treat a failure as an initialisation error -- but a request that installs
++    /// an image is refused with `EOPNOTSUPP`.  Accepting the image would tell the
++    /// client its hardware cursor works, and it would then stop drawing the
++    /// pointer itself while nothing appeared on screen.
+     ///
+-    /// Validation therefore matches Linux's `drm_mode_cursor_common()`: the CRTC
+-    /// must exist, and a request that carries a handle must reference a live
+-    /// dumb buffer. Position and hotspot are accepted and dropped, which is the
+-    /// same observable behaviour as a driver whose cursor plane is disabled:
+-    /// the client keeps its own software cursor.
++    /// Validation otherwise matches Linux's `drm_mode_cursor_common()`: the CRTC
++    /// must exist, and a request that carries a handle must reference a live dumb
++    /// buffer of non-zero size.  Position and hotspot are accepted and dropped,
++    /// which is the same observable behaviour as a driver whose cursor plane is
++    /// disabled.
+     fn set_cursor(&self, request: CursorRequest) -> VfsResult<usize> {
+         if request.crtc_id != CRTC_ID {
+             return Err(VfsError::InvalidInput);
+@@ -1494,18 +1502,25 @@
+         if request.flags & !(DRM_MODE_CURSOR_BO | DRM_MODE_CURSOR_MOVE) != 0 {
+             return Err(VfsError::InvalidInput);
+         }
+-        // A BO request carries the cursor image, so the handle must name a
+-        // buffer this device allocated and width/height must describe it -- they
+-        // are the only size information the request provides.  A BO with
+-        // `handle == 0` hides the cursor and carries no image, which Linux
+-        // accepts; MOVE only relocates, so its width/height are ignored.
+-        if request.flags & DRM_MODE_CURSOR_BO != 0
+-            && request.handle != 0
+-            && (request.width == 0
++        // A BO request carries the cursor image.  Validate it first, so a
++        // malformed request is reported as such: the handle must name a buffer
++        // this device allocated, and width/height are the only size the request
++        // provides.  A BO with `handle == 0` hides the cursor and carries no
++        // image, which Linux accepts; MOVE only relocates, so its width/height
++        // are ignored.
++        if request.flags & DRM_MODE_CURSOR_BO != 0 && request.handle != 0 {
++            if request.width == 0
+                 || request.height == 0
+-                || !self.dumbs.lock().contains_key(&request.handle))
+-        {
+-            return Err(VfsError::InvalidInput);
++                || !self.dumbs.lock().contains_key(&request.handle)
++            {
++                return Err(VfsError::InvalidInput);
++            }
++            // The image itself cannot be shown: there is no cursor plane, so
++            // answering Ok would tell the client its hardware cursor is installed
++            // and it would stop drawing the pointer while nothing appeared on
++            // screen.  Refusing is what keeps the software cursor, and it is the
++            // same answer this driver gave before MODE_CURSOR existed.
++            return Err(VfsError::OperationNotSupported);
+         }
+         Ok(0)
+     }
+diff --git a/io/drmdevice/abi-tests/drm-mode/mode.rs b/io/drmdevice/abi-tests/drm-mode/mode.rs
+--- a/io/drmdevice/abi-tests/drm-mode/mode.rs
++++ b/io/drmdevice/abi-tests/drm-mode/mode.rs
+@@ -56,6 +56,8 @@
+     const ADDFB_LEGACY: c_ulong = 0xc01c_64ae;
+     /// `struct drm_mode_fb_cmd2` is 104 bytes -> size nibble 0x68.
+     const ADDFB2: c_ulong = 0xc068_64b8;
++    /// `RMFB` takes a bare `__u32` framebuffer id -> size nibble 0x04.
++    const RMFB: c_ulong = 0xc004_64af;
+     const MODE_CURSOR: c_ulong = 0xc01c_64a3;
+     /// The driver's only CRTC.  A cursor request that names anything else is
+     /// answered with EINVAL, so the success cases must carry this value.
+@@ -380,7 +382,12 @@
+             "ADDFB accepted depth=0"
+         );
+ 
+-        let mut bad_format = FbCmd2 {
++        // ARGB8888 is accepted: both formats are backed by the same scanout
++        // layout, so this is a positive case and its result must be checked --
++        // discarding it is how a format or command-word regression would pass
++        // unnoticed.  The framebuffer is released again so no later case
++        // inherits it.
++        let mut argb = FbCmd2 {
+             width: dumb.width,
+             height: dumb.height,
+             pixel_format: DRM_FORMAT_ARGB8888,
+@@ -388,7 +395,10 @@
+             pitches: [dumb.pitch, 0, 0, 0],
+             ..FbCmd2::default()
+         };
+-        let _ = ioctl_arg(&card, ADDFB2, &mut bad_format);
++        ioctl_arg(&card, ADDFB2, &mut argb).expect("ADDFB2 with ARGB8888");
++        assert_ne!(argb.fb_id, 0, "ADDFB2 returned no framebuffer id");
++        let mut argb_id = argb.fb_id;
++        ioctl_arg(&card, RMFB, &mut argb_id).expect("RMFB");
+ 
+         destroy_dumb(&card, dumb.handle);
+     }
+@@ -431,6 +441,27 @@
+         // A BO request with a real handle must name a buffer this device owns,
+         // and must describe it: width/height are the only size it carries.
+         let dumb = create_dumb(&card, 64, 64, 32).expect("CREATE_DUMB");
++
++        // A handle that names no live buffer is malformed and must be reported as
++        // such, not as "not implemented".
++        let mut bogus = ModeCursor {
++            crtc_id: CRTC_ID,
++            flags: DRM_MODE_CURSOR_BO,
++            width: 64,
++            height: 64,
++            handle: 0xdead_beef,
++            ..ModeCursor::default()
++        };
++        assert_eq!(
++            errno(ioctl_arg(&card, MODE_CURSOR, &mut bogus)),
++            EINVAL,
++            "MODE_CURSOR accepted a handle that names no buffer"
++        );
++
++        // A well-formed image is refused on purpose: with no cursor plane the
++        // driver cannot show it, and reporting success would make the client stop
++        // drawing its own pointer.  EOPNOTSUPP is what keeps the software cursor,
++        // so the failure is asserted rather than accepted.
+         let mut shown = ModeCursor {
+             crtc_id: CRTC_ID,
+             flags: DRM_MODE_CURSOR_BO,
+@@ -439,7 +470,11 @@
+             handle: dumb.handle,
+             ..ModeCursor::default()
+         };
+-        ioctl_arg(&card, MODE_CURSOR, &mut shown).expect("MODE_CURSOR BO with a real handle");
++        assert_eq!(
++            errno(ioctl_arg(&card, MODE_CURSOR, &mut shown)),
++            EOPNOTSUPP,
++            "an image cursor must be refused so the client keeps its software pointer"
++        );
+ 
+         // An unknown CRTC is still refused, so the success cases above cannot be
+         // passing because every request is accepted.

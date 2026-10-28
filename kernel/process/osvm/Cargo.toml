@@ -1,0 +1,26 @@
+[package]
+name = "osvm"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+
+[features]
+default = ["alloc"]
+alloc = []
+
+[dependencies]
+kerrno = { workspace = true }
+kio = { workspace = true }
+bytemuck = { version = "1.24", features = [
+    "align_offset",
+    "const_zeroed",
+    "zeroable_maybe_uninit",
+] }
+extern-trait = "0.3"
+
+[lints]
+workspace = true

@@ -1,0 +1,30 @@
+[package]
+name = "kalloc"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[features]
+default = []
+tlsf = ["alloc-engine/tlsf"]
+slab = ["alloc-engine/slab"]
+buddy = ["alloc-engine/buddy"]
+tracking = ["dep:backtrace"]
+
+[dependencies]
+alloc-engine = { workspace = true, features = ["buddy-page"] }
+backtrace = { workspace = true, optional = true }
+cfg-if.workspace = true
+kaddr_layout.workspace = true
+kerrno.workspace = true
+kspin.workspace = true
+log.workspace = true
+memaddr.workspace = true
+kcpu_slot.workspace = true
+kbuild_config.workspace = true
+strum = { workspace = true }
+unittest.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,112 @@
+diff --git a/io/drmdevice/src/card0.rs b/io/drmdevice/src/card0.rs
+--- a/io/drmdevice/src/card0.rs
++++ b/io/drmdevice/src/card0.rs
+@@ -318,6 +318,21 @@
+         }
+         Ok(0)
+     }
++}
++
++/// The fields of a legacy cursor request that this driver acts on.
++///
++/// `MODE_CURSOR` and `MODE_CURSOR2` differ only by the hotspot offsets, which a
++/// driver with no hardware cursor plane has nothing to apply, so both handlers
++/// reduce to the same request.  Grouping them also keeps `set_cursor` under
++/// clippy's argument-count threshold.
++#[derive(Debug, Clone, Copy)]
++struct CursorRequest {
++    crtc_id: u32,
++    flags: u32,
++    width: u32,
++    height: u32,
++    handle: u32,
+ }
+ 
+ struct DumbBuffer {
+@@ -1338,15 +1353,13 @@
+     const CMD: u32 = iowr::<DrmModeCursor>(DRM_TYPE, 0xA3);
+ 
+     fn handle(dev: &DrmCard, _file: &Arc<DrmFile>, cursor: &mut Self) -> VfsResult<usize> {
+-        dev.set_cursor(
+-            cursor.crtc_id,
+-            cursor.flags,
+-            cursor.x,
+-            cursor.y,
+-            cursor.width,
+-            cursor.height,
+-            cursor.handle,
+-        )
++        dev.set_cursor(CursorRequest {
++            crtc_id: cursor.crtc_id,
++            flags: cursor.flags,
++            width: cursor.width,
++            height: cursor.height,
++            handle: cursor.handle,
++        })
+     }
+ }
+ 
+@@ -1357,15 +1370,13 @@
+         // The hotspot is only meaningful to a hardware cursor plane, which this
+         // driver does not expose; validating it would reject requests the device
+         // is happy to treat as a plain move.
+-        dev.set_cursor(
+-            cursor.crtc_id,
+-            cursor.flags,
+-            cursor.x,
+-            cursor.y,
+-            cursor.width,
+-            cursor.height,
+-            cursor.handle,
+-        )
++        dev.set_cursor(CursorRequest {
++            crtc_id: cursor.crtc_id,
++            flags: cursor.flags,
++            width: cursor.width,
++            height: cursor.height,
++            handle: cursor.handle,
++        })
+     }
+ }
+ 
+@@ -1476,20 +1487,11 @@
+     /// dumb buffer. Position and hotspot are accepted and dropped, which is the
+     /// same observable behaviour as a driver whose cursor plane is disabled:
+     /// the client keeps its own software cursor.
+-    fn set_cursor(
+-        &self,
+-        crtc_id: u32,
+-        flags: u32,
+-        _x: i32,
+-        _y: i32,
+-        width: u32,
+-        height: u32,
+-        handle: u32,
+-    ) -> VfsResult<usize> {
+-        if crtc_id != CRTC_ID {
+-            return Err(VfsError::InvalidInput);
+-        }
+-        if flags & !(DRM_MODE_CURSOR_BO | DRM_MODE_CURSOR_MOVE) != 0 {
++    fn set_cursor(&self, request: CursorRequest) -> VfsResult<usize> {
++        if request.crtc_id != CRTC_ID {
++            return Err(VfsError::InvalidInput);
++        }
++        if request.flags & !(DRM_MODE_CURSOR_BO | DRM_MODE_CURSOR_MOVE) != 0 {
+             return Err(VfsError::InvalidInput);
+         }
+         // A BO request carries the cursor image, so the handle must name a
+@@ -1497,9 +1499,11 @@
+         // are the only size information the request provides.  A BO with
+         // `handle == 0` hides the cursor and carries no image, which Linux
+         // accepts; MOVE only relocates, so its width/height are ignored.
+-        if flags & DRM_MODE_CURSOR_BO != 0
+-            && handle != 0
+-            && (width == 0 || height == 0 || !self.dumbs.lock().contains_key(&handle))
++        if request.flags & DRM_MODE_CURSOR_BO != 0
++            && request.handle != 0
++            && (request.width == 0
++                || request.height == 0
++                || !self.dumbs.lock().contains_key(&request.handle))
+         {
+             return Err(VfsError::InvalidInput);
+         }

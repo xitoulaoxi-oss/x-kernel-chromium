@@ -1,0 +1,108 @@
+diff --git a/io/drmdevice/abi-tests/drm-set-property/README.md b/io/drmdevice/abi-tests/drm-set-property/README.md
+--- a/io/drmdevice/abi-tests/drm-set-property/README.md
++++ b/io/drmdevice/abi-tests/drm-set-property/README.md
+@@ -11,11 +11,11 @@
+   `MODE_OBJ_GETPROPERTIES` 的结构体尺寸同样断言（64 / 32 字节）。
+   命令字由尺寸编码而来，布局漂移不会编译失败，只会让客户端调用落到 `EOPNOTSUPP`，
+   所以这一条只能靠调用验证。
+-- 未知 connector → `ENOENT`；已知 connector + 未知 property → `ENOENT`。
++- 未知 connector → `ENOENT`；已知 connector + 未知 property → `EINVAL`。
+ - 连接器 `CRTC_ID` 属性写入既非 0 也非当前 CRTC 的对象值 → `EINVAL`。
+ - 成功路径：把读到的当前值写回 → 返回 0。
+ - 对象形式：`obj_id` 与 `obj_type` 不一致 → `ENOENT`；未知对象 → `ENOENT`；
+-  未知属性 → `ENOENT`；非法值 → `EINVAL`；成功路径 → 0。
++  未知属性 → `EINVAL`；非法值 → `EINVAL`；成功路径 → 0。
+ - 用例结束时把连接器属性恢复为开始时读到的值，重复运行不改变设备状态。
+ 
+ 维护者可在提供标准 Rust Linux 用户态工具链的构建环境中，将本目录作为独立包构建：
+diff --git a/io/drmdevice/abi-tests/drm-set-property/set_property.rs b/io/drmdevice/abi-tests/drm-set-property/set_property.rs
+--- a/io/drmdevice/abi-tests/drm-set-property/set_property.rs
++++ b/io/drmdevice/abi-tests/drm-set-property/set_property.rs
+@@ -224,13 +224,15 @@ mod tests {
+                 .raw_os_error(),
+             Some(ENOENT)
+         );
+-        // A known connector with an unknown property is ENOENT as well: the
+-        // property table is what decides, not the object.
++        // A known connector carrying an unknown property is EINVAL, not ENOENT:
++        // Linux's drm_mode_obj_set_property_ioctl() only answers ENOENT when the
++        // object lookup fails, and leaves `ret` at its -EINVAL initialiser once
++        // the object is found but the property id is not.
+         assert_eq!(
+             set_property(&file, connector_id, UNKNOWN, 0)
+                 .unwrap_err()
+                 .raw_os_error(),
+-            Some(ENOENT)
++            Some(EINVAL)
+         );
+         // CRTC_ID is a checked object reference, so a value that is neither 0 nor
+         // the live CRTC must be refused instead of stored.
+@@ -259,11 +261,12 @@ mod tests {
+                 .raw_os_error(),
+             Some(ENOENT)
+         );
++        // Unknown property on a known connector: EINVAL, as for the legacy form.
+         assert_eq!(
+             obj_set_property(&file, CONNECTOR, connector_id, UNKNOWN, 0)
+                 .unwrap_err()
+                 .raw_os_error(),
+-            Some(ENOENT)
++            Some(EINVAL)
+         );
+         assert_eq!(
+             obj_set_property(&file, CONNECTOR, connector_id, prop_id, u64::from(UNKNOWN))
+diff --git a/io/drmdevice/src/card0.rs b/io/drmdevice/src/card0.rs
+--- a/io/drmdevice/src/card0.rs
++++ b/io/drmdevice/src/card0.rs
+@@ -1079,9 +1079,11 @@ impl DrmIoctl for DrmModeConnectorSetProperty {
+     const CMD: u32 = iowr::<DrmModeConnectorSetProperty>(DRM_TYPE, 0xAB);
+ 
+     fn handle(dev: &DrmCard, _file: &Arc<DrmFile>, req: &mut Self) -> VfsResult<usize> {
+-        // Linux keeps this legacy entry point as a wrapper over the object form:
+-        // it resolves the connector, then performs the same property write.  The
+-        // request names no object type, so the connector is the only target.
++        // `drm_connector_property_set_ioctl()` is only a wrapper over
++        // `drm_mode_obj_set_property_ioctl()` with `obj_type` fixed to
++        // `DRM_MODE_OBJECT_CONNECTOR`, so the connector is the only target the
++        // request can name, and the write below is the one the object form
++        // performs.
+         if req.connector_id != CONNECTOR_ID {
+             return Err(VfsError::NotFound);
+         }
+@@ -1118,15 +1120,16 @@ impl DrmIoctl for DrmModeObjSetProperty {
+ /// mode blob if the write produced one, and refresh the scanout whenever the
+ /// committed plane framebuffer is non-zero.  `MODE_ATOMIC` is deliberately left
+ /// alone here: it carries `TEST_ONLY` and page-flip-event handling that this
+-/// helper has no business absorbing, and moving it would change the errno of a
+-/// path Xorg already drives.
++/// helper has no business absorbing.
+ ///
+-/// That leaves one observable difference, which is worth stating instead of
+-/// hiding: an unknown property answers `ENOENT` from these two entry points and
+-/// `EINVAL` from `MODE_ATOMIC`.  Linux returns `ENOENT` from both
+-/// `drm_mode_setproperty_user()` and `drm_atomic_set_property()`, so the value
+-/// here is the correct one and the atomic path is the one that should follow --
+-/// as a separate change, with its own verification.
++/// Errnos follow Linux's `drm_mode_obj_set_property_ioctl()`, whose `ret` starts
++/// at `-EINVAL`: a request that names an unknown object, or an object type that
++/// does not match the id, fails the `drm_mode_object_find()` lookup and answers
++/// `ENOENT`; a known object carrying an unknown property id reaches `out_unref`
++/// with `ret` untouched and answers `EINVAL`, as does an invalid value for a
++/// known property.  `DRM_IOCTL_MODE_SETPROPERTY` only wraps that function with
++/// `obj_type = DRM_MODE_OBJECT_CONNECTOR`, so these two entry points and
++/// `MODE_ATOMIC` all answer alike and a client cannot tell which one it used.
+ fn set_one_property(
+     dev: &DrmCard,
+     obj_type: u32,
+@@ -1145,7 +1148,10 @@ fn set_one_property(
+         &mut proposed,
+         &mut new_mode_blob,
+     )? {
+-        return Err(VfsError::NotFound);
++        // Unknown property on a known object: Linux's
++        // `drm_mode_obj_set_property_ioctl()` leaves `ret` at its `-EINVAL`
++        // initialiser on this path; only a failed object lookup is `ENOENT`.
++        return Err(VfsError::InvalidInput);
+     }
+     let current_fb = proposed.plane_fb_id;
+     *state = proposed;

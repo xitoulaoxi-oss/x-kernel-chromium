@@ -1,0 +1,30 @@
+[package]
+name = "net"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+description = "This crate provides core interfaces and types for network drivers."
+
+[package.metadata.cargo-shear]
+ignored-paths = ["src/fxmac.rs", "src/ixgbe.rs"]
+
+[features]
+default = []
+# ixgbe = ["dep:ixgbe-driver"]
+# fxmac = ["dep:fxmac_rs"]
+
+[dependencies]
+driver_base = { workspace = true }
+# fxmac_rs = { git = "https://github.com/elliott10/fxmac_rs.git", rev = "0dbc3916", optional = true }
+# ixgbe-driver = { git = "https://github.com/KuangjuX/ixgbe-driver.git", rev = "8e5eb74", optional = true }
+kspin = { workspace = true }
+log = { workspace = true }
+ksync = { workspace = true }
+unittest = { workspace = true }
+
+[lints]
+workspace = true

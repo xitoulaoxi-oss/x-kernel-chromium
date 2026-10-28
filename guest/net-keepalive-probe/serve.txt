@@ -1,0 +1,6 @@
+# Files the guest fetches over HTTP from the harness upload server (XK_HTTP).
+# One path per line, relative to the package root (pr/) or absolute.
+# The keep-alive probe is a static aarch64 binary built with
+#   cargo build --release --target aarch64-unknown-linux-musl
+# in guest/net-keepalive-probe; it is far too large for the serial console.
+guest/net-keepalive-probe/target/aarch64-unknown-linux-musl/release/net_keepalive_probe

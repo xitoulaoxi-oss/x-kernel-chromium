@@ -1,0 +1,13 @@
+sh /tmp/xk-x4-win1.sh 2>&1
+W1 started
+[37m[ 41.694567 3:87 ksyscall::dispatch:885] [33mUnimplemented syscall: landlock_create_ruleset (tid=87)[m
+[mW2 t=15 procs=5 log=766 wins=0
+W2 t=30 procs=8 log=1590 wins=0
+W2 t=45 procs=11 log=10616 wins=1
+W2 t=60 procs=11 log=10616 wins=1
+W3 _NET_CLIENT_LIST(WINDOW): window id # 0x400003
+W4 active=_NET_ACTIVE_WINDOW(WINDOW): window id # 0x400003
+W5
+kylin-x:~# echo __XK4669507__rc=$?
+__XK4669507__rc=0
+kylin-x:~# [6n

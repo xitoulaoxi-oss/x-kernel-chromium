@@ -1,0 +1,276 @@
+diff --git a/io/drmdevice/src/drm.rs b/io/drmdevice/src/drm.rs
+--- a/io/drmdevice/src/drm.rs
++++ b/io/drmdevice/src/drm.rs
+@@ -190,9 +190,14 @@
+ 
+ /// `struct drm_mode_cursor`, the original cursor request.
+ ///
+-/// 6 x u32 = 24 bytes = 0x18, which is the size field encoded in
+-/// `DRM_IOCTL_MODE_CURSOR` (`0xc01864a3`). [`DrmModeCursor2`] adds the hotspot
+-/// offsets and is 32 bytes, matching `DRM_IOCTL_MODE_CURSOR2` (`0xc02064bb`).
++/// 7 x u32 = 28 bytes = 0x1c, which is the size field encoded in
++/// `DRM_IOCTL_MODE_CURSOR` (`0xc01c64a3`).  `width`/`height` are part of the
++/// structure in `include/uapi/drm/drm_mode.h` and cannot be turned into padding:
++/// dropping them shifts `handle` and changes the command word, so a client that
++/// speaks the uapi would miss the handler entirely.
++///
++/// [`DrmModeCursor2`] adds the two hotspot offsets and is 36 bytes, matching
++/// `DRM_IOCTL_MODE_CURSOR2` (`0xc02464bb`).
+ #[repr(C)]
+ #[derive(Debug, Default, Clone, Copy, AnyBitPattern, UserRead, UserWrite)]
+ pub(crate) struct DrmModeCursor {
+@@ -200,8 +205,9 @@
+     pub crtc_id: u32,
+     pub x: i32,
+     pub y: i32,
+-    pub handle: u32,
+-    pub pad: u32,
++    pub width: u32,
++    pub height: u32,
++    pub handle: u32,
+ }
+ 
+ /// `struct drm_mode_cursor2`, which adds the hotspot offsets.
+@@ -212,8 +218,9 @@
+     pub crtc_id: u32,
+     pub x: i32,
+     pub y: i32,
+-    pub handle: u32,
+-    pub pad: u32,
++    pub width: u32,
++    pub height: u32,
++    pub handle: u32,
+     pub hot_x: i32,
+     pub hot_y: i32,
+ }
+diff --git a/io/drmdevice/src/card0.rs b/io/drmdevice/src/card0.rs
+--- a/io/drmdevice/src/card0.rs
++++ b/io/drmdevice/src/card0.rs
+@@ -1210,7 +1210,15 @@
+ impl DrmIoctl for DrmModeAtomic {
+     const CMD: u32 = iowr::<DrmModeAtomic>(DRM_TYPE, 0xBC);
+ 
+-    fn handle(dev: &DrmCard, _file: &Arc<DrmFile>, a: &mut Self) -> VfsResult<usize> {
++    fn handle(dev: &DrmCard, file: &Arc<DrmFile>, a: &mut Self) -> VfsResult<usize> {
++        // This is the consumer of the bitmap SET_CLIENT_CAP maintains: a client
++        // that never negotiated `DRM_CLIENT_CAP_ATOMIC` is told the atomic path
++        // is unavailable so it falls back to the legacy one, instead of being
++        // handed an interface it did not ask for.
++        if file.client_caps.load(Ordering::Relaxed) & (1u64 << DRM_CLIENT_CAP_ATOMIC) == 0 {
++            return Err(VfsError::OperationNotSupported);
++        }
++
+         let known = DRM_MODE_ATOMIC_TEST_ONLY
+             | DRM_MODE_ATOMIC_NONBLOCK
+             | DRM_MODE_ATOMIC_ALLOW_MODESET
+@@ -1335,6 +1343,8 @@
+             cursor.flags,
+             cursor.x,
+             cursor.y,
++            cursor.width,
++            cursor.height,
+             cursor.handle,
+         )
+     }
+@@ -1352,6 +1362,8 @@
+             cursor.flags,
+             cursor.x,
+             cursor.y,
++            cursor.width,
++            cursor.height,
+             cursor.handle,
+         )
+     }
+@@ -1370,7 +1382,9 @@
+         //
+         // Unlike ADDFB2 there is no pixel_format field; the legacy ABI implies
+         // XRGB8888 for depth 24, which is what the driver implements.
+-        if f.handle == 0 || !matches!(f.bpp, 24 | 32) || f.depth == 0 || f.depth > 32 {
++        // ADDFB always registers XRGB8888 below, so only accept the depths that
++        // format actually describes: 24 (RGB) and 32 (XRGB with a spare byte).
++        if f.handle == 0 || !matches!(f.bpp, 24 | 32) || !matches!(f.depth, 24 | 32) {
+             return Err(VfsError::InvalidInput);
+         }
+         let mut modern = DrmModeFbCmd2 {
+@@ -1468,6 +1482,8 @@
+         flags: u32,
+         _x: i32,
+         _y: i32,
++        width: u32,
++        height: u32,
+         handle: u32,
+     ) -> VfsResult<usize> {
+         if crtc_id != CRTC_ID {
+@@ -1476,9 +1492,14 @@
+         if flags & !(DRM_MODE_CURSOR_BO | DRM_MODE_CURSOR_MOVE) != 0 {
+             return Err(VfsError::InvalidInput);
+         }
++        // A BO request carries the cursor image, so the handle must name a
++        // buffer this device allocated and width/height must describe it -- they
++        // are the only size information the request provides.  A BO with
++        // `handle == 0` hides the cursor and carries no image, which Linux
++        // accepts; MOVE only relocates, so its width/height are ignored.
+         if flags & DRM_MODE_CURSOR_BO != 0
+             && handle != 0
+-            && !self.dumbs.lock().contains_key(&handle)
++            && (width == 0 || height == 0 || !self.dumbs.lock().contains_key(&handle))
+         {
+             return Err(VfsError::InvalidInput);
+         }
+diff --git a/io/drmdevice/tests/mode.rs b/io/drmdevice/tests/mode.rs
+--- a/io/drmdevice/tests/mode.rs
++++ b/io/drmdevice/tests/mode.rs
+@@ -35,7 +35,7 @@
+ #[cfg(all(test, target_os = "linux", target_pointer_width = "64"))]
+ mod tests {
+     use std::{
+-        ffi::{c_int, c_ulong, c_void},
++        ffi::{c_int, c_ulong},
+         fs::{File, OpenOptions},
+         io,
+         mem::size_of,
+@@ -43,9 +43,12 @@
+         ptr,
+     };
+ 
+-    // _IOWR('d', nr, struct) with 64-bit struct sizes, taken from Linux uapi
+-    // `include/uapi/drm/drm.h` and `drm_mode.h`.
+-    const SET_CLIENT_CAP: c_ulong = 0xc010_640d;
++    // Command words as Linux encodes them: `_IOWR('d', nr, struct)` or
++    // `_IOW('d', nr, struct)` with 64-bit struct sizes, taken from
++    // `include/uapi/drm/drm.h` and `drm_mode.h`.  SET_CLIENT_CAP is `_IOW`; using
++    // `_IOWR` there makes the word miss the handler, which is how a "capability
++    // rejected" assertion can pass without the handler ever running.
++    const SET_CLIENT_CAP: c_ulong = 0x4010_640d;
+     const CREATE_DUMB: c_ulong = 0xc020_64b2;
+     const MAP_DUMB: c_ulong = 0xc010_64b3;
+     const DESTROY_DUMB: c_ulong = 0xc004_64b4;
+@@ -54,6 +57,12 @@
+     /// `struct drm_mode_fb_cmd2` is 104 bytes -> size nibble 0x68.
+     const ADDFB2: c_ulong = 0xc068_64b8;
+     const MODE_CURSOR: c_ulong = 0xc01c_64a3;
++    /// The driver's only CRTC.  A cursor request that names anything else is
++    /// answered with EINVAL, so the success cases must carry this value.
++    const CRTC_ID: u32 = 0x10;
++    /// `DRM_MODE_CURSOR_BO` / `DRM_MODE_CURSOR_MOVE` from `drm_mode.h`.
++    const DRM_MODE_CURSOR_BO: u32 = 0x01;
++    const DRM_MODE_CURSOR_MOVE: u32 = 0x02;
+     /// `struct drm_mode_dirtyfb` is 24 bytes -> size nibble 0x18.
+     const DIRTYFB: c_ulong = 0xc018_64b1;
+ 
+@@ -150,8 +159,9 @@
+         crtc_id: u32,
+         x: i32,
+         y: i32,
++        width: u32,
++        height: u32,
+         handle: u32,
+-        pad: u32,
+     }
+ 
+     // ------------------------------------------------------------------ helpers
+@@ -387,22 +397,64 @@
+     // soft-cursor fallback, but the request must not fail with EOPNOTSUPP.
+     #[test]
+     fn mode_cursor_is_implemented() {
+-        assert_eq!(size_of::<ModeCursor>(), 24);
++        assert_eq!(size_of::<ModeCursor>(), 28);
+         let card = open_card();
+ 
+-        let mut cursor = ModeCursor::default();
+-        match ioctl_arg(&card, MODE_CURSOR, &mut cursor) {
+-            Ok(()) => {}
+-            Err(error) => {
+-                let code = error.raw_os_error().unwrap_or(0);
+-                assert_ne!(
+-                    code, EOPNOTSUPP,
+-                    "MODE_CURSOR is not implemented; the kernel must answer it so legacy \
+-                     mode-setting clients do not abort their initialisation"
+-                );
+-                panic!("MODE_CURSOR failed with errno {code}");
+-            }
+-        }
++        // MOVE only relocates the cursor: the driver validates the CRTC and the
++        // flag bits and has no cursor plane to program.
++        let mut moved = ModeCursor {
++            crtc_id: CRTC_ID,
++            flags: DRM_MODE_CURSOR_MOVE,
++            x: 8,
++            y: 8,
++            ..ModeCursor::default()
++        };
++        ioctl_arg(&card, MODE_CURSOR, &mut moved).unwrap_or_else(|error| {
++            let code = error.raw_os_error().unwrap_or(0);
++            assert_ne!(
++                code, EOPNOTSUPP,
++                "MODE_CURSOR is not implemented; the kernel must answer it so legacy \
++                 mode-setting clients do not abort their initialisation"
++            );
++            panic!("MODE_CURSOR MOVE failed with errno {code}");
++        });
++
++        // A BO request with `handle == 0` hides the cursor and carries no image,
++        // so it must be accepted without a framebuffer behind it.
++        let mut hidden = ModeCursor {
++            crtc_id: CRTC_ID,
++            flags: DRM_MODE_CURSOR_BO,
++            ..ModeCursor::default()
++        };
++        ioctl_arg(&card, MODE_CURSOR, &mut hidden).expect("MODE_CURSOR BO with handle 0");
++
++        // A BO request with a real handle must name a buffer this device owns,
++        // and must describe it: width/height are the only size it carries.
++        let dumb = create_dumb(&card, 64, 64, 32).expect("CREATE_DUMB");
++        let mut shown = ModeCursor {
++            crtc_id: CRTC_ID,
++            flags: DRM_MODE_CURSOR_BO,
++            width: 64,
++            height: 64,
++            handle: dumb.handle,
++            ..ModeCursor::default()
++        };
++        ioctl_arg(&card, MODE_CURSOR, &mut shown).expect("MODE_CURSOR BO with a real handle");
++
++        // An unknown CRTC is still refused, so the success cases above cannot be
++        // passing because every request is accepted.
++        let mut wrong_crtc = ModeCursor {
++            crtc_id: CRTC_ID + 1,
++            flags: DRM_MODE_CURSOR_MOVE,
++            ..ModeCursor::default()
++        };
++        assert_eq!(
++            errno(ioctl_arg(&card, MODE_CURSOR, &mut wrong_crtc)),
++            EINVAL,
++            "MODE_CURSOR accepted an unknown CRTC"
++        );
++
++        destroy_dumb(&card, dumb.handle);
+     }
+ 
+     // Xorg probes the generic damage-tracking entry point while it decides
+@@ -462,19 +514,12 @@
+             value: 1,
+         };
+         ioctl_arg(&second, SET_CLIENT_CAP, &mut cap).expect("SET_CLIENT_CAP after reopen");
+-        let mut cursor = ModeCursor::default();
+-        let _ = ioctl_arg(&second, MODE_CURSOR, &mut cursor);
+-    }
+-
+-    #[allow(dead_code)]
+-    fn ioctl_takes_null_argument(file: &File, command: c_ulong) -> io::Result<()> {
+-        // SAFETY: only used for commands documented to take no argument.
+-        let result = unsafe { ioctl(file.as_raw_fd(), command, ptr::null_mut::<c_void>()) };
+-        if result < 0 {
+-            Err(io::Error::last_os_error())
+-        } else {
+-            Ok(())
+-        }
++        let mut cursor = ModeCursor {
++            crtc_id: CRTC_ID,
++            flags: DRM_MODE_CURSOR_MOVE,
++            ..ModeCursor::default()
++        };
++        ioctl_arg(&second, MODE_CURSOR, &mut cursor).expect("MODE_CURSOR after reopen");
+     }
+ 
+     unsafe extern "C" {

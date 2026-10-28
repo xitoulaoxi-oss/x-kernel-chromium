@@ -1,0 +1,129 @@
+diff --git a/core/ksyscall/src/dispatch.rs b/core/ksyscall/src/dispatch.rs
+index 0492858f..94207c7d 100644
+--- a/core/ksyscall/src/dispatch.rs
++++ b/core/ksyscall/src/dispatch.rs
+@@ -91,6 +91,10 @@ pub fn handle_syscall(uctx: &mut UserContext) -> UserThreadRuntimeAction {
+     };
+ 
+     trace!("Syscall {sysno:?}");
++    #[cfg(feature = "syscall-counter")]
++    crate::syscall_counter::record(sysno);
++    // One relaxed load after the first syscall; see `crate::notify`.
++    crate::notify::install_fs_notifier();
+ 
+     let result = match sysno {
+         // fs ctl
+@@ -413,6 +417,23 @@ pub fn handle_syscall(uctx: &mut UserContext) -> UserThreadRuntimeAction {
+         // event
+         Sysno::eventfd2 => sys_eventfd2(uctx.arg0() as _, uctx.arg1() as _),
+ 
++        // inotify
++        //
++        // Moved out of the `dummy fds` group below.  Returning ENOSYS here is not
++        // a safe "probe and fall back" failure the way it is for `fsopen` or
++        // `io_uring_setup`: Chromium's `base::FilePathWatcher` has no equivalent
++        // fallback, so it reports `inotify_init() failed: Function not
++        // implemented (38)` and its browser process then never finishes starting
++        // up (no renderer is forked, no window is created, the log stops at
++        // 764 bytes).  See `kfd_objects::inotify` for the object.
++        Sysno::inotify_init1 => sys_inotify_init1(uctx.arg0() as _),
++        Sysno::inotify_add_watch => sys_inotify_add_watch(
++            uctx.arg0() as _,
++            uctx.arg1().into(),
++            uctx.arg2() as _,
++        ),
++        Sysno::inotify_rm_watch => sys_inotify_rm_watch(uctx.arg0() as _, uctx.arg1() as _),
++
+         // pidfd
+         Sysno::pidfd_open => sys_pidfd_open(uctx.arg0() as _, uctx.arg1() as _),
+         Sysno::pidfd_getfd => sys_pidfd_getfd(uctx.arg0() as _, uctx.arg1() as _, uctx.arg2() as _),
+@@ -812,7 +833,6 @@ pub fn handle_syscall(uctx: &mut UserContext) -> UserThreadRuntimeAction {
+ 
+         // dummy fds
+         Sysno::fanotify_init
+-        | Sysno::inotify_init1
+         | Sysno::userfaultfd
+         | Sysno::perf_event_open
+         | Sysno::io_uring_setup
+diff --git a/core/ksyscall/src/lib.rs b/core/ksyscall/src/lib.rs
+index 590d21d2..44f32605 100644
+--- a/core/ksyscall/src/lib.rs
++++ b/core/ksyscall/src/lib.rs
+@@ -25,8 +25,11 @@ mod arch;
+ mod dispatch;
+ mod io_mpx;
+ mod ipc;
++mod notify;
+ mod sync;
+ mod sys;
++#[cfg(feature = "syscall-counter")]
++mod syscall_counter;
+ mod task;
+ mod time;
+ mod vfs;
+diff --git a/core/ksyscall/src/notify.rs b/core/ksyscall/src/notify.rs
+new file mode 100755
+index 00000000..7eda9dc9
+--- /dev/null
++++ b/core/ksyscall/src/notify.rs
+@@ -0,0 +1,34 @@
++// SPDX-License-Identifier: Apache-2.0
++// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
++// See LICENSES for license details.
++
++//! Wiring between the filesystem crate and the inotify object crate.
++//!
++//! `posix_fs` needs to report directory-entry changes, and `kfd_objects::inotify`
++//! knows which watches care about them.  Neither can depend on the other:
++//! `kfd_objects` already depends on `kvfs`, so `posix_fs -> kfd_objects` would close
++//! a cycle.  `posix_fs` therefore exposes an injectable function pointer, and this
++//! module -- in the one crate that already depends on both -- installs it.
++//!
++//! Kept separate from `dispatch` so the one-time cost is obviously one-time.
++
++use core::sync::atomic::{AtomicBool, Ordering};
++
++/// Whether the notifier has been installed.
++static INSTALLED: AtomicBool = AtomicBool::new(false);
++
++/// Installs the filesystem notifier exactly once.
++///
++/// Called from the syscall entry point rather than from a start-up hook because
++/// `entry` only depends on this crate, and adding a kernel start-up callback for one
++/// pointer would mean touching a layer that gains nothing from it.  The `swap`
++/// short-circuits every call after the first, so the cost on the syscall path is one
++/// relaxed load once the flag is set.
++pub fn install_fs_notifier() {
++    if INSTALLED.swap(true, Ordering::AcqRel) {
++        return;
++    }
++    // The signatures match exactly: `notify_path(&[u8], u32, &[u8])`.
++    posix_fs::notify::set_entry_notifier(kfd_objects::inotify::notify_path);
++    debug!("filesystem entry notifier installed");
++}
+diff --git a/posix/fs/src/namei.rs b/posix/fs/src/namei.rs
+index f8d23b30..8526c098 100644
+--- a/posix/fs/src/namei.rs
++++ b/posix/fs/src/namei.rs
+@@ -73,6 +73,21 @@ pub fn sys_unlinkat(dirfd: i32, path: UserConstPtr<c_char>, flags: usize) -> KRe
+         } else {
+             filename.unlink_at(fs.root(), fs.pwd(), &cred)?;
+         }
++        // Report the removal after it succeeded, so a watcher never sees IN_DELETE
++        // for a call that failed.  Same base rule as `sys_openat`: the pwd for a
++        // relative path, "/" for an absolute one, because `notify_change_at` takes
++        // the parent out of an absolute path itself.
++        let pwd = fs.pwd().display_path();
++        let base = if path.starts_with('/') {
++            "/"
++        } else {
++            pwd.as_deref().unwrap_or("/")
++        };
++        crate::notify::notify_change_at(
++            base.as_bytes(),
++            path.as_bytes(),
++            crate::notify::IN_DELETE,
++        );
+         Ok(0)
+     })
+ }

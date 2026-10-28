@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = [
+    "xconfig",
+    "xkmake",
+    "uapp",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+authors = ["KylinSoft Co., Ltd. <https://www.kylinos.cn/>"]
+homepage = "https://gitee.com/openkylin/x-kernel"
+repository = "https://gitee.com/openkylin/x-kernel"
+
+[profile.dev.package.sha2]
+opt-level = 3

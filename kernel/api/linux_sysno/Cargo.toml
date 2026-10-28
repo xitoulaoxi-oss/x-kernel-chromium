@@ -1,0 +1,49 @@
+[package]
+name = "linux_sysno"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+description = "Linux system call support"
+keywords = ["syscall", "linux"]
+
+[features]
+default = []
+# Includes the syscall tables for all architectures.
+all = [
+    "aarch64", "arm", "loongarch64", "riscv64", "x86_64"
+]
+
+# Enable syscall tables for individual architectures.
+aarch64 = []
+arm = []
+loongarch64 = []
+riscv64 = []
+x86_64 = []
+tee = []
+tipc = []
+
+# Deprecated: Use `serde` instead.
+with-serde = ["serde", "serde_repr"]
+
+# Enables Serialize/Deserialize impls.
+serde = ["dep:serde", "serde_repr"]
+
+# Generates instructions that are compatible with thumb-mode. This is set
+# automatically by `build.rs` if the target supports thumb-mode.
+thumb-mode = []
+
+[dependencies]
+unittest.workspace = true
+serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
+serde_repr = { version = "0.1", optional = true }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "doc_cfg"]
+
+[lints]
+workspace = true

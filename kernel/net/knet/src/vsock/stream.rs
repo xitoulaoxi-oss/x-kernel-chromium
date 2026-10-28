@@ -1,0 +1,464 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! Vsock stream socket implementation.
+use alloc::sync::Arc;
+
+use kerrno::{KError, KResult, k_bail, k_err_type};
+use kio::prelude::*;
+use kpoll::{IoEvents, PollContext, PollRegisterError, Pollable};
+use ksync::Mutex;
+
+use super::connection_manager::*;
+use crate::{
+    RecvFlags, RecvOptions, SendOptions, Shutdown,
+    general::GeneralOptions,
+    options::{Configurable, GetSocketOption, OptionHandled, SetSocketOption},
+    state::*,
+    vsock::{VsockAddr, VsockConnId, VsockTransport, VsockTransportOps},
+};
+
+pub struct VsockStreamTransport {
+    conn_id: Mutex<Option<VsockConnId>>,
+    connection: Mutex<Option<Arc<Mutex<Connection>>>>,
+    /// Serializes concurrent sends on the same socket, mirroring Linux's
+    /// `lock_sock(sk)` in `vsock_connectible_sendmsg`. This prevents TOCTOU
+    /// credit races where two threads snapshot the same `tx_cnt` and both
+    /// believe there is enough peer credit. The connection manager never takes
+    /// this lock, so no deadlock is possible.
+    tx_lock: Mutex<()>,
+    state: StateLock,
+    general: GeneralOptions,
+}
+
+impl VsockStreamTransport {
+    pub fn new() -> Self {
+        Self {
+            conn_id: Mutex::new(None),
+            connection: Mutex::new(None),
+            tx_lock: Mutex::new(()),
+            state: StateLock::new(State::Idle),
+            general: GeneralOptions::new(),
+        }
+    }
+
+    fn get_connection(&self) -> KResult<Arc<Mutex<Connection>>> {
+        self.connection.lock().clone().ok_or(KError::NotConnected)
+    }
+}
+
+impl Default for VsockStreamTransport {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Configurable for VsockStreamTransport {
+    fn get_option_inner(&self, opt: &mut GetSocketOption) -> KResult<OptionHandled> {
+        self.general.get_option_inner(opt)
+    }
+
+    fn set_option_inner(&self, opt: SetSocketOption) -> KResult<OptionHandled> {
+        self.general.set_option_inner(opt)
+    }
+}
+
+impl VsockTransportOps for VsockStreamTransport {
+    fn bind(&self, mut local_addr: VsockAddr) -> KResult<()> {
+        self.state
+            .lock(State::Idle)
+            .map_err(|_| k_err_type!(InvalidInput, "already bound"))?
+            .transit(State::Idle, || {
+                let mut manager = VSOCK_CONN_MANAGER.lock();
+                if local_addr.port == 0 {
+                    local_addr.port = manager.allocate_port()?;
+                } else {
+                    #[cfg(feature = "vsock_tipc_bridge")]
+                    if crate::vsock::bridge_port_map::is_bridge_port(local_addr.port) {
+                        k_bail!(AddrInUse, "port reserved for vsock-TIPC bridge");
+                    }
+                }
+                let conn_id = VsockConnId::listening(local_addr.port);
+                let conn = manager.create_connection(
+                    conn_id,
+                    local_addr,
+                    None,
+                    ConnectionState::Idle,
+                    false,
+                )?;
+
+                *self.conn_id.lock() = Some(conn_id);
+                *self.connection.lock() = Some(conn);
+                trace!("Vsock binding to {:?}", local_addr);
+                Ok(())
+            })?;
+        Ok(())
+    }
+
+    fn listen(&self) -> KResult<()> {
+        let guard = self
+            .state
+            .lock(State::Idle)
+            .map_err(|_| k_err_type!(InvalidInput, "invalid state for listen"))?;
+
+        guard.transit(State::Listening, || {
+            let conn = self.get_connection()?;
+            let local_addr = conn.lock().local_addr();
+
+            // register in the global listen table
+            VSOCK_CONN_MANAGER.lock().listen(local_addr)?;
+            // set state
+            conn.lock().set_state(ConnectionState::Listening);
+            trace!("Vsock listening on {:?}", local_addr);
+            Ok(())
+        })
+    }
+
+    fn accept(&self, nonblocking: bool) -> KResult<(VsockTransport, VsockAddr)> {
+        if self.state.get() != State::Listening {
+            k_bail!(InvalidInput, "not listening");
+        }
+
+        let conn = self.get_connection()?;
+        let local_port = conn.lock().local_addr().port;
+
+        // wait for connection
+        self.general
+            .recv_poller_with_nonblocking(self, nonblocking, || {
+                let mut manager = VSOCK_CONN_MANAGER.lock();
+
+                if !manager.can_accept(local_port) {
+                    return Err(KError::WouldBlock);
+                }
+
+                let (conn_id, peer_addr) = manager.accept(local_port)?;
+                let conn = manager.get_connection(conn_id).ok_or(KError::NotFound)?;
+
+                // create new VsockStreamTransport
+                let new_transport = VsockStreamTransport {
+                    conn_id: Mutex::new(Some(conn_id)),
+                    connection: Mutex::new(Some(conn)),
+                    tx_lock: Mutex::new(()),
+                    state: StateLock::new(State::Connected),
+                    general: GeneralOptions::default(),
+                };
+
+                Ok((VsockTransport::Stream(new_transport), peer_addr))
+            })
+    }
+
+    fn connect(&self, peer_addr: VsockAddr) -> KResult<()> {
+        let guard = self.state.lock(State::Idle).map_err(|state| match state {
+            State::Idle => unreachable!(),
+            State::Listening => k_err_type!(InvalidInput, "already listening"),
+            State::Connecting => k_err_type!(InProgress),
+            State::Connected => k_err_type!(AlreadyConnected),
+            _ => k_err_type!(AlreadyConnected),
+        })?;
+
+        guard.transit(State::Connecting, || {
+            let mut manager = VSOCK_CONN_MANAGER.lock();
+            let existing_conn = self.connection.lock();
+
+            // get local address
+            let local_port = if let Some(conn) = existing_conn.as_ref() {
+                let conn_guard = conn.lock();
+                match conn_guard.state() {
+                    ConnectionState::Idle => {
+                        // already bound but not connected, reuse the port
+                        conn_guard.local_addr().port
+                    }
+                    _ => {
+                        // should not happen due to state check above
+                        k_bail!(InvalidInput, "already connected or listening");
+                    }
+                }
+            } else {
+                manager.allocate_port()?
+            };
+            drop(existing_conn);
+
+            let guest_cid = manager.guest_cid();
+            if guest_cid == 0 {
+                k_bail!(NotFound, "vsock transport not registered");
+            }
+            let local_addr = VsockAddr {
+                cid: guest_cid,
+                port: local_port,
+            };
+
+            // create connection
+            let conn_id = VsockConnId {
+                peer_addr,
+                local_port,
+            };
+            let conn = manager.create_connection(
+                conn_id,
+                local_addr,
+                Some(peer_addr),
+                ConnectionState::Connecting,
+                false,
+            )?;
+
+            *self.conn_id.lock() = Some(conn_id);
+            *self.connection.lock() = Some(conn.clone());
+
+            drop(manager);
+
+            // driver connect
+            if let Err(e) = vsock_connect(conn_id) {
+                *self.conn_id.lock() = None;
+                *self.connection.lock() = None;
+                return Err(e);
+            }
+            debug!("Vsock connecting from {} to {:?}", local_port, peer_addr);
+            Ok(())
+        })?;
+
+        // wait for connection established
+        self.general.send_poller(self, || {
+            let conn = self.get_connection()?;
+            let state = conn.lock().state();
+            match state {
+                ConnectionState::Connected => Ok(()),
+                ConnectionState::Connecting => Err(KError::WouldBlock),
+                _ => Err(k_err_type!(ConnectionRefused)),
+            }
+        })
+    }
+
+    fn send(&self, mut src: impl Read + IoBuf, options: SendOptions) -> KResult<usize> {
+        // Serialize concurrent sends on the same socket to prevent TOCTOU
+        // credit races. Mirrors Linux's lock_sock(sk) in
+        // vsock_connectible_sendmsg. The manager never takes this lock.
+        let _tx_guard = self.tx_lock.lock();
+
+        let conn = self.get_connection()?;
+        let conn_guard = conn.lock();
+
+        if conn_guard.state() != ConnectionState::Connected {
+            return Err(KError::NotConnected);
+        }
+
+        if conn_guard.tx_closed() {
+            return Err(KError::NotConnected);
+        }
+
+        let conn_id = self.conn_id.lock().ok_or(KError::NotConnected)?;
+        let nonblocking = self.general.nonblocking() || options.flags.nonblocking();
+        let tx_wait_queue = conn_guard.tx_wait_queue();
+        drop(conn_guard);
+
+        let result = src.write_to(&mut kio::write_fn(|buf| {
+            vsock_send(conn_id, buf, nonblocking, &tx_wait_queue)
+        }));
+        conn.lock().add_tx_bytes(result.unwrap_or(0));
+        result
+    }
+
+    fn recv(&self, mut dst: impl Write, options: RecvOptions) -> KResult<usize> {
+        let conn = self.get_connection()?;
+        let conn_id = *self.conn_id.lock();
+
+        let count =
+            self.general
+                .recv_poller_with_nonblocking(self, options.flags.nonblocking(), || {
+                    let mut conn_guard = conn.lock();
+
+                    if conn_guard.rx_closed() && conn_guard.rx_buffer_used() == 0 {
+                        return Ok(0); // EOF
+                    }
+
+                    // should allow read when connection is closed, to read remaining data
+                    if !matches!(
+                        conn_guard.state(),
+                        ConnectionState::Connected | ConnectionState::Closed
+                    ) {
+                        return Err(KError::NotConnected);
+                    }
+
+                    if conn_guard.rx_buffer_used() == 0 {
+                        return Err(KError::WouldBlock);
+                    }
+
+                    let (left, right) = conn_guard.rx_slices();
+                    let mut count = dst.write(left)?;
+
+                    if count >= left.len() && !right.is_empty() {
+                        count += dst.write(right)?;
+                    }
+                    if !options.flags.contains(RecvFlags::PEEK) {
+                        conn_guard.advance_rx_read(count);
+                    }
+
+                    if count > 0 {
+                        trace!(
+                            "Recv {} bytes from connection (buffer_remaining={}/{})",
+                            count,
+                            conn_guard.rx_buffer_used(),
+                            VSOCK_RX_BUFFER_SIZE
+                        );
+                        Ok(count)
+                    } else {
+                        Err(KError::WouldBlock)
+                    }
+                })?;
+
+        if !options.flags.contains(RecvFlags::PEEK)
+            && let Some(conn_id) = conn_id
+            && let Err(e) = advance_rx_credit(conn_id, count)
+        {
+            warn!("vsock recv failed to update credit: {e:?}");
+        }
+
+        Ok(count)
+    }
+
+    fn shutdown(&self, how: Shutdown) -> KResult<()> {
+        let conn = self.get_connection()?;
+
+        // Apply the shutdown flags and read the state while holding only the
+        // connection lock, then release it before taking the device or manager
+        // locks to keep the global order `VSOCK_DEV -> VSOCK_CONN_MANAGER ->
+        // conn`.
+        //
+        // NOTE: `state` is a snapshot taken under the conn lock. By the time we
+        // use it below, the actual state may have changed (e.g. the driver event
+        // path may have transitioned the connection to Disconnected). This is
+        // acceptable because:
+        //   - The critical mutations (rx_closed / tx_closed) already happened
+        //     inside the lock above.
+        //   - vsock_disconnect / unlisten are idempotent notification calls;
+        //     issuing an extra disconnect on an already-disconnected connection
+        //     is harmless.
+        let state = {
+            let mut conn = conn.lock();
+            if how.has_read() {
+                conn.set_rx_closed(true);
+            }
+            if how.has_write() {
+                conn.set_tx_closed(true);
+            }
+            conn.state()
+        };
+
+        if let Some(conn_id) = *self.conn_id.lock() {
+            if state == ConnectionState::Connected {
+                vsock_disconnect(conn_id)?;
+            } else if state == ConnectionState::Listening {
+                VSOCK_CONN_MANAGER.lock().unlisten(conn_id.local_port);
+            }
+        }
+        conn.lock().set_state(ConnectionState::Closed);
+
+        // Wake all waiters so that any task blocked in poll/register is
+        // notified of the closure.  Without this, a task that registered a
+        // waker just before we set Closed could be stuck forever if the
+        // double-poll in the caller missed the transition.
+        {
+            let mut conn = conn.lock();
+            conn.wake_rx();
+            conn.wake_connect();
+        }
+        Ok(())
+    }
+
+    fn local_addr(&self) -> KResult<Option<VsockAddr>> {
+        Ok(self
+            .get_connection()
+            .ok()
+            .map(|conn| conn.lock().local_addr()))
+    }
+
+    fn peer_addr(&self) -> KResult<Option<VsockAddr>> {
+        Ok(self
+            .get_connection()
+            .ok()
+            .and_then(|conn| conn.lock().peer_addr()))
+    }
+}
+
+impl Pollable for VsockStreamTransport {
+    fn poll(&self) -> IoEvents {
+        let Ok(conn) = self.get_connection() else {
+            return IoEvents::empty();
+        };
+
+        // Snapshot the connection under its own lock, then drop it before taking
+        // the manager lock to preserve the order `VSOCK_CONN_MANAGER -> conn`.
+        let (state, rx_used, rx_closed, tx_closed) = {
+            let conn = conn.lock();
+            (
+                conn.state(),
+                conn.rx_buffer_used(),
+                conn.rx_closed(),
+                conn.tx_closed(),
+            )
+        };
+        let mut events = IoEvents::empty();
+
+        match state {
+            ConnectionState::Listening => {
+                // if there is a pending connection, set IN
+                if let Some(conn_id) = *self.conn_id.lock() {
+                    events.set(
+                        IoEvents::IN,
+                        VSOCK_CONN_MANAGER.lock().can_accept(conn_id.local_port),
+                    );
+                }
+            }
+            ConnectionState::Connected | ConnectionState::Closed => {
+                events.set(IoEvents::IN, rx_used > 0 || rx_closed);
+                events.set(IoEvents::OUT, !tx_closed);
+            }
+            ConnectionState::Connecting => {
+                // a connecting socket is not writable yet
+                events.set(IoEvents::OUT, false);
+            }
+            _ => {}
+        }
+        events.set(IoEvents::RDHUP, rx_closed);
+        events
+    }
+
+    fn register(
+        &self,
+        context: &mut PollContext<'_>,
+        events: IoEvents,
+    ) -> Result<(), PollRegisterError> {
+        let Ok(conn) = self.get_connection() else {
+            return Ok(());
+        };
+
+        // Register all potentially relevant wakers unconditionally, without
+        // branching on the connection state.  This avoids a TOCTOU race where
+        // the state changes between the snapshot and the register call, which
+        // could cause the wrong waker (or no waker at all) to be registered
+        // and leave the caller stuck forever.  Unused wakers simply never fire.
+        if events.contains(IoEvents::IN) {
+            conn.lock().register_rx_poll(context)?;
+            // Also register on the listen queue for accept() support.
+            if let Some(conn_id) = *self.conn_id.lock()
+                && let Some(queue) = VSOCK_CONN_MANAGER
+                    .lock()
+                    .get_listen_queue(conn_id.local_port)
+            {
+                queue.lock().register_poll(context)?;
+            }
+        }
+        conn.lock().register_connect_poll(context)?;
+        Ok(())
+    }
+}
+
+impl Drop for VsockStreamTransport {
+    fn drop(&mut self) {
+        // Drop cannot report shutdown errors; connection ownership is still released.
+        let _ = self.shutdown(Shutdown::Both);
+
+        if let Some(conn_id) = *self.conn_id.lock() {
+            VSOCK_CONN_MANAGER.lock().remove_connection(conn_id);
+        }
+    }
+}

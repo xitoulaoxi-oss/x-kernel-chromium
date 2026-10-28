@@ -1,0 +1,48 @@
+[package]
+name = "fs_boot"
+description = "Filesystem boot namespace preparation"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[features]
+default = ["dev-log"]
+dev-log = ["devfs/dev-log"]
+ebpf = ["dep:bpffs"]
+cgroup2 = ["dep:cgroup2fs"]
+fs9p = [
+    "dep:kclass",
+    "dep:macros",
+    "dep:p9",
+    "dep:v9fs",
+    "kclass/virtio-9p",
+]
+rootfs-secondary-block = []
+smp = ["procfs/smp"]
+
+[dependencies]
+anon_inodefs.workspace = true
+block.workspace = true
+bpffs = { workspace = true, optional = true }
+cgroup2fs = { workspace = true, optional = true }
+devfs.workspace = true
+fs_context.workspace = true
+kclass = { workspace = true, optional = true }
+kbuild_config.workspace = true
+kerrno.workspace = true
+kcred.workspace = true
+kdevice_uevent.workspace = true
+kvfs.workspace = true
+log.workspace = true
+macros = { workspace = true, optional = true }
+memfs.workspace = true
+procfs.workspace = true
+pipefs.workspace = true
+sysfs.workspace = true
+p9 = { workspace = true, optional = true }
+v9fs = { workspace = true, optional = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,24 @@
+[package]
+name = "kcpu_slot"
+description = "Typed, architecture-backed per-CPU slots for X-Kernel"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+
+[dependencies]
+kaddr_layout.workspace = true
+kbuild_config.workspace = true
+kcpu_id_map.workspace = true
+kiface.workspace = true
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+x86_64 = { workspace = true }
+
+[lints]
+workspace = true

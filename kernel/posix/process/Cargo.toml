@@ -1,0 +1,41 @@
+[package]
+name = "posix-process"
+description = "POSIX process syscall implementations"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+
+[features]
+tee = ["kprocess/tee", "dep:tee_kernel"]
+tipc = ["kprocess/tipc"]
+
+[dependencies]
+bytemuck = { workspace = true, features = ["derive"] }
+kcred.workspace = true
+kerrno.workspace = true
+kexec.workspace = true
+kfutex.workspace = true
+fs_context.workspace = true
+khal.workspace = true
+kidentity.workspace = true
+klogger.workspace = true
+kprocess.workspace = true
+kuaccess.workspace = true
+ksignal.workspace = true
+ksync.workspace = true
+ktask.workspace = true
+linux-raw-sys.workspace = true
+linux_sysno.workspace = true
+memspace.workspace = true
+osvm.workspace = true
+unittest.workspace = true
+posix-fs.workspace = true
+posix-ipc.workspace = true
+tee_kernel = { workspace = true, optional = true }
+
+[lints]
+workspace = true

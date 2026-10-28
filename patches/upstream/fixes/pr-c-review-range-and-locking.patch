@@ -1,0 +1,174 @@
+diff --git a/net/knet/src/socket/options.rs b/net/knet/src/socket/options.rs
+--- a/net/knet/src/socket/options.rs
++++ b/net/knet/src/socket/options.rs
+@@ -30,6 +30,29 @@
+             )*
+         }
+     };
++}
++
++// ======== TCP keep-alive policy ========
++
++// Linux defaults, from net.ipv4.tcp_keepalive_{time,intvl,probes}.
++pub(crate) const TCP_KEEPIDLE_DEFAULT_SECS: u32 = 7200;
++pub(crate) const TCP_KEEPINTVL_DEFAULT_SECS: u32 = 75;
++pub(crate) const TCP_KEEPCNT_DEFAULT: u32 = 9;
++
++// Linux bounds the three knobs in include/net/tcp.h: KEEPIDLE/KEEPINTVL are
++// 1..=MAX_TCP_KEEPIDLE and KEEPCNT is 1..=MAX_TCP_KEEPCNT.
++pub(crate) const TCP_KEEPALIVE_MAX_SECS: u32 = 32767;
++pub(crate) const TCP_KEEPALIVE_MAX_PROBES: u32 = 127;
++
++/// Range check for one keep-alive knob.
++///
++/// The lower bound is not cosmetic. smoltcp arms its keep-alive deadline at
++/// `now + interval` and treats `now >= deadline` as due, so an interval of zero
++/// is due on every poll: the network poller re-arms without making progress and
++/// probes leave at poll frequency. Linux rejects 0 for all three knobs, and so
++/// does this.
++pub(crate) fn keepalive_value_in_range(value: u32, max: u32) -> bool {
++    value != 0 && value <= max
+ }
+ 
+ /// Credentials delivered over Unix-domain sockets.
+diff --git a/net/knet/src/transport/tcp.rs b/net/knet/src/transport/tcp.rs
+--- a/net/knet/src/transport/tcp.rs
++++ b/net/knet/src/transport/tcp.rs
+@@ -27,7 +27,11 @@
+     SendOptions, Shutdown, Socket, SocketAddrEx, SocketOps,
+     consts::{TCP_RX_BUF_LEN, TCP_TX_BUF_LEN},
+     general::GeneralOptions,
+-    options::{Configurable, GetSocketOption, OptionHandled, SetSocketOption},
++    options::{
++        Configurable, GetSocketOption, OptionHandled, SetSocketOption,
++        keepalive_value_in_range, TCP_KEEPALIVE_MAX_PROBES, TCP_KEEPALIVE_MAX_SECS,
++        TCP_KEEPCNT_DEFAULT, TCP_KEEPIDLE_DEFAULT_SECS, TCP_KEEPINTVL_DEFAULT_SECS,
++    },
+     poller::{PollReason, network_poller},
+     state::*,
+ };
+@@ -64,12 +68,6 @@
+     keep_interval: AtomicU32,
+     keep_count: AtomicU32,
+ }
+-
+-/// Linux defaults for the three keep-alive knobs, used before a caller sets
+-/// them: net.ipv4.tcp_keepalive_{time,intvl,probes}.
+-const TCP_KEEPIDLE_DEFAULT_SECS: u32 = 7200;
+-const TCP_KEEPINTVL_DEFAULT_SECS: u32 = 75;
+-const TCP_KEEPCNT_DEFAULT: u32 = 9;
+ 
+ impl TcpSocket {
+     /// Creates a new TCP socket.
+@@ -401,9 +399,11 @@
+                 // through TCP_KEEPIDLE, so "`SO_KEEPALIVE=1` then
+                 // `TCP_KEEPIDLE=n`" and the reverse order agree -- with the
+                 // Linux default of 7200 s standing in until a caller says
+-                // otherwise.
+-                let idle = self.keep_idle.load(Ordering::Relaxed);
++                // otherwise.  The load happens inside the closure so that the
++                // value used is the one current under the socket lock, not one
++                // read before taking it.
+                 self.with_smol_socket(|socket| {
++                    let idle = self.keep_idle.load(Ordering::Relaxed);
+                     socket.set_keep_alive(keep_alive.then(|| Duration::from_secs(idle.into())));
+                 });
+                 network_poller().notify(PollReason::Timer);
+@@ -414,21 +414,43 @@
+                 // keep-alive interval, so the value is applied to the stack as
+                 // well as recorded -- but only when keep-alive is already on,
+                 // because setting TCP_KEEPIDLE must not itself start probing.
++                if !keepalive_value_in_range(*idle, TCP_KEEPALIVE_MAX_SECS) {
++                    return Err(KError::InvalidInput);
++                }
+                 self.keep_idle.store(*idle, Ordering::Relaxed);
+-                if self.with_smol_socket(|socket| socket.keep_alive().is_some()) {
+-                    self.with_smol_socket(|socket| {
++                // One closure: testing keep_alive() and setting it must happen
++                // under the same lock, or a concurrent SO_KEEPALIVE=0 can land in
++                // between and be overwritten by the set below.
++                let armed = self.with_smol_socket(|socket| {
++                    if socket.keep_alive().is_some() {
+                         socket.set_keep_alive(Some(Duration::from_secs((*idle).into())));
+-                    });
++                        true
++                    } else {
++                        false
++                    }
++                });
++                if armed {
+                     network_poller().notify(PollReason::Timer);
+                 }
+             }
+             O::TcpKeepInterval(interval) => {
+-                // Recorded and reported back, not yet acted upon: smoltcp sends
+-                // every probe at the one interval above and has no second knob.
++                if !keepalive_value_in_range(*interval, TCP_KEEPALIVE_MAX_SECS) {
++                    return Err(KError::InvalidInput);
++                }
++                // Recorded and reported back, not yet acted upon.  smoltcp keeps
++                // one keep-alive interval and uses it both as the first idle time
++                // and as the gap between probes, so TCP_KEEPIDLE is what actually
++                // drives the timer; a separate probe cadence would need a second
++                // timer in smoltcp.  Reading this value back therefore reports the
++                // configuration, not the cadence.
+                 self.keep_interval.store(*interval, Ordering::Relaxed);
+             }
+             O::TcpKeepCount(count) => {
+-                // Same as TCP_KEEPINTVL: accepted and remembered, not enforced.
++                if !keepalive_value_in_range(*count, TCP_KEEPALIVE_MAX_PROBES) {
++                    return Err(KError::InvalidInput);
++                }
++                // Same as TCP_KEEPINTVL: accepted and remembered, not enforced --
++                // smoltcp stops probing on its own schedule and has no counter.
+                 self.keep_count.store(*count, Ordering::Relaxed);
+             }
+             _ => return Ok(OptionHandled::No),
+diff --git a/net/knet/src/socket/test_options.rs b/net/knet/src/socket/test_options.rs
+--- a/net/knet/src/socket/test_options.rs
++++ b/net/knet/src/socket/test_options.rs
+@@ -54,6 +54,44 @@
+     modified_clone.pid = 999;
+     assert_eq!(original.pid, 100);
+     assert_eq!(modified_clone.pid, 999);
++}
++
++#[def_test]
++fn test_keepalive_defaults_match_linux() {
++    // net.ipv4.tcp_keepalive_{time,intvl,probes} on a stock Linux kernel.
++    assert_eq!(TCP_KEEPIDLE_DEFAULT_SECS, 7200);
++    assert_eq!(TCP_KEEPINTVL_DEFAULT_SECS, 75);
++    assert_eq!(TCP_KEEPCNT_DEFAULT, 9);
++}
++
++#[def_test]
++fn test_keepalive_rejects_zero() {
++    // Zero is what turns smoltcp's keep-alive deadline into "always due": the
++    // poller then re-arms on every iteration instead of waiting.
++    assert!(!keepalive_value_in_range(0, TCP_KEEPALIVE_MAX_SECS));
++    assert!(!keepalive_value_in_range(0, TCP_KEEPALIVE_MAX_PROBES));
++}
++
++#[def_test]
++fn test_keepalive_accepts_one_and_the_maximum() {
++    assert!(keepalive_value_in_range(1, TCP_KEEPALIVE_MAX_SECS));
++    assert!(keepalive_value_in_range(
++        TCP_KEEPALIVE_MAX_SECS,
++        TCP_KEEPALIVE_MAX_SECS
++    ));
++    assert!(keepalive_value_in_range(127, TCP_KEEPALIVE_MAX_PROBES));
++}
++
++#[def_test]
++fn test_keepalive_rejects_above_maximum() {
++    assert!(!keepalive_value_in_range(
++        TCP_KEEPALIVE_MAX_SECS + 1,
++        TCP_KEEPALIVE_MAX_SECS
++    ));
++    assert!(!keepalive_value_in_range(
++        TCP_KEEPALIVE_MAX_PROBES + 1,
++        TCP_KEEPALIVE_MAX_PROBES
++    ));
+ }
+ 
+ #[def_test]

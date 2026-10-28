@@ -1,0 +1,127 @@
+[37m[  0.727749 0:18446462599824926736 knet:203] [33m  No vsock device found![m
+[march = aarch64
+platform = kplat-aarch64
+target = aarch64-unknown-none-softfloat
+build_mode = release
+build_machine = xitoulaoxi@xitoulaoxi-desktop
+build_time = 2026-10-16T10:52:47.384545672Z
+log_level = warn
+backtrace = false
+nr_cpus_max = 4
+vmm = off
+config_sha256 = c27d8b2b3414d219359808f56611284945306fd50a28dbed81a9b252807d955c
+git_commit = d3a6ec95a9dded154db2c1aadd4fef44eadb1612
+git_dirty = true
+build_id = 815e69c2d51f6ffafa36a7162b8062c2074706004196edb46647447a17a966da
+smp = 4
+Welcome to [96m[1mKylin X[0m!
+SHLVL=1
+HOME=/root
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PWD=/
+
+Use [1m[3mapt[0m to install packages.
+
+init: handing off to /sbin/init (inittab present, /dev/console present)
+init: must be run as PID 1
+init: /sbin/init exited immediately; falling back to an interactive shell
+kylin-x:~# [6n
+kylin-x:~# [6nexport XK_HTTP=http://10.0.2.2:54377; echo XK_HTTP=http://10.0.2.2:54377
+XK_HTTP=http://10.0.2.2:54377
+kylin-x:~# echo __XK2709369__rc=$?
+__XK2709369__rc=0
+kylin-x:~# [6nwget -q -O /tmp/xk-c2-perf-launch.sh 'http://10.0.2.2:54377/c2-perf-launch.sh' && sha256sum /tmp/xk
+-c2-perf-launch.sh
+6832fbf9f444e55a8038aeeda27f0bdb25eaa7610cbd7b3c6d77a725194fbce0  /tmp/xk-c2-perf-launch.sh
+kylin-x:~# echo __XK1307705__rc=$?
+__XK1307705__rc=0
+kylin-x:~# [6nchmod +x /tmp/xk-c2-perf-launch.sh
+kylin-x:~# echo __XK8239602__rc=$?
+__XK8239602__rc=0
+kylin-x:~# [6nwget -q -O /tmp/xk-c2-perf-monitor.sh 'http://10.0.2.2:54377/c2-perf-monitor.sh' && sha256sum /tmp/
+xk-c2-perf-monitor.sh
+88c4cf65f36050a8071543fb7c0d0de67a1b381c85c3330a597e78af4c9b83ea  /tmp/xk-c2-perf-monitor.sh
+kylin-x:~# echo __XK9956517__rc=$?
+__XK9956517__rc=0
+kylin-x:~# [6nchmod +x /tmp/xk-c2-perf-monitor.sh
+kylin-x:~# echo __XK7706879__rc=$?
+__XK7706879__rc=0
+kylin-x:~# [6nwget -q -O /tmp/xk-c1-perf-harvest.sh 'http://10.0.2.2:54377/c1-perf-harvest.sh' && sha256sum /tmp/
+xk-c1-perf-harvest.sh
+a0c53cffe479cd5da41d544e526e283ebed2538d453b13d341167f618c17cb82  /tmp/xk-c1-perf-harvest.sh
+kylin-x:~# echo __XK6662063__rc=$?
+__XK6662063__rc=0
+kylin-x:~# [6nchmod +x /tmp/xk-c1-perf-harvest.sh
+kylin-x:~# echo __XK2138854__rc=$?
+__XK2138854__rc=0
+kylin-x:~# [6nwget -q -O /tmp/xk-06-fetch-pages.sh 'http://10.0.2.2:54377/06-fetch-pages.sh' && sha256sum /tmp/xk
+-06-fetch-pages.sh
+907d8ac4f5c6ab32f70cf181cec3287a46d4d8e099977c954a31bceb7cdfc016  /tmp/xk-06-fetch-pages.sh
+kylin-x:~# echo __XK1798066__rc=$?
+__XK1798066__rc=0
+kylin-x:~# [6nchmod +x /tmp/xk-06-fetch-pages.sh
+kylin-x:~# echo __XK8540371__rc=$?
+__XK8540371__rc=0
+kylin-x:~# [6nsh /tmp/xk-06-fetch-pages.sh 2>&1
+P index bytes=5730 sha=831cf28f3748940b
+P interaction bytes=10991 sha=58130daa4a2f426f
+P layout bytes=11444 sha=a1b04f9aba81b4b7
+P1 ok=3 bad=0
+P2 url=file:///usr/share/kiosk/official/index.html
+total 0
+-rw-r--r--    1 root     root          5730 Oct 18 17:31 [0;0mindex.html[m
+-rw-r--r--    1 root     root         10991 Oct 18 17:31 [0;0minteraction.html[m
+-rw-r--r--    1 root     root         11444 Oct 18 17:31 [0;0mlayout.html[m
+P3
+kylin-x:~# echo __XK2815058__rc=$?
+__XK2815058__rc=0
+kylin-x:~# [6nwget -q -O /tmp/xk-c1-perf-x.sh 'http://10.0.2.2:54377/c1-perf-x.sh' && sha256sum /tmp/xk-c1-perf-x
+.sh
+5184d9b6a553a6d5906ff1a15f12ef3c8b1a6561f5fa894e6a84522216447367  /tmp/xk-c1-perf-x.sh
+kylin-x:~# echo __XK6799759__rc=$?
+__XK6799759__rc=0
+kylin-x:~# [6nchmod +x /tmp/xk-c1-perf-x.sh
+kylin-x:~# echo __XK1646090__rc=$?
+__XK1646090__rc=0
+kylin-x:~# [6nsh /tmp/xk-c1-perf-x.sh 2>&1
+P1-BEGIN
+xorg_s=0
+jwm_s=1
+P1-END
+kylin-x:~# echo __XK4993980__rc=$?
+__XK4993980__rc=0
+kylin-x:~# [6nwget -q -O /tmp/xk-c2-perf-prep.sh 'http://10.0.2.2:54377/c2-perf-prep.sh' && sha256sum /tmp/xk-c2-
+perf-prep.sh
+1f54b63fd1d73d488d82c687dd5cadcab3633342440fb964199e5cc87e75328b  /tmp/xk-c2-perf-prep.sh
+kylin-x:~# echo __XK5279347__rc=$?
+__XK5279347__rc=0
+kylin-x:~# [6nchmod +x /tmp/xk-c2-perf-prep.sh
+kylin-x:~# echo __XK1895147__rc=$?
+__XK1895147__rc=0
+kylin-x:~# [6nsh /tmp/xk-c2-perf-prep.sh 2>&1
+prep_dir=/tmp/pr
+PREP-END
+kylin-x:~# echo __XK2184572__rc=$?
+__XK2184572__rc=0
+kylin-x:~# [6nsh /tmp/xk-c2-perf-launch.sh
+t0=1792344708
+launch_epoch=1792344713
+LAUNCH-END
+kylin-x:~# 
+kylin-x:~# [6n[37m[ 35.700393 0:72 ksyscall::dispatch:885] [33mUnimplemented syscall: landlock_create_ruleset (tid=72)[m
+[m[37m[126.882298 2:226 posix_net::opt:472] [33msockopt rejected: (0, 13)[m
+[msh /tmp/xk-c1-perf-harvest.sh
+chrome_s=6
+renderer_s=30
+renderer_pid=207
+renderer_threads=3
+zygote_pids= 129 132
+marks_loops=18
+done=1
+log_bytes=13032
+chrome_pids=10
+win=_NET_CLIENT_LIST(WINDOW): window id # 0x400003
+HARVEST-END
+kylin-x:~# echo __XK9460732__rc=$?
+__XK9460732__rc=0
+kylin-x:~# [6n

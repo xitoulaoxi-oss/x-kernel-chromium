@@ -1,0 +1,17 @@
+* text=auto eol=lf
+
+*.sh    text eol=lf
+*.ps1   text eol=crlf
+*.psm1  text eol=crlf
+*.patch text eol=lf
+*.md    text eol=lf
+*.json  text eol=lf
+
+*.png    binary
+*.gif    binary
+*.jpg    binary
+*.bin    binary
+*.bundle binary
+*.docx   binary
+
+patches/** diff=patch

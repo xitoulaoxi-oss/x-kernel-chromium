@@ -1,0 +1,240 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! It provides unified networking primitives for TCP/UDP communication.
+//!
+//! # Organization
+//!
+//! - [`TcpSocket`](tcp::TcpSocket): A TCP socket that provides POSIX-like APIs.
+//! - [`UdpSocket`](udp::UdpSocket): A UDP socket that provides POSIX-like APIs.
+//! - [`send_link_frame`]: Sends a link-layer frame through a selected interface.
+//! - [`UdpDatagramRelay`]: A persistent nonblocking UDP relay socket.
+#![allow(
+    clippy::expect_used,
+    reason = "CG-021-no-panic-on-reachable-failure: case (b): legacy knet has 20 diagnostic \
+              sites, too many to judge individually in this migration; new code remains reviewed"
+)]
+#![no_std]
+
+#[macro_use]
+extern crate log;
+extern crate alloc;
+
+mod consts;
+mod control;
+mod device;
+mod ip;
+mod link;
+mod netfilter;
+pub mod netlink;
+mod network;
+mod runtime;
+mod socket;
+mod stack;
+mod transport;
+pub mod unix;
+#[cfg(feature = "vsock")]
+pub mod vsock;
+
+use alloc::{borrow::ToOwned, boxed::Box, sync::Arc};
+
+pub use control::{
+    NetInterfaceInfo, add_ipv4_route, del_ipv4_route, find_interface, interface_ipv4_addr,
+    set_interface_flags, set_interface_ipv4_addr, set_interface_ipv4_broadcast,
+    set_interface_ipv4_netmask,
+};
+#[cfg(feature = "vsock")]
+use kclass::{ClassDevice, VsockDeviceImpl, subscribe_vsock_available, vsock_devices};
+use kclass::{NetDevice, net_devices};
+use kdevice::subscribe_device_removed;
+#[cfg(feature = "vsock")]
+use kerrno::KError;
+use lazyinit::LazyInit;
+pub(crate) use link::{buf, wire};
+pub use link::{packet, send_link_frame};
+pub(crate) use network::ipv4;
+pub(crate) use runtime::{poller, service};
+pub use socket::{
+    file::{sock_alloc_file, sock_from_file},
+    options, *,
+};
+pub(crate) use socket::{general, state};
+pub(crate) use stack::{router, socket_set};
+pub(crate) use transport::{listen_table, udp_err};
+pub use transport::{raw, tcp, udp, udp::UdpDatagramRelay};
+
+use crate::{
+    consts::{GATEWAY, IP, IP_PREFIX},
+    device::{EthernetDevice, LoopbackDevice},
+    ip::{IpAddress, Ipv4Address, Ipv4Cidr},
+    listen_table::ListenTable,
+    network::router::{ROUTE_SCOPE_HOST, ROUTE_SCOPE_UNIVERSE, Rule},
+    router::{Ipv4AddrEntry, Router},
+    service::Service,
+    socket_set::SocketSetWrapper,
+};
+
+static LISTEN_TABLE: LazyInit<ListenTable> = LazyInit::new();
+static SOCKET_SET: LazyInit<SocketSetWrapper> = LazyInit::new();
+
+static SERVICE: LazyInit<Service> = LazyInit::new();
+
+/// Initializes the network subsystem by NIC devices.
+///
+/// Call once after scheduler and timer IRQ initialization. Publishes the global
+/// service and poller before starting the retained sampling timer.
+///
+/// # Panics
+/// Panics on repeated global initialization or if the initial sampling deadline
+/// exceeds the timer core's nanosecond range.
+pub fn init_network() {
+    info!("Initialize network subsystem...");
+
+    // Prepare stable Work storage before installing NIC notification sources.
+    let _ = poller::network_poller();
+
+    let mut net_devs = net_devices();
+
+    let mut router = Router::new();
+    let lo_dev = router.add_device(Box::new(LoopbackDevice::new()));
+
+    #[expect(
+        clippy::unwrap_used,
+        reason = "CG-021-no-panic-on-reachable-failure: the fixed loopback prefix length 8 is \
+                  within the IPv4 range 0 through 32"
+    )]
+    let lo_ip = Ipv4Cidr::new(Ipv4Address::new(127, 0, 0, 1), 8).unwrap();
+    router
+        .add_ipv4_addr(Ipv4AddrEntry {
+            dev: lo_dev,
+            addr: lo_ip,
+            scope: ROUTE_SCOPE_HOST,
+            broadcast: None,
+        })
+        .expect("loopback IPv4 address must fit the interface");
+
+    if let Some(handle) = net_devs.pop() {
+        let device_id = handle.id();
+        info!("  use NIC 0: {:?}", handle.name());
+
+        let eth0_address = wire::MacAddress(handle.mac().0);
+        let eth0_ip = Ipv4Cidr::new(IP.parse().expect("Invalid IPv4 address"), IP_PREFIX)
+            .expect("configured IPv4 prefix length must be valid");
+
+        let eth0 = EthernetDevice::new("eth0".to_owned(), handle);
+        let eth0_dev = router.add_device(Box::new(eth0));
+
+        router
+            .add_ipv4_addr(Ipv4AddrEntry {
+                dev: eth0_dev,
+                addr: eth0_ip,
+                scope: ROUTE_SCOPE_UNIVERSE,
+                broadcast: None,
+            })
+            .expect("Ethernet IPv4 address must fit the interface");
+        #[expect(
+            clippy::unwrap_used,
+            reason = "CG-021-no-panic-on-reachable-failure: the fixed default-route IPv4 prefix \
+                      length 0 is valid"
+        )]
+        router.add_rule(Rule::new(
+            Ipv4Cidr::new(Ipv4Address::UNSPECIFIED, 0).unwrap().into(),
+            Some(IpAddress::Ipv4(
+                GATEWAY.parse().expect("Invalid gateway address"),
+            )),
+            eth0_dev,
+            eth0_ip.address().into(),
+        ));
+
+        info!("eth0:");
+        info!("  mac:  {}", eth0_address);
+        info!("  ip:   {}", eth0_ip);
+        subscribe_network_unregister(device_id);
+    } else {
+        warn!("  No network device found!");
+    }
+
+    for dev in &router.devices {
+        info!("Device: {}", dev.name());
+    }
+
+    let service = Service::new(router);
+    SERVICE.init_once(service);
+
+    SOCKET_SET.init_once(SocketSetWrapper::new());
+    LISTEN_TABLE.init_once(ListenTable::new());
+    udp::init_udp_registry();
+    poller::network_poller().start();
+    SERVICE.start_timer();
+}
+
+fn subscribe_network_unregister(id: kdevice::DeviceId) {
+    subscribe_device_removed(Arc::new(move |removed_id| {
+        if removed_id != id {
+            return;
+        }
+        if unregister_netdev(id) {
+            warn!("network: detached removed device {:?}", id);
+        }
+    }));
+}
+
+/// Removes a NIC from the network stack.
+///
+/// Takes [`control::network_config_lock`] so teardown is serialized with
+/// control-plane mutations.
+pub(crate) fn unregister_netdev(id: kdevice::DeviceId) -> bool {
+    if !SERVICE.is_inited() {
+        return false;
+    }
+    let _network_config_guard = control::network_config_lock();
+    SERVICE.remove_device_by_model_id(id).is_some()
+}
+
+/// Init vsock subsystem by vsock devices.
+#[cfg(feature = "vsock")]
+pub fn init_vsock() {
+    info!("Initialize vsock subsystem...");
+    let mut vsock_devs = vsock_devices();
+    if let Some(handle) = vsock_devs.pop() {
+        register_vsock_handle(handle);
+    } else {
+        warn!("  No vsock device found!");
+    }
+    subscribe_vsock_available(Arc::new(register_vsock_handle));
+}
+
+/// Starts vsock runtime workers that require all scheduler run queues.
+#[cfg(feature = "vsock_tipc_bridge")]
+pub fn start_vsock_bridge() {
+    crate::vsock::bridge::start();
+}
+
+#[cfg(feature = "vsock")]
+fn register_vsock_handle(handle: ClassDevice<VsockDeviceImpl>) {
+    use crate::vsock::connection_manager::{register_vsock_dev, unregister_vsock_dev};
+
+    let id = handle.id();
+    info!(
+        "  use vsock 0: {:?} (driver={}, {:?})",
+        handle.name(),
+        handle.driver_name(),
+        handle.location(),
+    );
+    if let Err(e) = register_vsock_dev(handle) {
+        if e != KError::AlreadyExists {
+            warn!("Failed to initialize vsock device: {:?}", e);
+        }
+        return;
+    }
+    #[cfg(feature = "vsock_tipc_bridge")]
+    if let Err(e) = crate::vsock::bridge::init() {
+        warn!("Failed to initialize vsock-TIPC bridge: {:?}", e);
+    }
+    subscribe_device_removed(Arc::new(move |removed_id| {
+        if removed_id == id && unregister_vsock_dev(id) {
+            warn!("vsock: detached removed device {:?}", id);
+        }
+    }));
+}

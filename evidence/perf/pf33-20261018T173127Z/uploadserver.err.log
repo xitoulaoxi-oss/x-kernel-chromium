@@ -1,0 +1,10 @@
+127.0.0.1 - - [19/Oct/2026 01:31:37] "GET /_server-canary.txt HTTP/1.1" 200 -
+127.0.0.1 - - [19/Oct/2026 01:31:38] "GET /c2-perf-launch.sh HTTP/1.1" 200 -
+127.0.0.1 - - [19/Oct/2026 01:31:39] "GET /c2-perf-monitor.sh HTTP/1.1" 200 -
+127.0.0.1 - - [19/Oct/2026 01:31:40] "GET /c1-perf-harvest.sh HTTP/1.1" 200 -
+127.0.0.1 - - [19/Oct/2026 01:31:41] "GET /06-fetch-pages.sh HTTP/1.1" 200 -
+127.0.0.1 - - [19/Oct/2026 01:31:43] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [19/Oct/2026 01:31:43] "GET /interaction.html HTTP/1.1" 200 -
+127.0.0.1 - - [19/Oct/2026 01:31:43] "GET /layout.html HTTP/1.1" 200 -
+127.0.0.1 - - [19/Oct/2026 01:31:44] "GET /c1-perf-x.sh HTTP/1.1" 200 -
+127.0.0.1 - - [19/Oct/2026 01:31:50] "GET /c2-perf-prep.sh HTTP/1.1" 200 -

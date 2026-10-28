@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! Platform boot-stage interface definitions.
+
+pub use boot_info::BootInfo;
+#[cfg(feature = "smp")]
+use kcpu_id_map::LogicalCpuId;
+use kplat_macros::device_interface;
+
+#[device_interface]
+pub trait BootHandler {
+    /// Platform-specific boot-memory preparation before common memory assembly.
+    fn prepare_boot_memory(boot_info: &BootInfo);
+
+    /// Firmware-specific platform initialization after DT/ACPI parsing.
+    fn firmware_init(boot_info: &BootInfo);
+
+    /// Early driver initialization after runtime page tables are active.
+    ///
+    /// This hook is only for hardware required before generic descriptor-first
+    /// probing can run, such as timer, interrupt controller, and boot console
+    /// setup. Devices initialized here should be adopted into the runtime
+    /// driver model only when a later subsystem needs a `DeviceObject` handle.
+    fn early_driver_init();
+
+    /// Final initialization on the boot CPU.
+    fn final_init(boot_info: &BootInfo);
+
+    #[cfg(feature = "smp")]
+    /// Final initialization on an application processor (SMP only).
+    fn final_init_ap(logical_cpu_id: LogicalCpuId);
+}

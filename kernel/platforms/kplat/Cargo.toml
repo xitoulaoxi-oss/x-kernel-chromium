@@ -1,0 +1,30 @@
+[package]
+name = "kplat"
+description = "Hardware platform abstraction layer."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[features]
+smp = ["kspin/smp"]
+nmi = []
+pmu = []
+
+[dependencies]
+boot_info = { workspace = true }
+kcpu_id_map = { workspace = true }
+kcpu_slot = { workspace = true }
+kerrno = { workspace = true }
+kiface.workspace = true
+const-str = "0.6.2"
+kplat-macros = { path = "../kplat-macros" }
+kspin = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lints]
+workspace = true

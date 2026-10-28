@@ -1,0 +1,160 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+#![cfg_attr(not(test), no_std)]
+#![doc = include_str!("../README.md")]
+#![warn(missing_docs)]
+
+//! # Architecture
+//!
+//! The crate is organized into three main components:
+//!
+//! ## Guards (`guard` module)
+//!
+//! RAII guards that manage critical sections:
+//! - [`NoOp`]: No protection (for IRQ-disabled contexts)
+//! - [`NoPreempt`]: Disables kernel preemption
+//! - [`IrqSave`]: Saves/restores IRQ state
+//! - [`NoPreemptIrqSave`]: Disables both preemption and IRQs
+//!
+//! ## Locks (`lock` module)
+//!
+//! Generic spinlock implementation [`SpinLock<G, T>`] parameterized
+//! by guard type.
+//!
+//! ## Type Aliases
+//!
+//! Convenient aliases for common lock types:
+//! - [`SpinRaw`]: Lock with no guards
+//! - [`SpinNoPreempt`]: Lock with preemption disabled
+//! - [`SpinNoIrq`]: Lock with IRQs and preemption disabled
+//!
+//! # Feature Flags
+//!
+//! - `smp`: Enable for multi-core systems (adds atomic lock state)
+//! - `preempt`: Enable preemption control (requires implementing [`KernelGuardIf`])
+//!
+//! # Usage Patterns
+//!
+//! ## Basic Usage
+//!
+//! ```rust,ignore
+//! use kspin::SpinNoIrq;
+//!
+//! static COUNTER: SpinNoIrq<u32> = SpinNoIrq::new(0);
+//!
+//! fn increment() {
+//!     let mut count = COUNTER.lock();
+//!     *count += 1;
+//! }
+//! ```
+//!
+//! ## Interrupt Context
+//!
+//! ```rust,ignore
+//! use kspin::SpinNoIrq;
+//!
+//! static DATA: SpinNoIrq<Vec<u8>> = SpinNoIrq::new(Vec::new());
+//!
+//! fn irq_handler() {
+//!     // Safe to use in IRQ context
+//!     let mut data = DATA.lock();
+//!     data.push(42);
+//! }
+//! ```
+//!
+//! ## Implementing KernelGuardIf
+//!
+//! ```rust,ignore
+//! use kspin::KernelGuardIf;
+//!
+//! struct MyKernelGuard;
+//!
+//! #[kiface::provide]
+//! impl KernelGuardIf for MyKernelGuard {
+//!     fn enable_preempt() {
+//!         // Your implementation
+//!     }
+//!
+//!     fn disable_preempt() {
+//!         // Your implementation
+//!     }
+//! }
+//! ```
+
+extern crate alloc;
+
+mod guard;
+#[cfg(unittest)]
+#[path = "../ut-tests/kspin_unittest.rs"]
+mod kspin_unittest_tests;
+mod lock;
+mod rwlock;
+
+pub use guard::{
+    BaseGuard, CurrentCpuIf, IrqSave, KernelGuardIf, NoOp, NoPreempt, NoPreemptIrqSave,
+};
+/// Declares a static lock unchanged when lock statistics are disabled.
+#[cfg(not(feature = "stats"))]
+#[macro_export]
+macro_rules! static_lock {
+    // Reject what the `stats` expansion rejects, so both configurations agree.
+    ($(#[$attr:meta])* $vis:vis static mut $($rest:tt)*) => {
+        compile_error!(
+            "static_lock! does not accept `static mut`; the lock already provides interior \
+             mutability"
+        );
+    };
+    ($item:item) => {
+        $item
+    };
+}
+#[cfg(feature = "stats")]
+pub use klockstat::{LOCK_CLASSES, LockClassStats, linkme, static_lock};
+pub use lock::{SpinLock, SpinLockGuard};
+pub use rwlock::{SpinRwLock, SpinRwLockReadGuard, SpinRwLockWriteGuard};
+
+/// Raw spinlock with no guards.
+///
+/// **Warning**: Must only be used in contexts where preemption and IRQs
+/// are already disabled.
+pub type SpinRaw<T> = SpinLock<NoOp, T>;
+
+/// Guard for [`SpinRaw`].
+pub type SpinRawGuard<'a, T> = SpinLockGuard<'a, NoOp, T>;
+
+/// Spinlock that disables preemption.
+///
+/// Suitable for use in IRQ-disabled contexts or when IRQ handlers
+/// don't access the same data.
+pub type SpinNoPreempt<T> = SpinLock<NoPreempt, T>;
+
+/// Guard for [`SpinNoPreempt`].
+pub type SpinNoPreemptGuard<'a, T> = SpinLockGuard<'a, NoPreempt, T>;
+
+/// Spinlock that disables IRQs and preemption.
+///
+/// This is the safest option and can be used from any context
+/// including interrupt handlers.
+pub type SpinNoIrq<T> = SpinLock<NoPreemptIrqSave, T>;
+
+// SAFETY: `SpinNoIrq::new()` is an allocation-free template (plain lock state
+// around `UnsafeCell` storage); locks are constructed in place per CPU and
+// the per-CPU slot storage never drops them.
+unsafe impl<T: Send + 'static> kcpu_slot::StaticSlotValue for SpinNoIrq<T> {}
+
+/// Guard for [`SpinNoIrq`].
+pub type SpinNoIrqGuard<'a, T> = SpinLockGuard<'a, NoPreemptIrqSave, T>;
+
+/// Reader-writer spinlock that disables IRQs and preemption.
+///
+/// Suitable for short process-tree or IRQ-visible critical sections that allow
+/// concurrent readers but cannot sleep.
+pub type SpinRwNoIrq<T> = SpinRwLock<NoPreemptIrqSave, T>;
+
+/// Read guard for [`SpinRwNoIrq`].
+pub type SpinRwNoIrqReadGuard<'a, T> = SpinRwLockReadGuard<'a, NoPreemptIrqSave, T>;
+
+/// Write guard for [`SpinRwNoIrq`].
+pub type SpinRwNoIrqWriteGuard<'a, T> = SpinRwLockWriteGuard<'a, NoPreemptIrqSave, T>;

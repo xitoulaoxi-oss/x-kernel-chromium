@@ -1,0 +1,81 @@
+[package]
+name = "kruntime"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+description = "Runtime library of X-kernel"
+
+[features]
+default = []
+workqueue-bench = ["kworkng/bench"]
+
+smp = ["khal/smp", "ktask/smp", "memspace/smp", "fs_boot?/smp", "ipi"]
+ipi = ["dep:kipi", "ktask/ipi"]
+
+char = ["kdriver/char", "dep:ktty"]
+display = ["kdriver/display", "dep:fbdevice"]
+input = ["kdriver/input", "dep:inputdev"]
+fs = ["kdriver/block", "dep:fs_boot"]
+# 9P runtime glue only. The transport driver is selected at the top level via
+# `kfeat/driver_virtio_9p` (or any future 9P transport driver feature).
+fs9p = [
+    "fs",
+    "fs_boot/fs9p",
+]
+fs_cgroup2 = ["fs", "fs_boot/cgroup2"]
+fs_ebpf = ["fs", "fs_boot/ebpf"]
+net = ["kdriver/net", "dep:knet"]
+vsock = ["net", "kdriver/vsock"]
+vsock_tipc_bridge = []
+
+rtc = []
+# driver-dyn = ["kdriver/dyn"]
+arm-timer-resume-fixup = ["ktask/arm-timer-resume-fixup", "timer_driver/arm-timer-resume-fixup"]
+rootfs-secondary-block = ["fs", "fs_boot/rootfs-secondary-block"]
+watchdog = ["dep:watchdog"]
+watchdog_hardlockup = ["watchdog/nmi"]
+pmu = ["khal/pmu"]
+
+[dependencies]
+kspin.workspace = true
+kalloc.workspace = true
+ktty = { workspace = true, optional = true }
+backtrace.workspace = true
+boot_info.workspace = true
+kerrno.workspace = true
+fbdevice = { workspace = true, optional = true }
+fs_boot = { workspace = true, optional = true }
+inputdev = { workspace = true, optional = true }
+kdriver.workspace = true
+kdma.workspace = true
+memaddr.workspace = true
+khal.workspace = true
+kirq.workspace = true
+ktime_types.workspace = true
+ktime.workspace = true
+kcpu.workspace = true
+kipi = { workspace = true, optional = true }
+kaddr_layout = { workspace = true }
+klogger.workspace = true
+memspace = { workspace = true }
+knet = { workspace = true, optional = true }
+kworkng = { workspace = true, features = ["system"] }
+ktask = { workspace = true }
+timer_driver = { workspace = true }
+watchdog = { workspace = true, optional = true }
+entropy.workspace = true
+chrono.workspace = true
+kiface.workspace = true
+heapless = "0.9"
+kbuild_config = { workspace = true }
+karch = { workspace = true }
+kernel_boot = { workspace = true }
+unittest.workspace = true
+kcpu_id_map = { workspace = true }
+
+[lints]
+workspace = true

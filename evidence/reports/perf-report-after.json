@@ -1,0 +1,293 @@
+{
+  "host": {
+    "os": "Windows 11 (10.0.26200)",
+    "machine": "AMD64",
+    "python": "3.12.14",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+    "os_registry": "Windows 10 Pro 25H2 build 26200",
+    "logical_cpus": 16,
+    "memory_probe": "unavailable (no wmic/CIM on this host)"
+  },
+  "qemu": "QEMU emulator version 11.0.92 (v11.1.0-rc2-12128-gc65ddfcd01)",
+  "guest_kernel": "kernel\\kernel-procfs.bin",
+  "peak_memory_source": "host: QEMU PeakWorkingSet64 (MB)",
+  "cpu_source": "host: QEMU TotalProcessorTime (s)",
+  "repeats_requested": 7,
+  "repeats_completed": 7,
+  "complete_samples": 6,
+  "complete_sample_rule": "chrome_s, paint_s and renderer_s all present",
+  "metric_classes": [
+    "cpu-usage",
+    "page-load",
+    "peak-memory",
+    "renderer-creation",
+    "startup"
+  ],
+  "samples": [
+    {
+      "xorg_s": 0,
+      "jwm_s": 2,
+      "chrome_s": 7,
+      "paint_s": 54,
+      "renderer_s": 33,
+      "painted": 1,
+      "renderer_forks": 5,
+      "log_bytes": 10060,
+      "run": 1,
+      "evidence_dir": "aft1-20261016T150501Z",
+      "peak_mem_mb": 2056.4,
+      "cpu_s": 178.08,
+      "wall_s": 120.8
+    },
+    {
+      "xorg_s": 1,
+      "jwm_s": 2,
+      "run": 2,
+      "evidence_dir": "aft2-20261016T150702Z",
+      "peak_mem_mb": 328.6,
+      "cpu_s": 25.06,
+      "wall_s": 30.3
+    },
+    {
+      "xorg_s": 1,
+      "jwm_s": 2,
+      "chrome_s": 10,
+      "paint_s": 58,
+      "renderer_s": 36,
+      "painted": 1,
+      "renderer_forks": 5,
+      "log_bytes": 10060,
+      "run": 3,
+      "evidence_dir": "aft3-20261016T150733Z",
+      "peak_mem_mb": 2029.6,
+      "cpu_s": 179.61,
+      "wall_s": 120.3
+    },
+    {
+      "xorg_s": 1,
+      "jwm_s": 2,
+      "chrome_s": 8,
+      "paint_s": 56,
+      "renderer_s": 34,
+      "painted": 1,
+      "renderer_forks": 5,
+      "log_bytes": 10060,
+      "run": 4,
+      "evidence_dir": "aft4-20261016T150933Z",
+      "peak_mem_mb": 2017.3,
+      "cpu_s": 179.42,
+      "wall_s": 118.7
+    },
+    {
+      "xorg_s": 1,
+      "jwm_s": 2,
+      "chrome_s": 10,
+      "paint_s": 58,
+      "renderer_s": 36,
+      "painted": 1,
+      "renderer_forks": 5,
+      "log_bytes": 10060,
+      "run": 5,
+      "evidence_dir": "aft5-20261016T151132Z",
+      "peak_mem_mb": 2044.5,
+      "cpu_s": 182.73,
+      "wall_s": 120.1
+    },
+    {
+      "xorg_s": 1,
+      "jwm_s": 2,
+      "chrome_s": 12,
+      "paint_s": 59,
+      "renderer_s": 38,
+      "painted": 1,
+      "renderer_forks": 5,
+      "log_bytes": 10060,
+      "run": 6,
+      "evidence_dir": "aft1-20261016T151336Z",
+      "peak_mem_mb": 2071.6,
+      "cpu_s": 183.52,
+      "wall_s": 122.4
+    },
+    {
+      "xorg_s": 1,
+      "jwm_s": 2,
+      "chrome_s": 12,
+      "paint_s": 60,
+      "renderer_s": 38,
+      "painted": 1,
+      "renderer_forks": 5,
+      "log_bytes": 10060,
+      "run": 7,
+      "evidence_dir": "aft2-20261016T151538Z",
+      "peak_mem_mb": 2003.2,
+      "cpu_s": 180.64,
+      "wall_s": 122.3
+    }
+  ],
+  "summary": {
+    "xorg_s": {
+      "class": "startup",
+      "n": 7,
+      "median": 1,
+      "min": 0,
+      "max": 1,
+      "spread": 1,
+      "raw": [
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "jwm_s": {
+      "class": "startup",
+      "n": 7,
+      "median": 2,
+      "min": 2,
+      "max": 2,
+      "spread": 0,
+      "raw": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "chrome_s": {
+      "class": "startup",
+      "n": 6,
+      "median": 10.0,
+      "min": 7,
+      "max": 12,
+      "spread": 5,
+      "raw": [
+        7,
+        8,
+        10,
+        10,
+        12,
+        12
+      ]
+    },
+    "paint_s": {
+      "class": "page-load",
+      "n": 6,
+      "median": 58.0,
+      "min": 54,
+      "max": 60,
+      "spread": 6,
+      "raw": [
+        54,
+        56,
+        58,
+        58,
+        59,
+        60
+      ]
+    },
+    "renderer_s": {
+      "class": "renderer-creation",
+      "n": 6,
+      "median": 36.0,
+      "min": 33,
+      "max": 38,
+      "spread": 5,
+      "raw": [
+        33,
+        34,
+        36,
+        36,
+        38,
+        38
+      ]
+    },
+    "peak_mem_mb": {
+      "class": "peak-memory",
+      "n": 7,
+      "median": 2029.6,
+      "min": 328.6,
+      "max": 2071.6,
+      "spread": 1743.0,
+      "raw": [
+        328.6,
+        2003.2,
+        2017.3,
+        2029.6,
+        2044.5,
+        2056.4,
+        2071.6
+      ]
+    },
+    "cpu_s": {
+      "class": "cpu-usage",
+      "n": 7,
+      "median": 179.61,
+      "min": 25.06,
+      "max": 183.52,
+      "spread": 158.46,
+      "raw": [
+        25.06,
+        178.08,
+        179.42,
+        179.61,
+        180.64,
+        182.73,
+        183.52
+      ]
+    },
+    "painted": {
+      "class": "counter",
+      "n": 6,
+      "median": 1.0,
+      "min": 1,
+      "max": 1,
+      "spread": 0,
+      "raw": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "renderer_forks": {
+      "class": "counter",
+      "n": 6,
+      "median": 5.0,
+      "min": 5,
+      "max": 5,
+      "spread": 0,
+      "raw": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    "log_bytes": {
+      "class": "counter",
+      "n": 6,
+      "median": 10060.0,
+      "min": 10060,
+      "max": 10060,
+      "spread": 0,
+      "raw": [
+        10060,
+        10060,
+        10060,
+        10060,
+        10060,
+        10060
+      ]
+    }
+  }
+}

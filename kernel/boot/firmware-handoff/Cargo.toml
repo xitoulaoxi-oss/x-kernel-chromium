@@ -1,0 +1,13 @@
+[package]
+name = "firmware-handoff"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+description = "Raw early firmware handoff parsers for x-kernel boot paths"
+
+[lints]
+workspace = true

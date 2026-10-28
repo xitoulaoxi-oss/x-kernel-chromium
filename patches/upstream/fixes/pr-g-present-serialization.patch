@@ -1,0 +1,63 @@
+diff --git a/io/drmdevice/src/card0.rs b/io/drmdevice/src/card0.rs
+--- a/io/drmdevice/src/card0.rs
++++ b/io/drmdevice/src/card0.rs
+@@ -447,6 +447,20 @@ pub struct DrmCard {
+     poll_rx: PollSet,
+     sequence: AtomicU32,
+     state: Mutex<ModesetState>,
++    /// Serializes "publish the state, then show it" across the property entry
++    /// points.
++    ///
++    /// `MODE_ATOMIC` and `set_one_property` both end with the same two steps:
++    /// store the committed `ModesetState`, then present its `plane_fb_id`.
++    /// Presenting after releasing `state` keeps the display call out of that
++    /// lock, but it also lets two committers interleave so that the older
++    /// framebuffer reaches the screen last; the scanout then keeps disagreeing
++    /// with what `MODE_OBJ_GETPROPERTIES` reports, and `present_fb` cannot tell
++    /// anyone because an unknown framebuffer is a silent no-op.
++    ///
++    /// Always taken before `state`, never while holding it, so the order is
++    /// `commit_lock` -> `state` -> the inner maps `apply_prop` touches.
++    commit_lock: Mutex<()>,
+     legacy_crtc: Mutex<LegacyCrtcState>,
+     dumbs: Mutex<BTreeMap<u32, DumbBuffer>>,
+     next_dumb_handle: AtomicU32,
+@@ -473,6 +487,7 @@ impl DrmCard {
+             poll_rx: PollSet::new(),
+             sequence: AtomicU32::new(0),
+             state: Mutex::new(ModesetState::default()),
++            commit_lock: Mutex::new(()),
+             legacy_crtc: Mutex::new(LegacyCrtcState::default()),
+             dumbs: Mutex::new(BTreeMap::new()),
+             next_dumb_handle: AtomicU32::new(FIRST_DUMB_HANDLE),
+@@ -1204,7 +1219,9 @@ impl DrmIoctl for DrmModeObjSetProperty {
+ /// mode blob if the write produced one, and refresh the scanout whenever the
+ /// committed plane framebuffer is non-zero.  `MODE_ATOMIC` is deliberately left
+ /// alone here: it carries `TEST_ONLY` and page-flip-event handling that this
+-/// helper has no business absorbing.
++/// helper has no business absorbing.  Both here and there the commit is
++/// serialized by `commit_lock`, so a second committer cannot slip its own
++/// framebuffer in between the store and the present.
+ ///
+ /// Errnos follow Linux's `drm_mode_obj_set_property_ioctl()`, whose `ret` starts
+ /// at `-EINVAL`: a request that names an unknown object, or an object type that
+@@ -1221,6 +1238,9 @@ fn set_one_property(
+     prop_id: u32,
+     value: u64,
+ ) -> VfsResult<usize> {
++    // The store below and the present after it have to stay one operation for
++    // other committers, or the older framebuffer can reach the screen last.
++    let _commit = dev.commit_lock.lock();
+     let mut state = dev.state.lock();
+     let mut proposed = *state;
+     let mut new_mode_blob: Option<Option<Arc<Vec<u8>>>> = None;
+@@ -1369,6 +1389,9 @@ impl DrmIoctl for DrmModeAtomic {
+         let props: Vec<u32> = a.props_ptr.load_vm_vec(total_props)?;
+         let values: Vec<u64> = a.prop_values_ptr.load_vm_vec(total_props)?;
+ 
++        // Same ordering as `set_one_property`: one committer at a time, so the
++        // commit and the present below cannot be split by another writer.
++        let _commit = dev.commit_lock.lock();
+         let mut state = dev.state.lock();
+         let mut proposed = *state;
+         let mut new_mode_blob: Option<Option<Arc<Vec<u8>>>> = None;

@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! Rendezvous coordination for watchdog failures.
+use core::sync::atomic::{AtomicUsize, Ordering};
+
+use khal::percpu::this_cpu_id;
+
+/// Rendezvous phases.
+#[repr(usize)]
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum Phase {
+    /// No rendezvous in progress.
+    Idle      = 0,
+    /// Triggered: all CPUs must enter NMI and mark arrived.
+    Triggered = 1,
+    /// Dump done: non-cause CPUs can stop spinning if desired.
+    DumpDone  = 2,
+}
+
+impl Phase {
+    #[inline]
+    fn load() -> Self {
+        match PHASE.load(Ordering::Acquire) {
+            0 => Phase::Idle,
+            1 => Phase::Triggered,
+            2 => Phase::DumpDone,
+            _ => Phase::Idle,
+        }
+    }
+}
+
+static PHASE: AtomicUsize = AtomicUsize::new(Phase::Idle as usize);
+
+/// The CPU id which detected the failure and triggered the rendezvous.
+static CAUSE_CPU: AtomicUsize = AtomicUsize::new(usize::MAX);
+
+/// Per-cpu arrived bitmap stored in an AtomicUsize where bit i means CPU i arrived.
+static ARRIVED_BITMAP: AtomicUsize = AtomicUsize::new(0);
+
+/// Returns whether a rendezvous is in progress.
+#[inline]
+pub fn is_triggered() -> bool {
+    Phase::load() == Phase::Triggered
+}
+
+/// Returns whether the dump phase has completed.
+#[inline]
+pub fn is_dump_done() -> bool {
+    Phase::load() == Phase::DumpDone
+}
+
+/// Try to trigger rendezvous.
+///
+/// The calling CPU becomes the cause CPU only if this call transitions the
+/// rendezvous from idle to triggered.
+#[inline]
+pub fn try_trigger() {
+    let cpu = this_cpu_id().as_usize();
+    if PHASE
+        .compare_exchange(
+            Phase::Idle as usize,
+            Phase::Triggered as usize,
+            Ordering::AcqRel,
+            Ordering::Relaxed,
+        )
+        .is_ok()
+    {
+        CAUSE_CPU.store(cpu, Ordering::Release);
+    }
+}
+
+/// Returns the CPU that triggered the rendezvous.
+#[inline]
+pub fn cause_cpu() -> Option<usize> {
+    if Phase::load() == Phase::Idle {
+        return None;
+    }
+    let cpu = CAUSE_CPU.load(Ordering::Acquire);
+    (cpu != usize::MAX).then_some(cpu)
+}
+
+/// Mark the current CPU as arrived.
+#[inline]
+pub fn mark_arrived() {
+    let id = this_cpu_id().as_usize();
+    if id >= usize::BITS as usize {
+        // Cannot represent this CPU in the bitmap without overflowing the shift.
+        return;
+    }
+    ARRIVED_BITMAP.fetch_or(1usize << id, Ordering::AcqRel);
+}
+
+pub fn arrived_bitmap() -> usize {
+    ARRIVED_BITMAP.load(Ordering::Acquire)
+}
+
+pub fn all_arrived_mask() -> usize {
+    // Cover only the CPUs the platform actually described (DT/ACPI), not the
+    // compile-time `NR_CPUS` cap; otherwise the rendezvous would wait forever
+    // for non-present CPUs to arrive.
+    let n = kcpu_id_map::nr_cpus();
+    if n >= usize::BITS as usize {
+        usize::MAX
+    } else {
+        (1usize << n) - 1
+    }
+}
+
+/// Busy-wait until all CPUs have arrived.
+///
+/// This is a *strong* rendezvous: no timeout.
+pub fn wait_all_arrived_strong() {
+    let expect = all_arrived_mask();
+    while arrived_bitmap() & expect != expect {
+        core::hint::spin_loop();
+    }
+}
+
+/// Mark dump done so other CPUs can release from spinning.
+pub fn mark_dump_done() {
+    PHASE.store(Phase::DumpDone as usize, Ordering::Release);
+}
+
+/// Reset rendezvous state.
+///
+/// Note: in your intended flow, other CPUs may keep spinning in NMI forever.
+/// If you want them to be able to return from NMI, call this after
+/// `mark_dump_done()` and after ensuring they observed it.
+#[inline]
+pub fn reset() {
+    ARRIVED_BITMAP.store(0, Ordering::Release);
+    CAUSE_CPU.store(usize::MAX, Ordering::Release);
+    PHASE.store(Phase::Idle as usize, Ordering::Release);
+}

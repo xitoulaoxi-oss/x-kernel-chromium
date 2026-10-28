@@ -1,0 +1,90 @@
+sh /tmp/xk-07-stability.sh 2>&1
+S1 start=1792074068
+[37m[ 62.023411 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 62.111026 3:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 62.723658 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 63.718601 3:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 63.890047 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 63.985458 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 64.152878 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 64.278805 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 64.292235 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 65.068036 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 65.155683 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 67.684940 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 67.947627 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[ 68.501216 3:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=60 xorg=1 jwm=1 chrome=10 rend=0 gpu=0
+[37m[121.702045 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[122.478676 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[123.929043 2:125 posix_net::opt:466] [33msockopt rejected: (0, 13)[m
+[m[37m[138.738047 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[139.216086 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[139.226522 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[142.720887 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[143.217896 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[156.391125 3:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[156.408561 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[156.414664 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[164.215342 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[164.243394 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[164.783364 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[165.393482 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[175.840936 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=120 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+[37m[191.687927 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[191.701752 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[191.709501 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[191.768163 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[191.777477 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[191.783440 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[197.067238 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[197.097183 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[197.722484 3:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=180 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+[37m[244.362925 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[266.746833 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[266.759249 3:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[266.768487 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=240 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+[37m[343.161092 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[343.422989 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=300 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+[37m[364.885818 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[365.148334 3:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[365.426897 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[365.684154 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[418.519048 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[418.525097 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=360 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+[37m[440.136396 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[440.142837 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[440.847718 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[440.853025 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=420 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+[37m[496.761871 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[497.021751 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[531.905588 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[532.170249 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=480 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+[37m[568.155154 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[568.416085 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[572.219169 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[572.714697 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=540 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+[37m[607.417071 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[607.423508 2:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[643.145180 0:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[643.629982 3:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[654.908291 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[m[37m[655.176702 1:125 posix_net::opt:466] [33msockopt rejected: (6, 4)[m
+[mS t=600 xorg=1 jwm=1 chrome=11 rend=0 gpu=0
+S2 proc=sock-ok
+S3 xrandr=Screen 0: minimum 320 x 200, current 1280 x 800, maximum 1280 x 800
+S4 rs=_NET_SUPPORTING_WM_CHECK(WINDOW): window id # 0x200001
+S5 cl=_NET_CLIENT_LIST(WINDOW): window id # 0x400003
+S6 log=40035
+S7
+kylin-x:~# echo __XK2781648__rc=$?
+__XK2781648__rc=0
+kylin-x:~# [6n

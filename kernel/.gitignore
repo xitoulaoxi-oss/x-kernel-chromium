@@ -1,0 +1,63 @@
+/.idea
+.DS_Store
+*.elf
+*.bin
+*.bzimg
+*.dbg
+**/target/
+*.img
+# Release rootfs images (e.g. rootfs-aarch64.img.release); `*.img` does not
+# match the `.release` suffix.
+*.img.release
+# OCI bundle build output.
+/uapps/mini-oci/out/
+/kernel-rv
+/kernel-la
+/.crates*
+/mnt
+*.swp
+*.swo
+
+# Code statistics cache
+/.cache/
+/code-stats/
+
+# Cargo locks — the kernel and xtask workspace lockfiles are tracked for
+# reproducible builds; keep ignoring lockfiles of other excluded standalone
+# projects.
+!/xtask/Cargo.lock
+/xtask/*/Cargo.lock
+/tee_apps/**/Cargo.lock
+/uapps/**/Cargo.lock
+/fuzz/Cargo.lock
+
+# WFUZZ fuzz harness artifacts
+/fuzz/entrypoints.json
+/fuzz/entrypoints_list.txt
+/fuzz/wfuzz-fuzz-targets/
+/fuzz/wfuzz-test-*/
+
+# Python
+__pycache__
+venv
+
+# Kconfig build artifacts
+defconfig
+.config
+.config.old
+.config.prepared
+auto.conf
+autoconf.h
+target/kbuild/
+/shared
+
+.cargo/*
+!.cargo/config.toml
+.vscode
+/ci-test/
+
+# Tool-specific agent instructions stay local; shared guidance lives in AGENTS.md and docs/ai/skills/
+/.claude/
+CLAUDE.md
+
+/uapps/memfd-test/out/

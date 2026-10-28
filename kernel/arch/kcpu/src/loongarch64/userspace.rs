@@ -1,0 +1,161 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+// The import layout and user-context definition in this file follow common
+// Rust module organization and standard Loongarch64 user-space context conventions.
+// Similar structure across kernels is expected for clarity and ABI alignment,
+// and should not be interpreted as literal duplication of project-specific
+
+//! Structures and functions for user space.
+
+use loongArch64::register::{
+    badi, badv,
+    estat::{self, Exception, Trap},
+};
+use memaddr::VirtAddr;
+
+pub use crate::userspace_common::{ExceptionKind, ReturnReason};
+use crate::{ExceptionContext, GeneralRegisters, excp::PageFaultFlags};
+
+/// Context to enter user space.
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct UserContext(ExceptionContext);
+
+/// User-space state saved outside the ABI `mcontext_t` signal payload.
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct UserRestorableContext;
+
+impl UserContext {
+    /// Creates a new context with the given entry point, user stack pointer,
+    /// and the argument.
+    pub fn new(entry: usize, ustack_top: VirtAddr, arg0: usize) -> Self {
+        let mut trap_frame = ExceptionContext::default();
+        const PPLV_UMODE: usize = 0b11;
+        const PIE: usize = 1 << 2;
+        trap_frame.regs.sp = ustack_top.as_usize();
+        trap_frame.era = entry;
+        trap_frame.prmd = PPLV_UMODE | PIE;
+        trap_frame.regs.a0 = arg0;
+        Self(trap_frame)
+    }
+
+    /// Saves user-restorable state that is not carried by signal `mcontext_t`.
+    pub fn save_user_restorable(&self) -> UserRestorableContext {
+        UserRestorableContext
+    }
+
+    /// Restores user state that is not carried by signal `mcontext_t`.
+    pub fn restore_user_restorable(&mut self, _saved: UserRestorableContext) {
+        self.0.saved_syscall_arg0 = 0;
+    }
+
+    /// Enter user space.
+    ///
+    /// It restores the user registers and jumps to the user entry point
+    /// (saved in `sepc`).
+    ///
+    /// This function returns when an exception or syscall occurs.
+    ///
+    /// Invokes `on_user_enter` immediately before entering user space and
+    /// `on_user_exit` after restoring kernel context, before IRQ dispatch.
+    /// Both callbacks run with local IRQs masked and must return with them
+    /// masked, without sleeping or scheduling.
+    pub fn run(
+        &mut self,
+        on_user_enter: impl FnOnce(),
+        on_user_exit: impl FnOnce(),
+    ) -> ReturnReason {
+        unsafe extern "C" {
+            fn enter_user(uctx: &mut UserContext);
+        }
+
+        karch::disable_local_irq();
+        on_user_enter();
+        // SAFETY: `enter_user` is an assembly stub that restores user registers and
+        // executes `ertn`. `UserContext` fields are set up by `new()` with valid PRMD
+        // (PLV=UMODE, PIE) and user entry point.
+        unsafe { enter_user(self) };
+        on_user_exit();
+
+        let estat = estat::read();
+        let badv = badv::read().vaddr();
+        let badi = badi::read().inst();
+
+        let ret = match estat.cause() {
+            Trap::Interrupt(_) => {
+                let interrupt_id: usize = estat.is().trailing_zeros() as usize;
+                handle_trap!(IRQ, interrupt_id);
+                ReturnReason::Interrupt
+            }
+            Trap::Exception(Exception::Syscall) => {
+                self.era += 4;
+                ReturnReason::Syscall
+            }
+            Trap::Exception(Exception::LoadPageFault)
+            | Trap::Exception(Exception::PageNonReadableFault) => {
+                ReturnReason::PageFault(va!(badv), PageFaultFlags::READ | PageFaultFlags::USER)
+            }
+            Trap::Exception(Exception::StorePageFault)
+            | Trap::Exception(Exception::PageModifyFault) => {
+                ReturnReason::PageFault(va!(badv), PageFaultFlags::WRITE | PageFaultFlags::USER)
+            }
+            Trap::Exception(Exception::FetchPageFault)
+            | Trap::Exception(Exception::PageNonExecutableFault) => {
+                ReturnReason::PageFault(va!(badv), PageFaultFlags::EXECUTE | PageFaultFlags::USER)
+            }
+            Trap::Exception(e) => ReturnReason::Exception(ExceptionInfo { e, badv, badi }),
+            _ => ReturnReason::Unknown,
+        };
+
+        // Only syscall traps may interpret a0 as a Linux restart code.
+        self.set_from_syscall(matches!(ret, ReturnReason::Syscall));
+
+        karch::enable_local_irq();
+        ret
+    }
+
+    /// Resets the general-purpose registers before entering a freshly
+    /// loaded executable.
+    ///
+    /// A successful `execve` must not leak the old program's registers into
+    /// the new image, so all GPRs are cleared here (the caller re-applies
+    /// `sp` via `set_sp` and TLS via `set_tls` afterwards). The syscall
+    /// argument `envp` would otherwise survive in `a2`, and the syscall
+    /// restart snapshot plus `from_syscall` are reset because the new image
+    /// does not enter via a syscall.
+    pub fn reset_for_exec(&mut self) {
+        self.0.regs = GeneralRegisters::default();
+        self.0.saved_syscall_arg0 = 0;
+        self.set_from_syscall(false);
+    }
+}
+
+impl_user_context_deref!(ExceptionContext, 0);
+
+/// Information about an exception that occurred in user space.
+#[derive(Debug, Clone, Copy)]
+pub struct ExceptionInfo {
+    /// The raw exception.
+    pub e: Exception,
+    /// The faulting address (from `badv`).
+    pub badv: usize,
+    /// The instruction causing the fault (from `badi`).
+    pub badi: u32,
+}
+
+impl ExceptionInfo {
+    /// Returns a generalized kind of this exception.
+    pub fn kind(&self) -> ExceptionKind {
+        match self.e {
+            Exception::Breakpoint => ExceptionKind::Breakpoint,
+            Exception::InstructionNotExist | Exception::InstructionPrivilegeIllegal => {
+                ExceptionKind::IllegalInstruction
+            }
+            Exception::AddressNotAligned => ExceptionKind::Misaligned,
+            _ => ExceptionKind::Other,
+        }
+    }
+}

@@ -1,0 +1,506 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! x86 APIC integration: Local APIC bring-up, IPIs, IO-APIC routing, and
+//! the MSI-X vector backend for `kirq`.
+//!
+//! Start from `init_primary` (boot CPU, once during platform
+//! bring-up) and `init_secondary` (each application CPU); after that,
+//! `send_ipi_self` / `send_ipi_raw` / `send_ipi_all_but_self`,
+//! `configure_irq`, `set_irq_enabled`, and `end_of_interrupt` drive
+//! the hardware.
+//! A production call site is `platforms/kplat-x86_64/src/init.rs`.
+//!
+//! # Example
+//!
+//! Kernel code only (x86_64 target; runs after the platform maps the
+//! IO-APIC), so the example is `ignore`.
+//!
+//! ```ignore
+//! use drivers::platform::x86_apic;
+//!
+//! // 1. Boot CPU bring-up: LAPIC vectors + IO-APIC mapping.
+//! x86_apic::init_primary(io_apic_paddr);
+//! x86_apic::init_secondary(); // on each AP
+//!
+//! // 2. Route and enable a legacy line, then acknowledge it.
+//! x86_apic::configure_irq(4, x86_apic::IoApicTriggerMode::Edge,
+//!                         x86_apic::IoApicPolarity::High);
+//! x86_apic::set_irq_enabled(4, true);
+//! // ... interrupt arrives on this CPU ...
+//! x86_apic::end_of_interrupt();
+//! ```
+#![no_std]
+#![cfg(target_arch = "x86_64")]
+
+extern crate alloc;
+
+#[macro_use]
+extern crate log;
+
+use alloc::boxed::Box;
+use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+
+use kcpu_id_map::{LogicalCpuId, RawCpuId, raw_cpu_id};
+use kcpu_slot::{CpuLocalGuard, cpu_slot_cell};
+use kspin::{NoPreemptIrqSave, SpinNoIrq, static_lock};
+use lazyinit::LazyInit;
+use memaddr::{PhysAddr, pa};
+use memspace::iomap_device;
+use x2apic::{
+    ioapic::{IoApic, IrqFlags},
+    lapic::{LocalApic, LocalApicBuilder, xapic_base},
+};
+use x86_64::instructions::port::Port;
+
+pub const APIC_TIMER_VECTOR: u8 = 0xf0;
+pub const APIC_SPURIOUS_VECTOR: u8 = 0xf1;
+pub const APIC_ERROR_VECTOR: u8 = 0xf2;
+pub const MSIX_VECTOR_BASE: u8 = 0x40;
+pub const IO_APIC_VECTOR_BASE: usize = 0x20;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IoApicTriggerMode {
+    Edge,
+    Level,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IoApicPolarity {
+    High,
+    Low,
+}
+
+const MSIX_VECTOR_COUNT: usize = (APIC_TIMER_VECTOR as usize) - (MSIX_VECTOR_BASE as usize);
+const MSIX_VECTOR_WORD_BITS: usize = u64::BITS as usize;
+const MSIX_VECTOR_WORDS: usize = MSIX_VECTOR_COUNT.div_ceil(MSIX_VECTOR_WORD_BITS);
+
+cpu_slot_cell! {
+    static LOCAL_APIC_PTR: usize = 0;
+}
+
+static IS_X2APIC: AtomicBool = AtomicBool::new(false);
+static XAPIC_BASE: AtomicU64 = AtomicU64::new(0);
+static IO_APIC: LazyInit<SpinNoIrq<IoApic>> = LazyInit::new();
+static_lock! {
+    static MSIX_VECTOR_ALLOCATOR: SpinNoIrq<MsixVectorAllocator> =
+        SpinNoIrq::new(MsixVectorAllocator::new());
+}
+
+struct MsixVectorAllocator {
+    allocated: [u64; MSIX_VECTOR_WORDS],
+}
+
+impl MsixVectorAllocator {
+    const fn new() -> Self {
+        Self {
+            allocated: [0; MSIX_VECTOR_WORDS],
+        }
+    }
+
+    fn alloc(&mut self) -> Option<u8> {
+        for index in 0..MSIX_VECTOR_COUNT {
+            let word = index / MSIX_VECTOR_WORD_BITS;
+            let bit = 1u64 << (index % MSIX_VECTOR_WORD_BITS);
+            if self.allocated[word] & bit == 0 {
+                self.allocated[word] |= bit;
+                return Some(MSIX_VECTOR_BASE + index as u8);
+            }
+        }
+
+        None
+    }
+
+    fn free(&mut self, vector: u8) -> bool {
+        if !(MSIX_VECTOR_BASE..APIC_TIMER_VECTOR).contains(&vector) {
+            return false;
+        }
+
+        let index = usize::from(vector - MSIX_VECTOR_BASE);
+        let word = index / MSIX_VECTOR_WORD_BITS;
+        let bit = 1u64 << (index % MSIX_VECTOR_WORD_BITS);
+        let was_allocated = self.allocated[word] & bit != 0;
+        self.allocated[word] &= !bit;
+        was_allocated
+    }
+}
+
+#[kiface::provide]
+impl kirq::MsiBackendIf {
+    fn alloc_msi_vector(
+        _token: kirq::MsiBackendToken,
+        kind: kirq::MsiKind,
+        _affinity: kirq::IrqAffinity,
+    ) -> Option<usize> {
+        match kind {
+            kirq::MsiKind::PciMsix => MSIX_VECTOR_ALLOCATOR.lock().alloc().map(usize::from),
+        }
+    }
+
+    fn free_msi_vector(_token: kirq::MsiBackendToken, hwirq: usize) -> bool {
+        let Ok(vector) = u8::try_from(hwirq) else {
+            return false;
+        };
+        MSIX_VECTOR_ALLOCATOR.lock().free(vector)
+    }
+
+    fn compose_msi_message(
+        _token: kirq::MsiBackendToken,
+        hwirq: usize,
+        affinity: kirq::IrqAffinity,
+    ) -> Option<kirq::MsiMessage> {
+        let Ok(vector) = u8::try_from(hwirq) else {
+            return None;
+        };
+        if !(MSIX_VECTOR_BASE..APIC_TIMER_VECTOR).contains(&vector) {
+            return None;
+        }
+
+        let apic_id = apic_id_for_affinity(affinity)?;
+        let msg_addr = 0xFEE0_0000u64 | (u64::from(apic_id) << 12);
+        let msg_data = u32::from(vector);
+        Some(kirq::MsiMessage::new(msg_addr, msg_data))
+    }
+}
+
+fn fallback_local_apic_id() -> u8 {
+    raw_cpuid::CpuId::new()
+        .get_feature_info()
+        .map_or(0, |f| f.initial_local_apic_id())
+}
+
+fn apic_id_for_affinity(affinity: kirq::IrqAffinity) -> Option<u8> {
+    match affinity {
+        kirq::IrqAffinity::Any => Some(fallback_local_apic_id()),
+        kirq::IrqAffinity::Cpu(cpu) => {
+            let logical_cpu_id = LogicalCpuId::new(cpu);
+            let Some(raw) = raw_cpu_id(logical_cpu_id) else {
+                warn!("MSI affinity target CPU {cpu} has no raw APIC id");
+                return None;
+            };
+            let Ok(apic_id) = u8::try_from(raw.as_usize()) else {
+                warn!(
+                    "MSI affinity target CPU {cpu} raw APIC id {} exceeds xAPIC MSI destination \
+                     width",
+                    raw.as_usize()
+                );
+                return None;
+            };
+            Some(apic_id)
+        }
+    }
+}
+
+/// Masks or unmasks one IO-APIC input line.
+///
+/// Interrupts numbered at or above [`MSIX_VECTOR_BASE`] are MSI-X vectors,
+/// not IO-APIC lines, and are ignored here; the vector must land in the
+/// IO-APIC range below the local APIC timer vector and within the
+/// controller's table, otherwise the call is a no-op.
+pub fn set_irq_enabled(irq: usize, enabled: bool) {
+    if irq >= MSIX_VECTOR_BASE as usize {
+        return;
+    }
+
+    let vector = IO_APIC_VECTOR_BASE + irq;
+    if vector < APIC_TIMER_VECTOR as usize {
+        {
+            let mut io_apic = IO_APIC.lock();
+            // SAFETY: IO_APIC retains its initialized mapping and this guard
+            // serializes the register-select/window accesses.
+            if irq <= unsafe { io_apic.max_table_entry() } as usize {
+                if enabled {
+                    // SAFETY: The line is within max_table_entry, and the same IO-APIC lock remains
+                    // held.
+                    unsafe { io_apic.enable_irq(irq as u8) };
+                } else {
+                    // SAFETY: The checked line belongs to this mapped IO-APIC; its lock serializes
+                    // masking.
+                    unsafe { io_apic.disable_irq(irq as u8) };
+                }
+            }
+        }
+    }
+}
+
+/// Programs the trigger mode and polarity of one IO-APIC input line.
+pub fn configure_irq(irq: usize, trigger: IoApicTriggerMode, polarity: IoApicPolarity) {
+    if irq >= MSIX_VECTOR_BASE as usize {
+        return;
+    }
+
+    let vector = IO_APIC_VECTOR_BASE + irq;
+    if vector < APIC_TIMER_VECTOR as usize {
+        {
+            let mut io_apic = IO_APIC.lock();
+            // SAFETY: IO_APIC retains its initialized mapping and this guard
+            // serializes the register-select/window accesses.
+            if irq <= unsafe { io_apic.max_table_entry() } as usize {
+                // SAFETY: The checked redirection entry is read under the IO-APIC lock.
+                let mut entry = unsafe { io_apic.table_entry(irq as u8) };
+                let mut flags = entry.flags();
+                if trigger == IoApicTriggerMode::Level {
+                    flags.insert(IrqFlags::LEVEL_TRIGGERED);
+                } else {
+                    flags.remove(IrqFlags::LEVEL_TRIGGERED);
+                }
+                if polarity == IoApicPolarity::Low {
+                    flags.insert(IrqFlags::LOW_ACTIVE);
+                } else {
+                    flags.remove(IrqFlags::LOW_ACTIVE);
+                }
+                entry.set_flags(flags);
+                // SAFETY: The checked entry is updated under the same lock with valid
+                // trigger/polarity flags.
+                unsafe { io_apic.set_table_entry(irq as u8, entry) };
+            }
+        }
+    }
+}
+
+/// Returns the programmed trigger mode of one IO-APIC input line, or
+/// `None` when the line is out of the controller's table range.
+pub fn irq_trigger_mode(irq: usize) -> Option<IoApicTriggerMode> {
+    if irq >= MSIX_VECTOR_BASE as usize {
+        return None;
+    }
+
+    let vector = IO_APIC_VECTOR_BASE + irq;
+    if vector >= APIC_TIMER_VECTOR as usize {
+        return None;
+    }
+
+    {
+        let mut io_apic = IO_APIC.lock();
+        // SAFETY: The initialized IO-APIC mapping remains live under its lock.
+        if irq > unsafe { io_apic.max_table_entry() } as usize {
+            return None;
+        }
+        // SAFETY: The preceding bounds check selected a valid entry, still protected by the lock.
+        let flags = unsafe { io_apic.table_entry(irq as u8) }.flags();
+        Some(if flags.contains(IrqFlags::LEVEL_TRIGGERED) {
+            IoApicTriggerMode::Level
+        } else {
+            IoApicTriggerMode::Edge
+        })
+    }
+}
+
+/// Runs `f` with exclusive access to the current CPU's Local APIC.
+///
+/// # Panics
+///
+/// Panics if the current CPU has not installed its Local APIC handle
+/// (i.e. `init_primary`/`init_secondary` has not run on this CPU).
+pub fn with_local_apic<R>(f: impl FnOnce(&mut LocalApic) -> R) -> R {
+    let irq_guard = NoPreemptIrqSave::new();
+    let lapic = local_apic_ptr(&irq_guard);
+    assert!(
+        !lapic.is_null(),
+        "local APIC is not initialized on this CPU"
+    );
+    // SAFETY: each CPU installs exactly one leaked `LocalApic` handle into its
+    // own per-CPU slot during `init_primary`/`init_secondary`. Local IRQs stay
+    // masked for the duration of this borrow, so the current CPU cannot re-enter
+    // LAPIC access through an interrupt handler and create overlapping mutable
+    // borrows to the same object.
+    unsafe { f(&mut *lapic) }
+}
+
+/// Signals end-of-interrupt on the current CPU's Local APIC.
+pub fn end_of_interrupt() {
+    with_local_apic(|lapic| {
+        // SAFETY: the current CPU's LAPIC handle is initialized before IRQ
+        // dispatch, and EOI targets only that CPU's local APIC registers.
+        unsafe { lapic.end_of_interrupt() };
+    });
+}
+
+/// Converts an 8-bit APIC id into the destination-id encoding used by
+/// this platform: x2APIC uses the value directly, xAPIC shifts it into
+/// the destination field of the redirect/IPI formats.
+pub fn raw_apic_id(id_u8: u8) -> u32 {
+    if IS_X2APIC.load(Ordering::Relaxed) {
+        id_u8 as u32
+    } else {
+        (id_u8 as u32) << 24
+    }
+}
+
+fn cpu_has_x2apic() -> bool {
+    match raw_cpuid::CpuId::new().get_feature_info() {
+        Some(finfo) => finfo.has_x2apic(),
+        None => false,
+    }
+}
+
+/// Brings up the boot CPU's Local APIC and the IO-APIC.
+///
+/// Masks the legacy PIC, selects x2APIC or xAPIC from CPUID, programs the
+/// timer/error/spurious vectors, maps the xAPIC MMIO page when needed,
+/// and maps and initializes the IO-APIC at `io_apic_paddr`.
+///
+/// # Panics
+///
+/// Panics if the xAPIC MMIO mapping fails.
+pub fn init_primary(io_apic_paddr: PhysAddr) {
+    info!("Initialize Local APIC...");
+    // SAFETY: CPL0 boot owns the master PIC data port; 0xff masks its legacy interrupt inputs.
+    unsafe { Port::<u8>::new(0x21).write(0xff) };
+    // SAFETY: CPL0 boot also owns the slave PIC data port; mask its inputs before APIC routing.
+    unsafe { Port::<u8>::new(0xA1).write(0xff) };
+    let mut builder = LocalApicBuilder::new();
+    builder
+        .timer_vector(APIC_TIMER_VECTOR as _)
+        .error_vector(APIC_ERROR_VECTOR as _)
+        .spurious_vector(APIC_SPURIOUS_VECTOR as _);
+    if cpu_has_x2apic() {
+        info!("Using x2APIC.");
+        IS_X2APIC.store(true, Ordering::Relaxed);
+    } else {
+        info!("Using xAPIC.");
+        #[expect(
+            clippy::panic,
+            reason = "CG-021-no-panic-on-reachable-failure: Fatal boot: the xAPIC register page \
+                      cannot be mapped; interrupt-controller initialization has no error return \
+                      or recovery"
+        )]
+        // SAFETY: on the xAPIC path, `xapic_base` reads the architectural LAPIC
+        // base address, which is then mapped before the builder uses it.
+        let base_vaddr = iomap_device(pa!(unsafe { xapic_base() } as usize), 0x1000, "lapic")
+            .unwrap_or_else(|err| panic!("failed to iomap LAPIC: {err:?}"));
+        XAPIC_BASE.store(base_vaddr.as_usize() as u64, Ordering::Relaxed);
+        builder.set_xapic_base(base_vaddr.as_usize() as u64);
+    }
+    #[expect(
+        clippy::unwrap_used,
+        reason = "CG-021-no-panic-on-reachable-failure: all required timer, error and spurious \
+                  vectors are supplied, and the xAPIC path supplies the mapped base"
+    )]
+    let mut lapic = builder.build().unwrap();
+    // SAFETY: the LAPIC instance was built from either x2APIC CPU state or a
+    // freshly mapped xAPIC MMIO base, so enabling it is valid during boot init.
+    unsafe {
+        lapic.enable();
+    }
+    install_local_apic(lapic);
+
+    #[expect(
+        clippy::panic,
+        reason = "CG-021-no-panic-on-reachable-failure: Fatal boot: the IOAPIC register page \
+                  cannot be mapped; interrupt-controller initialization has no error return or \
+                  recovery"
+    )]
+    let io_apic_base = iomap_device(io_apic_paddr, 0x1000, "ioapic")
+        .unwrap_or_else(|err| panic!("failed to iomap IOAPIC: {err:?}"));
+    // SAFETY: `io_apic_base` is the MMIO mapping for the platform IO-APIC and is
+    // kept alive for the duration of the constructed controller object.
+    let mut io_apic = unsafe { IoApic::new(io_apic_base.as_usize() as u64) };
+
+    {
+        use x2apic::ioapic::{IrqMode, RedirectionTableEntry};
+
+        // SAFETY: The newly mapped controller is exclusively owned during init.
+        let max_entry = unsafe { io_apic.max_table_entry() };
+        info!(
+            "  IO-APIC supports {} IRQ inputs (0-{})",
+            max_entry + 1,
+            max_entry
+        );
+
+        for irq in 0..=max_entry {
+            let mut entry = RedirectionTableEntry::default();
+            entry.set_vector((IO_APIC_VECTOR_BASE as u8) + irq);
+            entry.set_dest(0);
+            entry.set_mode(IrqMode::Fixed);
+            if irq >= 10 {
+                entry
+                    .set_flags(IrqFlags::LEVEL_TRIGGERED | IrqFlags::LOW_ACTIVE | IrqFlags::MASKED);
+            } else {
+                entry.set_flags(IrqFlags::MASKED);
+            }
+            // SAFETY: irq is bounded by the controller-reported table size;
+            // this unpublished controller is exclusively owned during setup.
+            unsafe { io_apic.set_table_entry(irq, entry) };
+        }
+        info!("IO-APIC initialized and masked");
+    }
+
+    IO_APIC.init_once(SpinNoIrq::new(io_apic));
+}
+
+/// Brings up the Local APIC on an application CPU (spurious/error/timer
+/// vectors only; the IO-APIC is owned by the boot CPU).
+pub fn init_secondary() {
+    let mut lapic = build_local_apic();
+    // SAFETY: secondary CPUs build their own LAPIC handle from the APIC mode
+    // discovered during primary initialization, then enable the local APIC for
+    // the current CPU before publishing that per-CPU handle.
+    unsafe { lapic.enable() };
+    install_local_apic(lapic);
+}
+
+/// Sends an IPI to the current CPU with the given interrupt id.
+pub fn send_ipi_self(interrupt_id: usize) {
+    with_local_apic(|lapic| {
+        // SAFETY: the current CPU's LAPIC handle is initialized before self-IPIs
+        // are used, and the x2apic crate requires `&mut self` only to model the
+        // CPU-local register programming performed here.
+        unsafe { lapic.send_ipi_self(interrupt_id as _) };
+    });
+}
+
+/// Sends an IPI to the CPU identified by `target_raw_apic_id`.
+pub fn send_ipi_raw(interrupt_id: usize, target_raw_apic_id: RawCpuId) {
+    let apic_id = raw_apic_id(target_raw_apic_id.as_usize() as u8);
+    with_local_apic(|lapic| {
+        // SAFETY: the current CPU's LAPIC handle is initialized before cross-CPU
+        // IPIs are used, and programming the destination APIC ID touches only
+        // this CPU's local APIC command register.
+        unsafe { lapic.send_ipi(interrupt_id as _, apic_id as _) };
+    });
+}
+
+/// Broadcasts an IPI to every other CPU.
+pub fn send_ipi_all_but_self(interrupt_id: usize) {
+    use x2apic::lapic::IpiAllShorthand;
+    with_local_apic(|lapic| {
+        // SAFETY: the current CPU's LAPIC handle is initialized before broadcast
+        // IPIs are used, and the shorthand command programs only the local ICR.
+        unsafe { lapic.send_ipi_all(interrupt_id as _, IpiAllShorthand::AllExcludingSelf) };
+    });
+}
+
+fn build_local_apic() -> LocalApic {
+    let mut builder = LocalApicBuilder::new();
+    builder
+        .timer_vector(APIC_TIMER_VECTOR as _)
+        .error_vector(APIC_ERROR_VECTOR as _)
+        .spurious_vector(APIC_SPURIOUS_VECTOR as _);
+    if !IS_X2APIC.load(Ordering::Relaxed) {
+        let xapic_base = XAPIC_BASE.load(Ordering::Relaxed);
+        assert!(xapic_base != 0, "xAPIC base is not initialized");
+        builder.set_xapic_base(xapic_base);
+    }
+    #[expect(
+        clippy::expect_used,
+        reason = "CG-021-no-panic-on-reachable-failure: The builder receives valid fixed APIC \
+                  vectors and, for xAPIC, an asserted nonzero MMIO base"
+    )]
+    builder.build().expect("failed to build local APIC")
+}
+
+fn install_local_apic(lapic: LocalApic) {
+    let ptr = Box::into_raw(Box::new(lapic)) as usize;
+    let guard = NoPreemptIrqSave::new();
+    assert_eq!(LOCAL_APIC_PTR.read(&guard), 0);
+    LOCAL_APIC_PTR.write(&guard, ptr);
+}
+
+fn local_apic_ptr(pin: &impl CpuLocalGuard) -> *mut LocalApic {
+    // The guard keeps execution on the CPU whose slot contains either 0 or the
+    // pointer published by `install_local_apic`. The single-word load cannot
+    // tear, and the leaked pointee remains valid for the kernel's life.
+    LOCAL_APIC_PTR.read(pin) as *mut LocalApic
+}

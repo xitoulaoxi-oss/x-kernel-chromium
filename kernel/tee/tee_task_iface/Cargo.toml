@@ -1,0 +1,47 @@
+[package]
+name = "tee_task_iface"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Shared TEE-related task APIs (traits) for x-kernel."
+keywords = ["tee", "kernel", "extensions"]
+categories = ["os", "no-std"]
+documentation.workspace = true
+
+[features]
+default = []
+# TA ELF `.ta_signature` verification at load time (tasign 0.2, RustCrypto backend).
+# See `src/tasign.rs` and crate `lib.rs` docs.
+tee_ta_sign = [
+    "dep:ksync",
+    "dep:klazy",
+
+    "dep:tasign",
+]
+# Enable certificate-chain verification by embedding the built-in CA PEM.
+# Effective only when `tee_ta_sign` is also enabled.
+ta_verify_with_root = ["tee_ta_sign"]
+
+[dependencies]
+bytemuck = { workspace = true }
+cfg-if = { workspace = true }
+hashbrown = { workspace = true }
+uuid = { workspace = true }
+unittest.workspace = true
+kerrno.workspace = true
+kcred.workspace = true
+ktime.workspace = true
+fs_context.workspace = true
+kvfs.workspace = true
+xmas-elf = { workspace = true, default-features = false }
+log.workspace = true
+ksync = { workspace = true, optional = true }
+klazy = { workspace = true, optional = true }
+tasign = { workspace = true, optional = true, features = ["kernel-verify"] }
+tee_raw_sys.workspace = true
+
+[lints]
+workspace = true

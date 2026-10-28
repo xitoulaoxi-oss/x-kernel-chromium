@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! IPC-related syscall adapters.
+
+mod eventfd;
+mod inotify;
+mod pipe;
+
+pub(crate) use self::{eventfd::*, inotify::*, pipe::*};

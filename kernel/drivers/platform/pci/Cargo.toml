@@ -1,0 +1,23 @@
+[package]
+name = "pci"
+edition.workspace = true
+description = "Structures and functions for PCI bus operations"
+documentation = "https://kylin-x-kernel.github.io/pci"
+keywords = ["x-kernel", "driver", "pci"]
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+
+[dependencies]
+virtio-drivers = { workspace = true }
+kbuild_config = { workspace = true }
+log.workspace = true
+memspace.workspace = true
+khal = { workspace = true }
+tock-registers = { workspace = true }
+
+[lints]
+workspace = true

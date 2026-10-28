@@ -1,0 +1,49 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  repository-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Python syntax
+        run: python -m compileall -q host
+
+      - name: Kernel tree present
+        run: test -f kernel/Cargo.toml && test -f kernel/Makefile
+
+      - name: Shell syntax
+        run: bash -n build/*.sh
+
+      - name: Patch files parse
+        run: |
+          set -e
+          while IFS= read -r -d '' p; do
+            git apply --numstat "$p" > /dev/null
+          done < <(find patches -name '*.patch' -print0)
+
+      - name: JSON parses
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          for path in pathlib.Path("evidence/reports").rglob("*.json"):
+              json.loads(path.read_text(encoding="utf-8"))
+          PY
+
+      - name: No screenshots or videos tracked
+        run: |
+          if git ls-files | grep -Ei '\.(png|jpe?g|gif|webp|mp4|mkv|mov|avi)$'; then
+            echo "Screenshots and videos are not part of this repository."
+            exit 1
+          fi

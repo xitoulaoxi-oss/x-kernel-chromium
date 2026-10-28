@@ -1,0 +1,34 @@
+[package]
+name = "backtrace"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords = ["DWARF", "debug", "backtrace", "unwinding", "x-kernel"]
+categories = ["development-tools::debugging"]
+description = "Backtrace Catching for X-kernel"
+
+[features]
+dwarf = ["dep:addr2line", "dep:gimli", "dep:paste"]
+symtab = []
+
+[dependencies]
+log = { workspace = true }
+klazy.workspace= true
+unittest.workspace = true
+
+addr2line = { version = "0.25.1", default-features = false, optional = true, features = [
+    "cpp_demangle",
+    "rustc-demangle",
+] }
+
+gimli = { version = "0.32", default-features = false, optional = true, features = [
+    "read-core",
+    "endian-reader",
+] }
+paste = { version = "1", optional = true }
+
+[lints]
+workspace = true

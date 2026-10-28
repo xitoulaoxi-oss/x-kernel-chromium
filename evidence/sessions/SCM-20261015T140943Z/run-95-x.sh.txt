@@ -1,0 +1,8 @@
+sh /tmp/xk-95-x.sh 2>&1
+A1
+A2 xsock=yes
+A3 jwm=1 reach=Screen 0: minimum 320 x 200, current 1280 x 800, maximum 1280 x 800
+A4
+kylin-x:~# echo __XK4545166__rc=$?
+__XK4545166__rc=0
+kylin-x:~# [6n

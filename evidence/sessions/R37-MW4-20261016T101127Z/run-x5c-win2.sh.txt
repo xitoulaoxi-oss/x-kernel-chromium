@@ -1,0 +1,10 @@
+sh /tmp/xk-x5c-win2.sh 2>&1
+N1 before=_NET_CLIENT_LIST(WINDOW): window id # 0x400003 wins=1
+[37m[122.064704 0:328 ksyscall::dispatch:885] [33mUnimplemented syscall: landlock_create_ruleset (tid=328)[m
+[mN2 t=10 wins=2 log2=517
+N6 _NET_CLIENT_LIST(WINDOW): window id # 0x400009, 0x400003
+N7 active=_NET_ACTIVE_WINDOW(WINDOW): window id # 0x400009 wins=2 log1=10676
+N8
+kylin-x:~# echo __XK7072809__rc=$?
+__XK7072809__rc=0
+kylin-x:~# [6n

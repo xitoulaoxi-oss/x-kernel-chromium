@@ -1,0 +1,36 @@
+[package]
+name = "posix-fs"
+description = "POSIX filesystem syscall implementations"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+bitflags.workspace = true
+kfd.workspace = true
+memfs.workspace = true
+fs_context.workspace = true
+kerrno.workspace = true
+kcred.workspace = true
+ktime_types.workspace = true
+ktime.workspace = true
+iov_iter.workspace = true
+kio.workspace = true
+klogger.workspace = true
+memaddr.workspace = true
+kprocess.workspace = true
+kvfs.workspace = true
+linux-raw-sys = { workspace = true, features = ["ioctl", "loop_device"] }
+linux_sysno.workspace = true
+osvm.workspace = true
+posix-types.workspace = true
+unittest.workspace = true
+
+[lints]
+workspace = true

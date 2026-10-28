@@ -1,0 +1,54 @@
+diff --git a/entry/src/init.sh b/entry/src/init.sh
+index b27a2f1..12c420d 100644
+--- a/entry/src/init.sh
++++ b/entry/src/init.sh
+@@ -14,12 +14,45 @@ echo
+ 
+ cd ~
+ 
+-# Hand off to a real init only when an init system is actually installed.
++# Hand off to a real init system when the root filesystem actually has one.
++#
++# The original test recognised only OpenRC (`command -v openrc`). That excludes
++# BusyBox init, which is what minimal images ship: Alpine's `/sbin/init` is a
++# symlink to `/bin/busybox` and there is no `openrc` binary at all, so the test
++# was always false and PID 1 stayed an interactive shell. On such an image
++# `/etc/inittab` was therefore never read and every service it defines --
++# serial getty, and a kiosk or display-manager session on a VT -- silently
++# never ran.
++#
++# Every init handoff needs `/etc/inittab` (that is the file they read to decide
++# what to start) and a console to attach to. Requiring both keeps the original
++# intent -- do not exec an init that has nothing to run and no console to run it
++# on -- while admitting BusyBox alongside OpenRC.
++#
+ # /sbin/init (e.g. openrc) assumes a full console subsystem: the reboot
+ # syscall, VT ioctls, and /dev/tty1-N for getty. On a minimal rootfs without
+-# those, execing /sbin/init just spews errors, so keep an interactive shell.
+-if [ -x /sbin/init ] && command -v openrc >/dev/null 2>&1; then
+-    exec /sbin/init
++# those, execing /sbin/init just spews errors, so keep an interactive shell
++# unless the handoff is actually viable.
++if [ -x /sbin/init ] && [ -r /etc/inittab ] && [ -e /dev/console ]; then
++    # Run the init in this shell first instead of exec'ing it blind: an init
++    # that dies immediately would otherwise take PID 1 down with it, and the
++    # console would show nothing at all. If it survives long enough to be
++    # meaningful it has taken over, and the shell never reaches the next line.
++    echo "init: handing off to /sbin/init (inittab present, /dev/console present)"
++    /sbin/init &
++    init_pid=$!
++    sleep 5
++    if kill -0 "$init_pid" 2>/dev/null; then
++        wait "$init_pid"
++        echo "init: /sbin/init exited; falling back to an interactive shell"
++    else
++        wait "$init_pid" 2>/dev/null
++        echo "init: /sbin/init exited immediately; falling back to an interactive shell"
++    fi
++fi
++
++if [ -x /sbin/init ] && [ ! -r /etc/inittab ]; then
++    echo "init: /sbin/init exists but /etc/inittab is unreadable; staying as a shell"
+ fi
+ 
+ # PID 1 inherited console file descriptions opened by the kernel bootstrap,

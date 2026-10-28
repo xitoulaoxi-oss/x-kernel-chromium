@@ -1,0 +1,40 @@
+[package]
+name = "kvmm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Architecture-independent virtual machine monitor for x-kernel"
+
+[features]
+default = []
+
+[dependencies]
+log.workspace = true
+klogger.workspace = true
+kaddr_layout.workspace = true
+ktask.workspace = true
+kalloc.workspace = true
+kcpu_id_map.workspace = true
+kbuild_config.workspace = true
+kspin.workspace = true
+ksync.workspace = true
+khal.workspace = true
+kirq.workspace = true
+ktime_types.workspace = true
+vdev-core.workspace = true
+vdev-test-mmio.workspace = true
+vdev-virtio-blk.workspace = true
+unittest.workspace = true
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+kcpu_slot.workspace = true
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+aarch64-cpu.workspace = true
+kcpu_slot.workspace = true
+
+[lints]
+workspace = true

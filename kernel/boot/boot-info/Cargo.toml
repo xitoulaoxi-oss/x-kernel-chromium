@@ -1,0 +1,26 @@
+[package]
+name = "boot-info"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Shared boot handoff protocol for x-kernel boot loaders"
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+keywords = ["boot", "bootloader", "protocol"]
+categories = ["no-std", "os"]
+
+[features]
+# `unittest` is enabled by the root workspace dependency for normal kernel
+# builds. Keep the crate default empty so standalone boot helpers can depend on
+# boot-info without enabling this crate's file-backed unittest module.
+default = []
+unittest = ["dep:unittest"]
+
+[dependencies]
+kcpu_id_map = { workspace = true }
+unittest = { workspace = true, optional = true }
+
+[lints]
+workspace = true

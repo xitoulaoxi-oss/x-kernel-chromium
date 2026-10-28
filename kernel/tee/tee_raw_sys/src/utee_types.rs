@@ -1,0 +1,95 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+// User-space TEE (UTEE) type definitions.
+// Derived from GlobalPlatform TEE Internal Core API Specification v1.3.1
+// and the OP-TEE project (https://github.com/OP-TEE/optee_os).
+// These definitions conform to industry-standard specifications.
+// Licensed under BSD-2-Clause as per OP-TEE project.
+
+use core::fmt::{self, Debug};
+
+use super::*;
+
+#[repr(C)]
+pub enum utee_time_category {
+    UTEE_TIME_CAT_SYSTEM,
+    UTEE_TIME_CAT_TA_PERSISTENT,
+    UTEE_TIME_CAT_REE,
+}
+
+#[repr(C)]
+pub enum utee_entry_func {
+    UTEE_ENTRY_FUNC_OPEN_SESSION,
+    UTEE_ENTRY_FUNC_CLOSE_SESSION,
+    UTEE_ENTRY_FUNC_INVOKE_COMMAND,
+}
+
+#[repr(C)]
+pub enum utee_cache_operation {
+    TEE_CACHECLEAN,
+    TEE_CACHEFLUSH,
+    TEE_CACHEINVALIDATE,
+}
+
+#[repr(C)]
+pub struct utee_params {
+    types: u64,
+    vals: [u64; TEE_NUM_PARAMS as usize * 2],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default, posix_types::UserRead)]
+pub struct utee_attribute {
+    pub a: u64,
+    pub b: u64,
+    pub attribute_id: u32,
+}
+
+impl Debug for utee_attribute {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.attribute_id & TEE_ATTR_FLAG_VALUE != 0 {
+            write!(
+                f,
+                "utee_attribute::VALUE {{a: {:#010X?}, b: {:#010X?}, attribute_id: {:#010X?}}}",
+                self.a, self.b, self.attribute_id
+            )
+        } else {
+            write!(
+                f,
+                "utee_attribute::REF {{a: {:#010X?}, b: {:#010X?}, attribute_id: {:#010X?}}}",
+                self.a, self.b, self.attribute_id
+            )
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default, posix_types::UserWrite)]
+pub struct utee_object_info {
+    pub obj_type: u32,
+    pub obj_size: u32,
+    pub max_obj_size: u32,
+    pub obj_usage: u32,
+    pub data_size: u32,
+    pub data_pos: u32,
+    pub handle_flags: u32,
+}
+
+impl Debug for utee_object_info {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "obj_type: {:#010X}, obj_size: {:#010X}, max_obj_size: {:#010X}, obj_usage: {:#010X}, \
+             data_size: {:#010X}, data_pos: {:#010X}, handle_flags: {:#010X}",
+            self.obj_type,
+            self.obj_size,
+            self.max_obj_size,
+            self.obj_usage,
+            self.data_size,
+            self.data_pos,
+            self.handle_flags
+        )
+    }
+}

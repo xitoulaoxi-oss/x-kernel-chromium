@@ -1,0 +1,172 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+// The import layout and user-context definition in this file follow common
+// Rust module organization and standard Riscv user-space context conventions.
+// Similar structure across kernels is expected for clarity and ABI alignment,
+// and should not be interpreted as literal duplication of project-specific
+
+//! Structures and functions for user space.
+
+use memaddr::VirtAddr;
+#[cfg(feature = "fp-simd")]
+use riscv::register::sstatus::FS;
+use riscv::{
+    interrupt::{
+        Trap,
+        supervisor::{Exception as E, Interrupt as I},
+    },
+    register::{scause, sstatus::Sstatus, stval},
+};
+
+pub use crate::userspace_common::{ExceptionKind, ReturnReason};
+use crate::{ExceptionContext, GeneralRegisters, excp::PageFaultFlags};
+
+/// Context to enter user space.
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct UserContext(ExceptionContext);
+
+/// User-space state saved outside the ABI `mcontext_t` signal payload.
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct UserRestorableContext;
+
+impl UserContext {
+    /// Creates a new context with the given entry point, user stack pointer,
+    /// and the argument.
+    pub fn new(entry: usize, ustack_top: VirtAddr, arg0: usize) -> Self {
+        let mut sstatus = Sstatus::from_bits(0);
+        sstatus.set_spie(true); // enable interrupts
+        sstatus.set_sum(true); // enable user memory access in supervisor mode
+        #[cfg(feature = "fp-simd")]
+        sstatus.set_fs(FS::Initial); // set the FPU to initial state
+
+        Self(ExceptionContext {
+            regs: GeneralRegisters {
+                a0: arg0,
+                sp: ustack_top.as_usize(),
+                ..Default::default()
+            },
+            sepc: entry,
+            sstatus,
+            saved_syscall_arg0: 0,
+            from_syscall: false,
+        })
+    }
+
+    /// Saves user-restorable state that is not carried by signal `mcontext_t`.
+    pub fn save_user_restorable(&self) -> UserRestorableContext {
+        UserRestorableContext
+    }
+
+    /// Restores user state that is not carried by signal `mcontext_t`.
+    pub fn restore_user_restorable(&mut self, _saved: UserRestorableContext) {
+        self.0.saved_syscall_arg0 = 0;
+    }
+
+    /// Enter user space.
+    ///
+    /// It restores the user registers and jumps to the user entry point
+    /// (saved in `sepc`).
+    ///
+    /// This function returns when an exception or syscall occurs.
+    ///
+    /// Invokes `on_user_enter` immediately before entering user space and
+    /// `on_user_exit` after restoring kernel context, before IRQ dispatch.
+    /// Both callbacks run with local IRQs masked and must return with them
+    /// masked, without sleeping or scheduling.
+    pub fn run(
+        &mut self,
+        on_user_enter: impl FnOnce(),
+        on_user_exit: impl FnOnce(),
+    ) -> ReturnReason {
+        unsafe extern "C" {
+            fn enter_user(uctx: &mut UserContext);
+        }
+
+        karch::disable_local_irq();
+        on_user_enter();
+        // SAFETY: `enter_user` is an assembly stub that restores user registers and executes `sret`. `UserContext` fields are set up by `new()` with valid SSTATUS (SPIE+SUM) and user entry point.
+        unsafe { enter_user(self) };
+        on_user_exit();
+
+        let scause = scause::read();
+        let ret = if let Ok(cause) = scause.cause().try_into::<I, E>() {
+            let stval = stval::read();
+            match cause {
+                Trap::Interrupt(_) => {
+                    handle_trap!(IRQ, scause.bits());
+                    ReturnReason::Interrupt
+                }
+                Trap::Exception(E::UserEnvCall) => {
+                    self.sepc += 4;
+                    ReturnReason::Syscall
+                }
+                Trap::Exception(E::LoadPageFault) => {
+                    ReturnReason::PageFault(va!(stval), PageFaultFlags::READ | PageFaultFlags::USER)
+                }
+                Trap::Exception(E::StorePageFault) => ReturnReason::PageFault(
+                    va!(stval),
+                    PageFaultFlags::WRITE | PageFaultFlags::USER,
+                ),
+                Trap::Exception(E::InstructionPageFault) => ReturnReason::PageFault(
+                    va!(stval),
+                    PageFaultFlags::EXECUTE | PageFaultFlags::USER,
+                ),
+                Trap::Exception(e) => ReturnReason::Exception(ExceptionInfo { e, stval }),
+            }
+        } else {
+            ReturnReason::Unknown
+        };
+
+        // Only syscall traps may interpret a0 as a Linux restart code.
+        self.set_from_syscall(matches!(ret, ReturnReason::Syscall));
+
+        karch::enable_local_irq();
+        ret
+    }
+
+    /// Resets the general-purpose registers before entering a freshly
+    /// loaded executable.
+    ///
+    /// A successful `execve` must not leak the old program's registers into
+    /// the new image. Linux zeroes the RISC-V register file on exec and only
+    /// re-establishes `pc`, `sp`, and the saved `sstatus`, so all GPRs are
+    /// cleared here (the caller re-applies `sp` via `set_sp` and TLS via
+    /// `set_tls` afterwards). The syscall-restart snapshot and the
+    /// `from_syscall` marker are reset as well: the new image does not enter
+    /// via a syscall, and a coincidental `a0` value must not be interpreted
+    /// as a restart code.
+    pub fn reset_for_exec(&mut self) {
+        self.0.regs = GeneralRegisters::default();
+        self.0.saved_syscall_arg0 = 0;
+        self.set_from_syscall(false);
+    }
+}
+
+impl_user_context_deref!(ExceptionContext, 0);
+
+/// Information about an exception that occurred in user space.
+#[derive(Debug, Clone, Copy)]
+pub struct ExceptionInfo {
+    /// The raw exception.
+    pub e: E,
+    /// The faulting address (from `stval`).
+    pub stval: usize,
+}
+
+impl ExceptionInfo {
+    /// Returns a generalized kind of this exception.
+    pub fn kind(&self) -> ExceptionKind {
+        match self.e {
+            E::Breakpoint => ExceptionKind::Breakpoint,
+            E::IllegalInstruction => ExceptionKind::IllegalInstruction,
+            E::InstructionMisaligned | E::LoadMisaligned | E::StoreMisaligned => {
+                ExceptionKind::Misaligned
+            }
+            _ => ExceptionKind::Other,
+        }
+    }
+}

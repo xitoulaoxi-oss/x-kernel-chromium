@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+use alloc::sync::Arc;
+
+use kvfs::{DirMaker, DirMapping, SimpleDir, SimpleFs};
+
+use crate::{dynamic, nodes};
+
+pub(crate) fn builder(fs: Arc<SimpleFs>) -> DirMaker {
+    dynamic::initialize(fs.clone());
+    let mut root = DirMapping::new();
+
+    nodes::null_zero_full::add_root_entries(&mut root, fs.clone());
+    nodes::random::add_root_entries(&mut root, fs.clone());
+    nodes::cpu_dma_latency::add_root_entries(&mut root, fs.clone());
+    nodes::rtc::add_root_entries(&mut root, fs.clone());
+    nodes::fb::add_root_entries(&mut root, fs.clone());
+    nodes::dri::add_root_entries(&mut root, fs.clone());
+    nodes::tty_nodes::add_root_entries(&mut root, fs.clone());
+    nodes::r#loop::init_devices();
+    nodes::shm::add_root_entries(&mut root, fs.clone());
+    nodes::dtb::add_root_entries(&mut root, fs.clone());
+    nodes::virtdev::add_root_entries(&mut root, fs.clone());
+
+    #[cfg(feature = "memtrack")]
+    nodes::memtrack::add_root_entries(&mut root, fs.clone());
+    #[cfg(feature = "input")]
+    nodes::event::add_root_entries(&mut root, fs.clone());
+    #[cfg(feature = "serial")]
+    nodes::serial::add_root_entries(&mut root, fs.clone());
+    #[cfg(all(feature = "dice", target_os = "none"))]
+    nodes::dice::add_root_entries(&mut root, fs.clone());
+    #[cfg(feature = "vmm")]
+    nodes::kvmm_vm::add_root_entries(&mut root, fs.clone());
+
+    SimpleDir::new_maker(fs, Arc::new(root))
+}

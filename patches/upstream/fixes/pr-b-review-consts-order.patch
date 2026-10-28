@@ -1,0 +1,64 @@
+diff --git a/io/drmdevice/src/consts.rs b/io/drmdevice/src/consts.rs
+--- a/io/drmdevice/src/consts.rs
++++ b/io/drmdevice/src/consts.rs
+@@ -56,6 +56,13 @@
+ pub(crate) const DRM_CAP_CRTC_IN_VBLANK_EVENT: u64 = 0x12;
+ pub(crate) const DRM_CAP_ADDFB2_MODIFIERS: u64 = 0x10;
+ 
++/// Cursor size reported via GET_CAP. The driver exposes a single primary
++/// plane and no cursor commands, so this is a client-compatibility value,
++/// not a hardware capability: libdrm-based clients treat 0 as "cursor
++/// unsupported" and bail out during init. 64x64 matches the virtio-gpu
++/// spec-level cursor dimensions.
++pub(crate) const DRM_CURSOR_COMPAT_SIZE: u64 = 64;
++
+ // ======== SET_CLIENT_CAP capabilities ========
+ 
+ // Values are Linux's (`include/uapi/drm/drm.h`); the numbering is part of the
+@@ -64,16 +71,12 @@
+ pub(crate) const DRM_CLIENT_CAP_UNIVERSAL_PLANES: u64 = 2;
+ pub(crate) const DRM_CLIENT_CAP_ATOMIC: u64 = 3;
+ 
+-/// Cursor size reported via GET_CAP. The driver exposes a single primary
+-/// plane and no cursor commands, so this is a client-compatibility value,
+-/// not a hardware capability: libdrm-based clients treat 0 as "cursor
+-/// unsupported" and bail out during init. 64x64 matches the virtio-gpu
+-/// spec-level cursor dimensions.
+-pub(crate) const DRM_CURSOR_COMPAT_SIZE: u64 = 64;
+-
+ // ======== format modifiers ========
+ 
+ pub(crate) const DRM_MODE_FB_MODIFIERS: u32 = 0x2;
++
++pub(crate) const DRM_FORMAT_MOD_INVALID: u64 = 0x00ff_ffff_ffff_ffff;
++pub(crate) const DRM_FORMAT_MOD_LINEAR: u64 = 0;
+ 
+ // ======== MODE_CURSOR flags ========
+ 
+@@ -82,8 +85,6 @@
+ pub(crate) const DRM_MODE_CURSOR_BO: u32 = 0x01;
+ /// Move the cursor to `x` / `y`.
+ pub(crate) const DRM_MODE_CURSOR_MOVE: u32 = 0x02;
+-pub(crate) const DRM_FORMAT_MOD_INVALID: u64 = 0x00ff_ffff_ffff_ffff;
+-pub(crate) const DRM_FORMAT_MOD_LINEAR: u64 = 0;
+ 
+ // ======== format FourCCs ========
+ 
+diff --git a/io/drmdevice/src/card0.rs b/io/drmdevice/src/card0.rs
+--- a/io/drmdevice/src/card0.rs
++++ b/io/drmdevice/src/card0.rs
+@@ -193,6 +193,14 @@
+         // accepted will go on to issue atomic commits.  The granted bits are read
+         // back by `DrmModeAtomic`; see `DrmFile::client_caps` for why the other
+         // two are recorded rather than enforced.
++        //
++        // `STEREO_3D` and `UNIVERSAL_PLANES` are accepted even though nothing here
++        // implements stereoscopy or gated plane enumeration.  Linux's
++        // `drm_setclientcap()` does not ask the driver either: both are per-file
++        // client flags that govern what the client itself may send, so a driver
++        // that answered EOPNOTSUPP would be the one out of spec -- and a client
++        // that probes them before doing anything else would give up.  Only
++        // `ATOMIC` changes what this kernel acts on.
+         match cap.capability {
+             DRM_CLIENT_CAP_STEREO_3D | DRM_CLIENT_CAP_UNIVERSAL_PLANES | DRM_CLIENT_CAP_ATOMIC => {}
+             _ => return Err(VfsError::OperationNotSupported),

@@ -1,0 +1,27 @@
+{
+  "file": "D:\\x-kernel-dsh-bridge\\pr\\evidence\\perf\\aft1-20261016T151336Z\\01-after-06-fetch-pages.png",
+  "width": 640,
+  "height": 480,
+  "sampled_pixels": 19200,
+  "colors": 2,
+  "dominant_fraction": 0.9989,
+  "blank": true,
+  "top_colors": [
+    [
+      [
+        0,
+        0,
+        0
+      ],
+      19179
+    ],
+    [
+      [
+        170,
+        170,
+        170
+      ],
+      21
+    ]
+  ]
+}

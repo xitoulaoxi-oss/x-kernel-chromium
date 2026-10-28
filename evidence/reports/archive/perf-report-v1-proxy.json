@@ -1,0 +1,250 @@
+{
+  "host": {
+    "os": "Windows 11 (10.0.26200)",
+    "machine": "AMD64",
+    "python": "3.12.14",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+    "os_registry": "Windows 10 Pro 25H2 build 26200",
+    "logical_cpus": 16,
+    "memory_probe": "unavailable (no wmic/CIM on this host)"
+  },
+  "qemu": "QEMU emulator version 11.0.92 (v11.1.0-rc2-12128-gc65ddfcd01)",
+  "guest_kernel": "kernel\\kernel-procfs.bin",
+  "peak_memory_source": "host: QEMU PeakWorkingSet64 (MB)",
+  "cpu_source": "host: QEMU TotalProcessorTime (s)",
+  "repeats_requested": 5,
+  "repeats_completed": 5,
+  "complete_samples": 5,
+  "complete_sample_rule": "chrome_s, paint_s and renderer_s all present",
+  "metric_classes": [
+    "cpu-usage",
+    "page-load",
+    "peak-memory",
+    "renderer-creation",
+    "startup"
+  ],
+  "samples": [
+    {
+      "xorg_s": 0,
+      "jwm_s": 1,
+      "chrome_s": 7,
+      "paint_s": 51,
+      "renderer_s": 33,
+      "painted": 1,
+      "renderer_forks": 5,
+      "log_bytes": 10060,
+      "run": 1,
+      "evidence_dir": "pf21-20261016T112238Z",
+      "peak_mem_mb": 2019.5,
+      "cpu_s": 162.81
+    },
+    {
+      "xorg_s": 0,
+      "jwm_s": 1,
+      "chrome_s": 7,
+      "paint_s": 52,
+      "renderer_s": 33,
+      "painted": 1,
+      "renderer_forks": 5,
+      "log_bytes": 10060,
+      "run": 2,
+      "evidence_dir": "pf22-20261016T112437Z",
+      "peak_mem_mb": 2028.8,
+      "cpu_s": 164.16
+    },
+    {
+      "xorg_s": 0,
+      "jwm_s": 1,
+      "chrome_s": 7,
+      "paint_s": 120,
+      "renderer_s": 33,
+      "painted": 1,
+      "renderer_forks": 4,
+      "log_bytes": 11172,
+      "run": 3,
+      "evidence_dir": "pf23-20261016T112635Z",
+      "peak_mem_mb": 2056.6,
+      "cpu_s": 194.12
+    },
+    {
+      "xorg_s": 1,
+      "jwm_s": 2,
+      "chrome_s": 8,
+      "paint_s": 77,
+      "renderer_s": 44,
+      "painted": 1,
+      "renderer_forks": 5,
+      "log_bytes": 10103,
+      "run": 4,
+      "evidence_dir": "pf24-20261016T112932Z",
+      "peak_mem_mb": 2053.1,
+      "cpu_s": 282.27
+    },
+    {
+      "xorg_s": 1,
+      "jwm_s": 2,
+      "chrome_s": 9,
+      "paint_s": 79,
+      "renderer_s": 45,
+      "painted": 1,
+      "renderer_forks": 5,
+      "log_bytes": 10667,
+      "run": 5,
+      "evidence_dir": "pf25-20261016T113147Z",
+      "peak_mem_mb": 2057.6,
+      "cpu_s": 284.75
+    }
+  ],
+  "summary": {
+    "xorg_s": {
+      "class": "startup",
+      "n": 5,
+      "median": 0,
+      "min": 0,
+      "max": 1,
+      "spread": 1,
+      "raw": [
+        0,
+        0,
+        0,
+        1,
+        1
+      ]
+    },
+    "jwm_s": {
+      "class": "startup",
+      "n": 5,
+      "median": 1,
+      "min": 1,
+      "max": 2,
+      "spread": 1,
+      "raw": [
+        1,
+        1,
+        1,
+        2,
+        2
+      ]
+    },
+    "chrome_s": {
+      "class": "startup",
+      "n": 5,
+      "median": 7,
+      "min": 7,
+      "max": 9,
+      "spread": 2,
+      "raw": [
+        7,
+        7,
+        7,
+        8,
+        9
+      ]
+    },
+    "paint_s": {
+      "class": "page-load",
+      "n": 5,
+      "median": 77,
+      "min": 51,
+      "max": 120,
+      "spread": 69,
+      "raw": [
+        51,
+        52,
+        77,
+        79,
+        120
+      ]
+    },
+    "renderer_s": {
+      "class": "renderer-creation",
+      "n": 5,
+      "median": 33,
+      "min": 33,
+      "max": 45,
+      "spread": 12,
+      "raw": [
+        33,
+        33,
+        33,
+        44,
+        45
+      ]
+    },
+    "peak_mem_mb": {
+      "class": "peak-memory",
+      "n": 5,
+      "median": 2053.1,
+      "min": 2019.5,
+      "max": 2057.6,
+      "spread": 38.09999999999991,
+      "raw": [
+        2019.5,
+        2028.8,
+        2053.1,
+        2056.6,
+        2057.6
+      ]
+    },
+    "cpu_s": {
+      "class": "cpu-usage",
+      "n": 5,
+      "median": 194.12,
+      "min": 162.81,
+      "max": 284.75,
+      "spread": 121.94,
+      "raw": [
+        162.81,
+        164.16,
+        194.12,
+        282.27,
+        284.75
+      ]
+    },
+    "painted": {
+      "class": "counter",
+      "n": 5,
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "spread": 0,
+      "raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "renderer_forks": {
+      "class": "counter",
+      "n": 5,
+      "median": 5,
+      "min": 4,
+      "max": 5,
+      "spread": 1,
+      "raw": [
+        4,
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    "log_bytes": {
+      "class": "counter",
+      "n": 5,
+      "median": 10103,
+      "min": 10060,
+      "max": 11172,
+      "spread": 1112,
+      "raw": [
+        10060,
+        10060,
+        10103,
+        10667,
+        11172
+      ]
+    }
+  }
+}

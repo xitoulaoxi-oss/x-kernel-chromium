@@ -1,0 +1,31 @@
+[package]
+name = "kspin"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords = ["synchronization", "spinlock", "no-irq"]
+description = "Spinlocks used for kernel space that can disable preemption or IRQs in the critical section."
+categories = ["os", "no-std"]
+
+[package.metadata.cargo-shear]
+ignored = ["linkme"]
+
+[features]
+preempt = []
+smp = []
+stats = ["dep:klockstat", "dep:linkme", "klockstat/stats"]
+default = []
+
+[dependencies]
+kiface = { workspace = true }
+karch = { workspace = true }
+kcpu_slot = { workspace = true }
+klockstat = { workspace = true, optional = true }
+linkme = { workspace = true, optional = true }
+unittest.workspace = true
+
+[lints]
+workspace = true

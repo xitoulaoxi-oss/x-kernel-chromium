@@ -1,0 +1,115 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+
+//! PSCI interface helpers for power management and CPU control.
+
+use kcpu_id_map::RawCpuId;
+use kerrno::{KError, KErrorKind};
+
+use crate::peripherals::smccc;
+const PSCI_0_2_FN_BASE: u32 = 0x84000000;
+const PSCI_0_2_64BIT: u32 = 0x40000000;
+const PSCI_0_2_FN_CPU_OFF: u32 = PSCI_0_2_FN_BASE + 2;
+const PSCI_0_2_FN_SYSTEM_OFF: u32 = PSCI_0_2_FN_BASE + 8;
+const PSCI_0_2_FN64_CPU_ON: u32 = PSCI_0_2_FN_BASE + PSCI_0_2_64BIT + 3;
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[repr(i32)]
+pub enum PsciError {
+    NotSupported    = -1,
+    InvalidParams   = -2,
+    Denied          = -3,
+    AlreadyOn       = -4,
+    OnPending       = -5,
+    InternalFailure = -6,
+    NotPresent      = -7,
+    Disabled        = -8,
+    InvalidAddress  = -9,
+}
+impl From<i32> for PsciError {
+    fn from(code: i32) -> PsciError {
+        use PsciError::*;
+        match code {
+            -1 => NotSupported,
+            -2 => InvalidParams,
+            -3 => Denied,
+            -4 => AlreadyOn,
+            -5 => OnPending,
+            -6 => InternalFailure,
+            -7 => NotPresent,
+            -8 => Disabled,
+            -9 => InvalidAddress,
+            // PSCI defines no other return codes. Treat an out-of-spec firmware
+            // value as an internal failure so callers take their error paths.
+            _ => {
+                warn!("unknown PSCI return code {code}; treating it as INTERNAL_FAILURE");
+                InternalFailure
+            }
+        }
+    }
+}
+
+impl From<PsciError> for KError {
+    fn from(value: PsciError) -> Self {
+        let kind = match value {
+            PsciError::NotSupported => KErrorKind::OperationNotSupported,
+            PsciError::InvalidParams => KErrorKind::InvalidInput,
+            PsciError::Denied => KErrorKind::PermissionDenied,
+            PsciError::AlreadyOn | PsciError::OnPending => KErrorKind::ResourceBusy,
+            PsciError::InternalFailure => KErrorKind::Io,
+            PsciError::NotPresent | PsciError::Disabled => KErrorKind::NoSuchDevice,
+            PsciError::InvalidAddress => KErrorKind::BadAddress,
+        };
+        kind.into()
+    }
+}
+fn psci_call(func: u32, arg0: usize, arg1: usize, arg2: usize) -> Result<(), PsciError> {
+    let result = smccc::invoke(func, arg0, arg1, arg2);
+    let ret = result.x0;
+    if ret == 0 {
+        Ok(())
+    } else {
+        Err(PsciError::from(ret as i32))
+    }
+}
+/// Initialize the PSCI call method (`"smc"` or `"hvc"`).
+pub fn init(method: &str) {
+    smccc::init_conduit(method);
+}
+/// Powers off the whole system via PSCI `SYSTEM_OFF`.
+pub fn system_power_off() -> ! {
+    info!("Shutting down...");
+    // Any return, including an error, takes the warning and local halt path below.
+    let _ = psci_call(PSCI_0_2_FN_SYSTEM_OFF, 0, 0, 0);
+    warn!("PSCI SYSTEM_OFF returned; halting the current CPU");
+    karch::stop_cpu()
+}
+/// Power on a target CPU identified by its raw MPIDR affinity value.
+pub fn cpu_on(
+    target_raw_cpu_id: RawCpuId,
+    entry_point: usize,
+    arg: usize,
+) -> Result<(), PsciError> {
+    info!("Starting CPU {:x} ON ...", target_raw_cpu_id.as_usize());
+    let res = psci_call(
+        PSCI_0_2_FN64_CPU_ON,
+        target_raw_cpu_id.as_usize(),
+        entry_point,
+        arg,
+    );
+    if let Err(e) = res {
+        error!(
+            "failed to boot CPU {:x} ({e:?})",
+            target_raw_cpu_id.as_usize()
+        );
+    }
+    res
+}
+/// Power off the current CPU via PSCI.
+pub fn cpu_off() {
+    const PSCI_POWER_STATE_TYPE_POWER_DOWN: u32 = 1;
+    const PSCI_0_2_POWER_STATE_TYPE_SHIFT: u32 = 16;
+    let state: u32 = PSCI_POWER_STATE_TYPE_POWER_DOWN << PSCI_0_2_POWER_STATE_TYPE_SHIFT;
+    // This best-effort request has no error channel; leave control with the caller.
+    let _ = psci_call(PSCI_0_2_FN_CPU_OFF, state as usize, 0, 0);
+}

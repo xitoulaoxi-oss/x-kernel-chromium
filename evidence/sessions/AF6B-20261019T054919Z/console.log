@@ -1,0 +1,48 @@
+[37m[  0.733312 0:18446462599824926736 knet:203] [33m  No vsock device found![m
+[march = aarch64
+platform = kplat-aarch64
+target = aarch64-unknown-none-softfloat
+build_mode = release
+build_machine = xitoulaoxi@xitoulaoxi-desktop
+build_time = 2026-10-16T10:52:47.384545672Z
+log_level = warn
+backtrace = false
+nr_cpus_max = 4
+vmm = off
+config_sha256 = c27d8b2b3414d219359808f56611284945306fd50a28dbed81a9b252807d955c
+git_commit = d3a6ec95a9dded154db2c1aadd4fef44eadb1612
+git_dirty = true
+build_id = 815e69c2d51f6ffafa36a7162b8062c2074706004196edb46647447a17a966da
+smp = 4
+Welcome to [96m[1mKylin X[0m!
+SHLVL=1
+HOME=/root
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PWD=/
+
+Use [1m[3mapt[0m to install packages.
+
+init: handing off to /sbin/init (inittab present, /dev/console present)
+init: must be run as PID 1
+init: /sbin/init exited immediately; falling back to an interactive shell
+kylin-x:~# [6n
+kylin-x:~# [6necho P1_START; ls /proc/net; echo P2_IFINET6; cat /proc/net/if_inet6 2>&1; echo P3_PING6; ping -6 -
+c1 -W1 ::1 2>&1; echo P4_PING4; ping -c1 -W1 127.0.0.1 2>&1; echo PDONE
+P1_START
+ls: /proc/net: No such file or directory
+P2_IFINET6
+cat: can't open '/proc/net/if_inet6': No such file or directory
+P3_PING6
+PING ::1 (::1): 56 data bytes
+ping: can't create raw socket: Address family not supported by protocol
+P4_PING4
+PING 127.0.0.1 (127.0.0.1): 56 data bytes
+64 bytes from 127.0.0.1: seq=0 ttl=64 time=26.195 ms
+
+--- 127.0.0.1 ping statistics ---
+1 packets transmitted, 1 packets received, 0% packet loss
+round-trip min/avg/max = 26.195/26.195/26.195 ms
+PDONE
+kylin-x:~# echo __XK4941292__rc=$?
+__XK4941292__rc=0
+kylin-x:~# [6n

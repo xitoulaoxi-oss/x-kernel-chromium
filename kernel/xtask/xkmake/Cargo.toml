@@ -1,0 +1,29 @@
+[package]
+name = "xkmake"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Build and run orchestrator for X-Kernel"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+env_logger = { version = "0.11", default-features = false, features = ["color"] }
+goblin = "0.10"
+kaddr_layout = { path = "../../mm/kaddr_layout" }
+kernel-image-metadata = { path = "../../boot/kernel-image-metadata" }
+lcov2cobertura = "1.0.9"
+libc = "0.2"
+log = "0.4"
+scroll = "0.13"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+thiserror = "1.0"
+time = { version = "0.3", features = ["formatting", "parsing"] }
+toml = "1.1.2"
+xconfig = { path = "../xconfig" }
+
+[dev-dependencies]
+tempfile = "3.27"
