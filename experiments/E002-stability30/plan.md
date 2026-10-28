@@ -27,6 +27,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File host\xkwin.ps1 -Tag E002 -Di
 
 ## 负载循环（30 分钟稳定通过后）
 
+已提供 tests/load-loop.ps1（默认 10 次 × 120 s），可单独启动 monitor 采样。
+
+
 - 每 2 分钟加载一次测试页，共 10 次；
 - 由宿主的 -Key ctrl+r 或新增 l1 脚本完成；
 - 记录每次加载后的窗口数与 chromium 进程数。
