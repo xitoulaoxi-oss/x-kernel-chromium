@@ -51,9 +51,14 @@ cp target/xkmake/kplat-aarch64/release/kernel.bin ../artifacts/kernel-procfs.bin
 |---|---|---|
 | `KERNEL` | `<repo>/kernel` | 源码树 |
 | `OUT` | `<repo>/artifacts` | 产物目录 |
-| `NAME` | `kernel-procfs.bin` | 产物文件名 |
+| `OUT_NAME` | `kernel-procfs.bin` | 产物文件名 |
+| `BUILD_DIR` | `<KERNEL>/target`（路径含空格时为 `/tmp/xk-build-<uid>`） | cargo/Kconfig 输出目录 |
 | `DEFCONFIG` | `platforms/kplat-aarch64/qemu_defconfig` | 配置 |
 | `CLEAN=yes` | `no` | 构建前 `make clean` |
+
+> **路径含空格时**：x-kernel 的 Makefile 里 `TARGET_DIR` / `XCONFIG_TARGET_DIR` 没有加引号，
+> 直接构建会让 `cargo run` 走错 manifest，报 “could not determine which binary to run”。
+> `build-kernel.sh` 会自动把 `BUILD_DIR` 切到 `/tmp/xk-build-<uid>`；也可以把仓库放到无空格路径。
 
 ## 从干净上游复核初赛补丁
 

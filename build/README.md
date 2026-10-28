@@ -12,10 +12,13 @@
 ```bash
 bash build/build-kernel.sh
 # 或
-NAME=kernel-keepalive.bin CLEAN=yes bash build/build-kernel.sh
+OUT_NAME=kernel-keepalive.bin CLEAN=yes bash build/build-kernel.sh
 ```
 
 产物：`artifacts/kernel-procfs.bin`。该目录下的 `*.bin` **不提交到 Git**，用于本地验收或上传到 GitHub Releases。
+
+> 仓库路径含空格时（例如 `for github`），脚本会自动把构建目录切到 `/tmp/xk-build-<uid>`。
+> 原因是 x-kernel 的 Makefile 里 `TARGET_DIR` 未加引号，原路径会让 `cargo run` 走错 manifest。
 
 ## 从干净上游重建
 
