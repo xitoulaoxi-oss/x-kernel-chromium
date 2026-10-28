@@ -31,6 +31,7 @@
 
 1. E000：已完成（通过，但 peak_ws 2.15 GiB 超 1.5G）。
 2. E001：观测工具 partial（observe/monitor/hb 已完成；待联调 + run-finals）。
+3. E002：s10-stability30.sh 已写，准备跑 30min + monitor。
 3. E002：30 分钟稳定性 + 10 次负载循环。
 4. E003：性能基线 5 次（首帧、页面加载、renderer、峰值内存）。
 5. E004+：单变量性能/跨层实验，保留或回退。
