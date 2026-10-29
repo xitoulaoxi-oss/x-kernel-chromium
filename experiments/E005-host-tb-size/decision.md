@@ -19,3 +19,10 @@
 
 - E005 stability30：带 tb-size=256 跑 30 分钟；
 - 若通过，再把 xkwin 默认设为 256（保留 -TbSize 覆盖），并跑负载循环/性能。
+
+## 用户澄清（2026-10-29 18:50）
+
+- **1.5G 是客机内 Chromium 使用的内存，不是宿主 QEMU 工作集。**
+- 因此 tb-size=256 的宿主 1.45GB 只说明宿主机口径可过，不能作为决赛资格方案；
+- 已把 xkwin 默认恢复为空（QEMU 默认 tcg），perf_run 默认 --tb-size 为空；-TbSize 保留为诊断参数。
+- 后续以 guest/chrome-mem.sh 的 Chromium RSS 总量为准。

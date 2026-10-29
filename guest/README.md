@@ -53,6 +53,7 @@
 | `hb.sh` | 每分钟打印 `HB t=... chrome=... mem_mb=...` |
 | `hb-start.sh` | 在客机后台启动心跳 |
 | `hb-dump.sh` | 打印心跳历史，供 console 解析 |
+| `chrome-mem.sh` | 汇总客机 Chromium 进程 RSS（1.5G 资格线口径） |
 
 ## 手动演示 / 帧采集
 

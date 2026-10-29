@@ -11,3 +11,5 @@
 > 状态只在实验结束时更新；不要把中间读数写成结论。
 
 | E005 | partial | 宿主 QEMU 工作集 TCG tb-size 诊断 | tb-size=256：peak 1.45GB、colors=892；CPU 上升 | 待 30min 稳定 |
+
+| E006 | in_progress | 客机 Chromium 内存 1.5G | chrome-mem.sh 已写 | 待跑 |
