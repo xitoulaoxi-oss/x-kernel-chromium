@@ -80,3 +80,8 @@
 - 截止改为 13:45 收尾 / 14:00 硬停止；新 schedule 已建；watchdog 已改到 14:00。
 - E002 30min + 10 次负载循环通过；E003 的 5 次性能仍无效（frame watch 首帧缺失）。
 - 结果总表：experiments/RESULTS.md。
+
+## STOPPED 2026-10-29 13:15
+
+- 所有 QEMU 已停止；watchdog 已 kill；13:45/14:00 schedules 已删除；goal paused。
+- 最后提交 e1777a6；E003 仍 invalid，E002/E004 结果见 experiments/RESULTS.md。
