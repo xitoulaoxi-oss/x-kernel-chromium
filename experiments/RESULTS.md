@@ -40,3 +40,5 @@
 2. 修 perf frame-watch 的首帧检测：确认是 c1-perf-x 的 Xorg 配置、screendump 时序，还是 c2 启动链。
 3. 再跑 5 次性能；没有 5 个完整样本就不写性能结论。
 4. E004 只做单变量 + 30 分钟复测，不把 3 分钟 smoke 当稳定结论。
+
+| E008 | invalid | experiments/E008-nogpu5/run1..5 | 单次 x4-nogpu 70.064s/835；5 次 0/5，final 262–265 |
