@@ -159,3 +159,10 @@
 - 关闭后台网络/更新仍 found=false，final 261；
 - 随机 blank 未定位；E008 GL 0/5、E010 网络 0/1、x4 150s 仍 blank；
 - 无有效 5 次性能。
+
+## STOP 2026-10-30（用户要求停止并上传）
+
+- 所有 QEMU/后台任务/定时/watchdog 已停；goal paused。
+- 1.5G 按客机 Chromium 内存口径：guest used 816–840MB，保守上界通过。
+- E003 完整 6 类 5 次仍无效（随机 blank）；不写入性能结论。
+- 本次总结 experiments/FINAL-SUMMARY.md。
