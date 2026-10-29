@@ -53,3 +53,9 @@
 - 只有 2/5 有有效首帧；页面绘制本身不稳定，不是单纯 frame-watch 问题。
 - 不能把这 5 次写成 5 次有效性能基线。
 - 证据：experiments/E003-standard5/run1..5（已 gitignore）。
+
+## 运行 9（x4 等待 150s）：仍 blank
+
+- 把 x4 等到 120s 再 +30s，仍 first_frame NOT FOUND、final colors=265；
+- 说明不是单纯启动等待不足，而是 Chromium/Xorg 绘制随机失败；
+- 已回退 x4 到 60s break，避免无证据的变慢。
