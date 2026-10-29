@@ -19,7 +19,8 @@ Xorg :0 vt1 -nolisten tcp -auth "$A" >/tmp/xo.log 2>&1 &
 w=0
 while [ ! -S /tmp/.X11-unix/X0 ] && [ "$w" -lt 600 ]; do sleep 0.05; w=$((w+1)); done
 echo "xorg_s=$(( $(date +%s) - T0 ))"
+sleep 3
 su kiosk -s /bin/sh -c "DISPLAY=:0 XAUTHORITY=$A exec jwm" >/tmp/jw.log 2>&1 &
-sleep 1
+sleep 3
 echo "jwm_s=$(( $(date +%s) - T0 ))"
 echo "P1-END"

@@ -60,3 +60,6 @@ kernel/target/
 /evidence/reports/perf-report-e003fix.json
 
 /evidence/perf/e003d*/
+/evidence/perf/e003e*/
+/evidence/perf/e003f*/
+/evidence/perf/e003g*/

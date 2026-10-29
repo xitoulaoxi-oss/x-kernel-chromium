@@ -1,0 +1,467 @@
+{
+  "schema": "xkwin-perf/2 (framebuffer first-frame + resource rates)",
+  "generated_utc": "2026-10-29T12:22:33Z",
+  "host": {
+    "os": "Windows 11 (10.0.26300)",
+    "machine": "AMD64",
+    "python": "3.12.10",
+    "logical_cpus": 16,
+    "memory_mb": 32657.0,
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+    "os_registry": "Windows 10 Pro 26H2 build 26300"
+  },
+  "qemu": "QEMU emulator version 11.0.92 (v11.1.0-rc2-12128-gc65ddfcd01)",
+  "qemu_config": {
+    "machine": "virt",
+    "cpu_model": "cortex-a72",
+    "accelerator": "tcg (pure software emulation, no KVM/HVF)",
+    "smp_cpus": 4,
+    "guest_ram_mb": 4096
+  },
+  "guest_kernel": "artifacts\\kernel-procfs.bin",
+  "measurement_protocol": {
+    "repeats_per_metric": "each metric is measured once per run; the report requires n>=5",
+    "statistic": "median with min/max/spread, plus spread as % of median and the CV",
+    "first_frame": "QEMU screendump cadence from the instant the launch line is dispatched; painted = saturation>=0.06 in the page area, >=300 colours, not blank (colour count alone counts an empty browser window as a result); the reported value is the capture completion time (upper bound), bracketed by the previous frame",
+    "renderer": "guest monitor at 1 Hz, direct child of a --type=zygote process (this build does not rewrite the child argv)",
+    "resource_rates": "cpu_pct = cpu seconds / wall seconds; qemu_mem_pct = QEMU peak working set / host physical memory"
+  },
+  "metric_definitions": {
+    "xorg_s": {
+      "class": "startup",
+      "unit": "s",
+      "origin": "X server start (guest /tmp/perf.t0)",
+      "method": "guest wall clock until /tmp/.X11-unix/X0 exists",
+      "source": "guest console",
+      "resolution_s": 1.0,
+      "direction": "lower-is-better"
+    },
+    "jwm_s": {
+      "class": "startup",
+      "unit": "s",
+      "origin": "X server start",
+      "method": "guest wall clock until the window manager is spawned",
+      "source": "guest console",
+      "resolution_s": 1.0,
+      "direction": "lower-is-better"
+    },
+    "chrome_s": {
+      "class": "startup",
+      "unit": "s",
+      "origin": "X server start",
+      "method": "guest monitor: first second a chromium main process exists",
+      "source": "guest console",
+      "resolution_s": 1.0,
+      "direction": "lower-is-better"
+    },
+    "first_frame_s": {
+      "class": "page-load",
+      "unit": "s",
+      "origin": "launch line dispatched on the console",
+      "method": "QEMU screendump series; first frame whose page area carries content (saturation>=0.06 AND >=300 colours AND not blank).  Colour count alone was NOT enough: an empty browser window with a spinner measures 264 colours",
+      "source": "host framebuffer (frame-watch.json)",
+      "resolution_s": 2.0,
+      "direction": "lower-is-better"
+    },
+    "renderer_s": {
+      "class": "renderer-creation",
+      "unit": "s",
+      "origin": "X server start",
+      "method": "guest monitor at 1 Hz: first process whose PPid is a --type=zygote process",
+      "source": "guest console",
+      "resolution_s": 1.0,
+      "direction": "lower-is-better"
+    },
+    "peak_mem_mb": {
+      "class": "peak-memory",
+      "unit": "MB",
+      "origin": "whole QEMU process lifetime",
+      "method": "Process.PeakWorkingSet64 of qemu-system-aarch64 (OS high-water mark)",
+      "source": "host process metrics",
+      "resolution_s": null,
+      "direction": "lower-is-better"
+    },
+    "cpu_pct": {
+      "class": "cpu-usage",
+      "unit": "% of one logical CPU",
+      "origin": "whole QEMU process lifetime",
+      "method": "TotalProcessorTime / wall clock x 100 (host-side, from qemu-metrics.json)",
+      "source": "host process metrics",
+      "resolution_s": null,
+      "direction": "lower-is-better"
+    },
+    "cpu_pct_load": {
+      "class": "cpu-usage",
+      "unit": "% of one logical CPU",
+      "origin": "launch dispatch -> first painted frame",
+      "method": "QEMU CPU seconds consumed between the first and the first-frame capture, divided by that interval (both sampled with the frames)",
+      "source": "host framebuffer (frame-watch.json)",
+      "resolution_s": 2.0,
+      "direction": "lower-is-better"
+    },
+    "qemu_mem_pct": {
+      "class": "qemu-memory-rate",
+      "unit": "% of host physical memory",
+      "origin": "whole QEMU process lifetime",
+      "method": "PeakWorkingSet64 / host physical memory x 100 (GlobalMemoryStatusEx)",
+      "source": "host process metrics",
+      "resolution_s": null,
+      "direction": "lower-is-better"
+    }
+  },
+  "metric_classes": [
+    "cpu-usage",
+    "page-load",
+    "peak-memory",
+    "qemu-memory-rate",
+    "renderer-creation",
+    "startup"
+  ],
+  "samples": [
+    {
+      "xorg_s": 1,
+      "jwm_s": 7,
+      "chrome_s": 14,
+      "renderer_s": 35,
+      "renderer_threads": 3,
+      "log_bytes": 20010,
+      "chrome_pids": 11,
+      "marks_loops": 17,
+      "peak_mem_mb": 2068.7,
+      "cpu_s": 171.72,
+      "wall_s": 365.2,
+      "cpu_pct": 47.02,
+      "qemu_mem_pct": 6.335,
+      "smp_cpus": 4,
+      "guest_mem_mb": 4096,
+      "host_ram_mb": 32657.2,
+      "frame_watch_interval_s": 10,
+      "frames_measured": 30,
+      "baseline_colors": 28,
+      "sat_floor": 0.06,
+      "colour_floor": 300,
+      "first_frame_s": 50.038,
+      "first_frame_lo_s": 40.037,
+      "first_frame_bracket_s": 10.001,
+      "cpu_pct_load": 228.86,
+      "run": 1,
+      "evidence_dir": "e003f1-20261029T121626Z",
+      "harness_wall_s": 366.5
+    }
+  ],
+  "summary": {
+    "xorg_s": {
+      "class": "startup",
+      "unit": "s",
+      "n": 1,
+      "median": 1,
+      "min": 1,
+      "max": 1,
+      "spread": 0,
+      "spread_pct_of_median": 0.0,
+      "cv_pct": null,
+      "resolution_s": 1.0,
+      "raw": [
+        1
+      ]
+    },
+    "jwm_s": {
+      "class": "startup",
+      "unit": "s",
+      "n": 1,
+      "median": 7,
+      "min": 7,
+      "max": 7,
+      "spread": 0,
+      "spread_pct_of_median": 0.0,
+      "cv_pct": null,
+      "resolution_s": 1.0,
+      "raw": [
+        7
+      ]
+    },
+    "chrome_s": {
+      "class": "startup",
+      "unit": "s",
+      "n": 1,
+      "median": 14,
+      "min": 14,
+      "max": 14,
+      "spread": 0,
+      "spread_pct_of_median": 0.0,
+      "cv_pct": null,
+      "resolution_s": 1.0,
+      "raw": [
+        14
+      ]
+    },
+    "renderer_s": {
+      "class": "renderer-creation",
+      "unit": "s",
+      "n": 1,
+      "median": 35,
+      "min": 35,
+      "max": 35,
+      "spread": 0,
+      "spread_pct_of_median": 0.0,
+      "cv_pct": null,
+      "resolution_s": 1.0,
+      "raw": [
+        35
+      ]
+    },
+    "renderer_threads": {
+      "class": "counter",
+      "unit": null,
+      "n": 1,
+      "median": 3,
+      "min": 3,
+      "max": 3,
+      "spread": 0,
+      "spread_pct_of_median": 0.0,
+      "cv_pct": null,
+      "resolution_s": null,
+      "raw": [
+        3
+      ]
+    },
+    "log_bytes": {
+      "class": "counter",
+      "unit": null,
+      "n": 1,
+      "median": 20010,
+      "min": 20010,
+      "max": 20010,
+      "spread": 0,
+      "spread_pct_of_median": 0.0,
+      "cv_pct": null,
+      "resolution_s": null,
+      "raw": [
+        20010
+      ]
+    },
+    "chrome_pids": {
+      "class": "counter",
+      "unit": null,
+      "n": 1,
+      "median": 11,
+      "min": 11,
+      "max": 11,
+      "spread": 0,
+      "spread_pct_of_median": 0.0,
+      "cv_pct": null,
+      "resolution_s": null,
+      "raw": [
+        11
+      ]
+    },
+    "marks_loops": {
+      "class": "counter",
+      "unit": null,
+      "n": 1,
+      "median": 17,
+      "min": 17,
+      "max": 17,
+      "spread": 0,
+      "spread_pct_of_median": 0.0,
+      "cv_pct": null,
+      "resolution_s": null,
+      "raw": [
+        17
+      ]
+    },
+    "first_frame_s": {
+      "class": "page-load",
+      "unit": "s",
+      "n": 1,
+      "median": 50.038,
+      "min": 50.038,
+      "max": 50.038,
+      "spread": 0.0,
+      "spread_pct_of_median": 0.0,
+      "cv_pct": null,
+      "resolution_s": 2.0,
+      "raw": [
+        50.038
+      ]
+    },
+    "first_frame_lo_s": {
+      "class": "counter",
+      "unit": null,
+      "n": 1,
+      "median": 40.037,
+      "min": 40.037,
+      "max": 40.037,
+      "spread": 0.0,
+      "spread_pct_of_median": 0.0,
+      "cv_pct": null,
+      "resolution_s": null,
+      "raw": [
+        40.037
+      ]
+    },
+    "first_frame_bracket_s": {
+      "class": "counter",
+      "unit": null,
+      "n": 1,
+      "median": 10.001,
+      "min": 10.001,
+      "max": 10.001,
+      "spread": 0.0,
+      "spread_pct_of_median": 0.0,
+      "cv_pct": null,
+      "resolution_s": null,
+      "raw": [
+        10.001
+      ]
+    },
+    "peak_mem_mb": {
+      "class": "peak-memory",
+      "unit": "MB",
+      "n": 1,
+      "median": 2068.7,
+      "min": 2068.7,
+      "max": 2068.7,
+      "spread": 0.0,
+      "spread_pct_of_median": 0.0,
+      "cv_pct": null,
+      "resolution_s": null,
+      "raw": [
+        2068.7
+      ]
+    },
+    "cpu_s": {
+      "class": "counter",
+      "unit": null,
+      "n": 1,
+      "median": 171.72,
+      "min": 171.72,
+      "max": 171.72,
+      "spread": 0.0,
+      "spread_pct_of_median": 0.0,
+      "cv_pct": null,
+      "resolution_s": null,
+      "raw": [
+        171.72
+      ]
+    },
+    "wall_s": {
+      "class": "counter",
+      "unit": null,
+      "n": 1,
+      "median": 365.2,
+      "min": 365.2,
+      "max": 365.2,
+      "spread": 0.0,
+      "spread_pct_of_median": 0.0,
+      "cv_pct": null,
+      "resolution_s": null,
+      "raw": [
+        365.2
+      ]
+    },
+    "cpu_pct": {
+      "class": "cpu-usage",
+      "unit": "% of one logical CPU",
+      "n": 1,
+      "median": 47.02,
+      "min": 47.02,
+      "max": 47.02,
+      "spread": 0.0,
+      "spread_pct_of_median": 0.0,
+      "cv_pct": null,
+      "resolution_s": null,
+      "raw": [
+        47.02
+      ]
+    },
+    "cpu_pct_load": {
+      "class": "cpu-usage",
+      "unit": "% of one logical CPU",
+      "n": 1,
+      "median": 228.86,
+      "min": 228.86,
+      "max": 228.86,
+      "spread": 0.0,
+      "spread_pct_of_median": 0.0,
+      "cv_pct": null,
+      "resolution_s": 2.0,
+      "raw": [
+        228.86
+      ]
+    },
+    "qemu_mem_pct": {
+      "class": "qemu-memory-rate",
+      "unit": "% of host physical memory",
+      "n": 1,
+      "median": 6.335,
+      "min": 6.335,
+      "max": 6.335,
+      "spread": 0.0,
+      "spread_pct_of_median": 0.0,
+      "cv_pct": null,
+      "resolution_s": null,
+      "raw": [
+        6.335
+      ]
+    }
+  },
+  "class_coverage": [
+    {
+      "class": "cpu-usage",
+      "metrics": [
+        "cpu_pct",
+        "cpu_pct_load"
+      ],
+      "complete_samples": 1,
+      "meets_5_repeats": false
+    },
+    {
+      "class": "page-load",
+      "metrics": [
+        "first_frame_s"
+      ],
+      "complete_samples": 1,
+      "meets_5_repeats": false
+    },
+    {
+      "class": "peak-memory",
+      "metrics": [
+        "peak_mem_mb"
+      ],
+      "complete_samples": 1,
+      "meets_5_repeats": false
+    },
+    {
+      "class": "qemu-memory-rate",
+      "metrics": [
+        "qemu_mem_pct"
+      ],
+      "complete_samples": 1,
+      "meets_5_repeats": false
+    },
+    {
+      "class": "renderer-creation",
+      "metrics": [
+        "renderer_s"
+      ],
+      "complete_samples": 1,
+      "meets_5_repeats": false
+    },
+    {
+      "class": "startup",
+      "metrics": [
+        "chrome_s",
+        "jwm_s",
+        "xorg_s"
+      ],
+      "complete_samples": 1,
+      "meets_5_repeats": false
+    }
+  ],
+  "coverage_scoring": {
+    "classes_with_5_or_more_samples": 0,
+    "points_per_task_book": 0,
+    "rule": "2 classes = 1 point, 3 classes = 2 points, >= 4 classes = 4 points"
+  }
+}

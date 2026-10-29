@@ -128,3 +128,10 @@
 - 默认 TCG；5 类 n=5：startup/renderer/peak/cpu/qemu-mem；
 - page-load/first_frame 缺失；peak median 2039.8MB，spread 735；
 - 不是完整 6 类性能基线；不要写成有效首帧。
+
+## E003 首帧修复（20:22）
+
+- c1-perf-x：Xorg 后 3s、JWM 后 3s；
+- frame watch：10s 间隔、300s 窗口；
+- 单次 first_frame_s=50.038s，colors 835；
+- 5 次 e003g 运行中。

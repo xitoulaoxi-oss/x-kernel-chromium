@@ -31,3 +31,10 @@
 - cpu_pct median=193.98, min=60.67, max=195.78；
 - run 3 是异常低内存/低 CPU 样本（log_bytes=2278，页面未起）；报告保留，不挑最好值。
 - 报告 evidence/reports/perf-report-e003d.json；原始会话在 evidence/perf/e003d*（已忽略）。
+
+## 运行 6（e003f，单次修复验证）
+
+- 修复 1：c1-perf-x 在 Xorg socket 后等 3s 再起 JWM，JWM 后等 3s；
+- 修复 2：frame watch 改为 10s 间隔 / 300s 窗口（2s/5s 会阻止页面绘制）；
+- 结果：first_frame_s=50.038（bracket 40.037..50.038），colors 835；
+- 这是首个有效的 host first-frame 样本；5 次 e003g 运行中。
