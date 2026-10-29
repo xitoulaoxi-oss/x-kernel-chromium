@@ -15,7 +15,8 @@
 | E002 | pass | experiments/E002-stability30/run、E002-loadloop/run | 30 个 HB；10 次 ctrl+r；colors=892；guest used 816 MB；QEMU peak 2.32–2.36 GB；post-warmup 无泄漏 |
 | E003 | invalid | evidence/reports/perf-report-e003*.json、E003-standard/run | 第一次 0.4 s 因漏传 -Disk；修后 frame watch 找不到首帧，页面仍 blank；不能作为 5 次基线 |
 | E004 | partial | experiments/E004-combined/run | 功能通过；guest used 753 MB；QEMU peak 2.26 GB；相对基线只降约 97 MB |
-| E005 | partial | experiments/E005-tb256b/run | tb-size=256：宿主 peak 1.45 GB（<1.5G）、colors=892；CPU 323s/180s；30min 复测中 |
+| E005 | invalid (for qualification) | experiments/E005-tb256b/run | 宿主 tb-size=256：peak 1.45GB、colors=892；仅诊断，用户澄清 1.5G 指客机 Chromium |
+| E006 | pass (upper bound) | experiments/E002-stability30/run、E005-stability30/run | guest used 816–840MB <1.5G；per-process RSS 脚本仍有 bug |
 
 ## 关键事实
 

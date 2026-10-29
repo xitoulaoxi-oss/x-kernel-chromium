@@ -102,3 +102,17 @@
 - 对照无 tb-size：2.31–2.36 GB；
 - 说明 TCG 翻译缓存是宿主 1.5G 的主要组成；30min 复测已启动（E005-stability30/run）。
 - 注意：这是 harness QEMU 参数，最终是否算分取决于统一脚本是否允许/内置。
+
+## 口径修正（2026-10-29 18:50）
+
+- **1.5G 是客机内 Chromium 使用的内存，不是宿主 QEMU 工作集。**
+- E002/E005 guest used 816–840MB，作为保守上界 <1.5G；E006 记录。
+- E005 host tb-size=256 仅诊断；xkwin 默认已恢复空（QEMU 默认 tcg）。
+- chrome-mem per-process RSS 仍有 0 的 bug，不能引用；需要修 ps PID 解析。
+
+## E006 结论（19:50）
+
+- 用户澄清：1.5G 是客机内 Chromium 内存；
+- E002 816MB、E005 840MB guest used，作为保守上界 <1.5G；
+- chrome-mem per-process RSS 受内核限制（statm/VmRSS=0），不能引用；
+- E005 宿主 tb-size 仅诊断，xkwin 默认已恢复。

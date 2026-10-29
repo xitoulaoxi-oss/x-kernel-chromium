@@ -100,6 +100,7 @@ param(
     [int]$BootTimeoutSec = 240,
     [int]$CommandTimeoutSec = 120,
     [int]$AfterScriptWait = 20,
+    [int]$TransferAttempts = 6,
     # Steps sent to the guest AFTER the scripts have finished, one screenshot
     # each, in the order given.  A ';'-joined SCALAR for the same reason -Script
     # is (see above): with `powershell.exe -File` a [string[]] that receives
@@ -789,7 +790,7 @@ function Send-GuestScriptFile {
     # and the two-reads-agree test is kept only as a secondary signal, because a
     # cksum taken from a corrupted file is still self-consistent.
     $wantCksum = Get-PosixCksum -Data $raw
-    for ($attempt = 1; $attempt -le 3; $attempt++) {
+    for ($attempt = 1; $attempt -le $TransferAttempts; $attempt++) {
         $fp1 = Get-GuestFileFingerprint -Remote $remote
         if ($fp1) { $fp2 = Get-GuestFileFingerprint -Remote $remote } else { $fp2 = $null }
         $stable = $fp1 -and $fp2 -and $fp1.Cksum -eq $fp2.Cksum
@@ -802,7 +803,7 @@ function Send-GuestScriptFile {
                 elseif ($fp1.Bytes -ne $raw.Length) { "$($fp1.Bytes) bytes (host has $($raw.Length))" }
                 else { "$($fp1.Bytes) bytes, cksum $($fp1.Cksum) but host cksum is $wantCksum" }
         Write-Host ("    transfer MISMATCH on attempt {0}: guest has {1}" -f $attempt, $seen) -ForegroundColor DarkYellow
-        if ($attempt -eq 3) { throw "could not transfer $name faithfully after 3 attempts (guest: $seen)" }
+        if ($attempt -eq $TransferAttempts) { throw "could not transfer $name faithfully after $TransferAttempts attempts (guest: $seen)" }
         Send-Heredoc -Remote $remote -Body $body -TimeoutSec 180 -ExpectedBytes $raw.Length | Out-Null
     }
 
