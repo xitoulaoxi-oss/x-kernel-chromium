@@ -2,13 +2,15 @@
 
 ## 截止时间
 
-- 硬停止：2026-10-29 08:00（Asia/Hong_Kong）
-- 收尾开始：2026-10-29 07:45
+- 硬停止：2026-10-30 09:00（Asia/Hong_Kong）
+- 收尾开始：2026-10-30 08:45
 - 到点后：停止新实验，保留当前分支/日志，写总结，不再启动新的 QEMU 长期任务。
 
 ## 当前最佳
 
-- 本地最新提交：1678fe9（含 Cargo.lock 更新）
+- **口径决定（用户 2026-10-29 18:15）：先按宿主机 QEMU 工作集做 1.5G。**
+
+- 本地最新提交：fd75466（本轮之后会有新提交）
 - 远程最新提交：5081473（构建路径修复）
 - 当前新构建内核：artifacts/kernel-procfs.bin
   - 大小 8,544,026 B
@@ -16,7 +18,9 @@
 - 已知可用基线：GitHub Release finals-baseline 的 kernel-procfs.bin（5261ceb3…）
 - E000 验证：新构建 c915565… 启动通过（colors=892，两窗口，Alt+Tab 翻转）；**peak_ws≈2.15 GiB，未达 1.5G 资格线**
 - E002 通过：30 HB、双窗口、colors=892；guest used 816MB，QEMU peak 2.36GB
-- 下一步：E004 内存变体（disk/flags/combined），再 E003 性能 5 次
+- 下一步：**先按宿主 QEMU 工作集做 1.5G 资格线**；定位 E003 frame-watch 首帧失效；再做 5 次性能
+- 新迭代：2026-10-29 18:15 起，deadline 2026-10-30 09:00；watchdog pwsh-11b8a52bb69249f8
+- 新 goal：goal-f034baa0-9a2a-474e-87fe-a293f6d06e88
 
 ## 规则
 
@@ -85,3 +89,16 @@
 
 - 所有 QEMU 已停止；watchdog 已 kill；13:45/14:00 schedules 已删除；goal paused。
 - 最后提交 e1777a6；E003 仍 invalid，E002/E004 结果见 experiments/RESULTS.md。
+
+## WRAP 2026-10-29 13:05
+
+- 无 QEMU、无后台 job、无 schedule；
+- 本轮因用户要求停止，提前收尾；未完成项：E003 有效 5 次性能、1.5G 口径确认；
+- 结果总表 experiments/RESULTS.md，最后提交 fd75466。
+
+## E005 host-first 发现（18:25）
+
+- -accel tcg,tb-size=256 的完整 smoke：宿主 peak 1,448,636,416 B（1.35 GiB），colors=892；
+- 对照无 tb-size：2.31–2.36 GB；
+- 说明 TCG 翻译缓存是宿主 1.5G 的主要组成；30min 复测已启动（E005-stability30/run）。
+- 注意：这是 harness QEMU 参数，最终是否算分取决于统一脚本是否允许/内置。
