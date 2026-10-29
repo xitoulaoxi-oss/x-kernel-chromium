@@ -50,3 +50,11 @@ kernel/target/
 # Experiment raw logs stay local; commit only plan/decision summaries
 /experiments/**/run*/
 /experiments/**/raw/
+
+# Invalid E003 diagnostic sessions (screenshots, no first frame)
+/evidence/perf/e003b*/
+/evidence/perf/e003c*/
+/evidence/perf/e003fix*/
+/evidence/reports/perf-report-e003b.json
+/evidence/reports/perf-report-e003c.json
+/evidence/reports/perf-report-e003fix.json
