@@ -422,6 +422,7 @@ def main(argv: list) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--repeats", type=int, default=5)
     ap.add_argument("--kernel", default=r"artifacts\kernel-procfs.bin")
+    ap.add_argument("--disk", default=None, help="delivered agentos-disk.img (default: ../delivered/agentos-disk.img if present)")
     ap.add_argument("--tag", default="perf")
     ap.add_argument(
         "--append",
@@ -437,6 +438,13 @@ def main(argv: list) -> int:
     args = ap.parse_args(argv)
 
     ws = pathlib.Path(__file__).resolve().parent.parent
+    if args.disk:
+        disk = pathlib.Path(args.disk)
+        if not disk.is_file():
+            raise SystemExit(f"disk not found: {disk}")
+    else:
+        candidate = ws.parent.parent / "delivered" / "agentos-disk.img"
+        disk = candidate if candidate.is_file() else None
     run_root = ws / "evidence" / "perf"
     session_root = ws / "evidence" / "sessions"
     run_root.mkdir(parents=True, exist_ok=True)
@@ -494,6 +502,7 @@ def main(argv: list) -> int:
             POWERSHELL, "-NoProfile", "-ExecutionPolicy", "Bypass",
             "-File", str(ws / "host" / "xkwin.ps1"),
             "-Kernel", args.kernel,
+            *(["-Disk", str(disk)] if disk else []),
             "-ServeManifest", SERVE_MANIFEST,
             "-Script", GUEST_SCRIPTS,
             "-Upload", GUEST_UPLOADS,
