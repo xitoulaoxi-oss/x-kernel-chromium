@@ -423,6 +423,7 @@ def main(argv: list) -> int:
     ap.add_argument("--repeats", type=int, default=5)
     ap.add_argument("--kernel", default=r"artifacts\kernel-procfs.bin")
     ap.add_argument("--disk", default=None, help="delivered agentos-disk.img (default: ../delivered/agentos-disk.img if present)")
+    ap.add_argument("--tb-size", default="256", help="QEMU TCG tb-size MiB; empty string for QEMU default")
     ap.add_argument("--tag", default="perf")
     ap.add_argument(
         "--append",
@@ -503,6 +504,7 @@ def main(argv: list) -> int:
             "-File", str(ws / "host" / "xkwin.ps1"),
             "-Kernel", args.kernel,
             *(["-Disk", str(disk)] if disk else []),
+            *(["-TbSize", args.tb_size] if args.tb_size else []),
             "-ServeManifest", SERVE_MANIFEST,
             "-Script", GUEST_SCRIPTS,
             "-Upload", GUEST_UPLOADS,

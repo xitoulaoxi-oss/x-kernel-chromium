@@ -96,7 +96,7 @@ param(
     [string]$Mem = '4G',
     [int]$Smp = 4,
     # Experimental: set TCG translation-block cache size in MiB (QEMU default is RAM-dependent).
-    [string]$TbSize = '',
+    [string]$TbSize = '256',
     [int]$BootTimeoutSec = 240,
     [int]$CommandTimeoutSec = 120,
     [int]$AfterScriptWait = 20,
