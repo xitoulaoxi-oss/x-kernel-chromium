@@ -22,3 +22,12 @@
 - 套上 frame watch 后最终帧 colors=262，first frame NOT FOUND；
 - 说明问题在 frame watch / c1-perf-x / c2 启动链，不是页面文件；
 - E003 仍不写 5 次性能结论。
+
+## 运行 5（e003d，默认 TCG，5 次）
+
+- 5 个类有 n=5：startup、renderer、peak-memory、cpu-usage、qemu-memory-rate；
+- **page-load/first_frame 仍缺失**（frame watch 没有首帧）；不能算完整 6 类；
+- peak_mem_mb median=2039.8, min=1347.8, max=2083.0, spread=735.2；
+- cpu_pct median=193.98, min=60.67, max=195.78；
+- run 3 是异常低内存/低 CPU 样本（log_bytes=2278，页面未起）；报告保留，不挑最好值。
+- 报告 evidence/reports/perf-report-e003d.json；原始会话在 evidence/perf/e003d*（已忽略）。

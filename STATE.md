@@ -122,3 +122,9 @@
 - 1.5G = 客机 Chromium 内存；guest used 816–840MB，保守上界通过；
 - E003d 5 次性能（默认 TCG）启动；首帧可能仍无效，报告中会标注；
 - E005 宿主 tb-size 诊断不作为资格方案。
+
+## E003d 5x（19:54）
+
+- 默认 TCG；5 类 n=5：startup/renderer/peak/cpu/qemu-mem；
+- page-load/first_frame 缺失；peak median 2039.8MB，spread 735；
+- 不是完整 6 类性能基线；不要写成有效首帧。
