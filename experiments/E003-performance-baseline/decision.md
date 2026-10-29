@@ -45,3 +45,11 @@
 - e003f 单次找到 first_frame=50.038s；
 - e003g 前 3 次 frame analysis 全部 found=false，页面仍空白；
 - 结论：c1-perf-x 链不稳定，不能用 3 次全失败的数据；需要改用标准 x2/y3/x4 流程或继续定位。
+
+## 运行 8（标准 x4，5 次，10s frame watch）
+
+- run1 found=false final=263; run2 first=60.036 colors=835; run3 first=50.051 colors=835;
+- run4 found=false final=262; run5 found=false final=28;
+- 只有 2/5 有有效首帧；页面绘制本身不稳定，不是单纯 frame-watch 问题。
+- 不能把这 5 次写成 5 次有效性能基线。
+- 证据：experiments/E003-standard5/run1..5（已 gitignore）。
