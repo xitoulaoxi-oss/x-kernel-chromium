@@ -9,7 +9,7 @@ pkill -x jwm 2>/dev/null; pkill -x Xorg 2>/dev/null; pkill -f chromium 2>/dev/nu
 sleep 2
 rm -f /tmp/.X0-lock /tmp/.X11-unix/X0 /tmp/perf.log
 mkdir -p /etc/X11/xorg.conf.d
-printf 'Section "Device"\n Identifier "x"\n Driver "modesetting"\n Option "AccelMethod" "none"\nEndSection\n' > /etc/X11/xorg.conf.d/10-xk.conf
+printf 'Section "Device"\n Identifier "x"\n Driver "modesetting"\n Option "AccelMethod" "none"\n Option "ShadowFB" "true"\n Option "SWcursor" "true"\nEndSection\n' > /etc/X11/xorg.conf.d/10-xk.conf
 T0=$(date +%s)
 echo "$T0" > /tmp/perf.t0
 C="$(hexdump -n 16 -v -e '4/4 "%08x" 1 ""' /dev/urandom)"

@@ -18,3 +18,10 @@
 ## 工具修正
 
 observe.py 原先把启动期 92MB→2.2GB 的增长误判为 LEAK；已加入 --warmup-minutes（默认 5）并复算通过。
+
+## 负载循环（10 次 × 120 s）
+
+- 10 次 ctrl+r 后 zz-final colors=892、blank=False；
+- QEMU peak=2,320,625,664 B ≈ 2.16 GiB；
+- monitor 74 个样本，post-warmup 增长 25.5 MB、斜率 1.33 MB/min，不判泄漏；
+- 结论：E002 稳定性 + 负载循环均通过；内存口径仍是 E004 的问题。

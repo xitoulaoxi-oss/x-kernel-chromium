@@ -15,3 +15,10 @@
 ## 运行 3（e003b，5 次）：进行中
 
 - 如果 5 次仍有 first_frame_s 缺失，E003 标记为无效，不进入报告结论。
+
+## 运行 4（E003std，标准 x4 + frame watch）：仍无效
+
+- x4 正常脚本单独跑时是 colors=835；
+- 套上 frame watch 后最终帧 colors=262，first frame NOT FOUND；
+- 说明问题在 frame watch / c1-perf-x / c2 启动链，不是页面文件；
+- E003 仍不写 5 次性能结论。

@@ -74,3 +74,9 @@
 - E000 通过；E001 通过；E002 30min 稳定通过；E004 combined 功能通过但内存口径未定；E003 第一次运行无效（0.4s/无指标）。
 - 本地有未推送提交；恢复时先读 STATE 与 experiments/INDEX.md。
 - 恢复后：先修 E003 harness 调用，再跑负载循环/性能；不要重复 E003 无效数据。
+
+## 2026-10-29 12:22 恢复
+
+- 截止改为 13:45 收尾 / 14:00 硬停止；新 schedule 已建；watchdog 已改到 14:00。
+- E002 30min + 10 次负载循环通过；E003 的 5 次性能仍无效（frame watch 首帧缺失）。
+- 结果总表：experiments/RESULTS.md。
