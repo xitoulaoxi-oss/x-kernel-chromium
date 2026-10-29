@@ -15,3 +15,5 @@
 | E006 | in_progress | 客机 Chromium 内存 1.5G | chrome-mem.sh 已写 | 待跑 |
 
 | E008 | invalid | 软件合成首帧稳定性 | 单次 70.064s，但 5 次 0/5 首帧 | 无效 |
+
+| E010 | invalid | 关闭后台网络 | 单次 found=false，final 261 | 无效 |

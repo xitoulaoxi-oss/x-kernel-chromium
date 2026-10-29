@@ -153,3 +153,9 @@
 - 单次 70.064s/835；5 次 0/5 首帧，final 262–265；
 - --disable-gpu 不解决随机 blank；
 - 诊断脚本未返回，已停；下一步抓 Chromium/Xorg 日志。
+
+## E010（22:08）
+
+- 关闭后台网络/更新仍 found=false，final 261；
+- 随机 blank 未定位；E008 GL 0/5、E010 网络 0/1、x4 150s 仍 blank；
+- 无有效 5 次性能。
