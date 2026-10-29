@@ -95,6 +95,8 @@ param(
     [string]$Vnc = ':0',
     [string]$Mem = '4G',
     [int]$Smp = 4,
+    # Experimental: set TCG translation-block cache size in MiB (QEMU default is RAM-dependent).
+    [string]$TbSize = '',
     [int]$BootTimeoutSec = 240,
     [int]$CommandTimeoutSec = 120,
     [int]$AfterScriptWait = 20,
@@ -369,8 +371,9 @@ function Get-FreePort {
 $serialPort = Get-FreePort
 $qmpPort    = Get-FreePort
 
+$accel = if ($TbSize) { "tcg,tb-size=$TbSize" } else { 'tcg' }
 $argv = @(
-    '-M', 'virt', '-cpu', 'cortex-a72', '-m', $Mem, '-smp', "$Smp", '-accel', 'tcg',
+    '-M', 'virt', '-cpu', 'cortex-a72', '-m', $Mem, '-smp', "$Smp", '-accel', $accel,
     '-kernel', $Kernel,
     '-drive', "id=disk0,if=none,format=raw,file=$Disk",
     '-device', 'virtio-blk-pci,drive=disk0',

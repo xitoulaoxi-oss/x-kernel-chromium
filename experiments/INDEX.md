@@ -9,3 +9,5 @@
 | E004 | partial | 峰值内存压到 1.5G | combined 功能通过；guest used 753MB；QEMU 2.11GiB | 待单变量与口径确认 |
 
 > 状态只在实验结束时更新；不要把中间读数写成结论。
+
+| E005 | in_progress | 宿主 QEMU 工作集 TCG tb-size 诊断 | plan.md 已写 | 待跑 |
