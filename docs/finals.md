@@ -8,16 +8,16 @@
 
 | 决赛评分项 | 分值 | 需要的仓库能力 | 当前状态 |
 |---|---:|---|---|
-| 图形环境与浏览器稳定运行 | 20 | 30 分钟稳定性、每 2 分钟加载测试页 ×10、无 OOM | 已有 10 分钟稳定性；**缺 30 分钟与负载循环** |
-| 浏览器功能完整度 | 20 | 指定页、renderer 多进程、≥2 标签/窗口、键鼠输入、JS、CSS | 已有双窗口/输入/三页渲染；**缺标签页与自动判据** |
-| 性能与资源消耗 | 20 | 首帧、页面加载、renderer、峰值内存；5 次中位数；资格线 1.5G | 已有 6 类指标与 8 次数据；**需决赛同口径重跑与基线 tag** |
+| 图形环境与浏览器稳定运行 | 20 | 30 分钟稳定性、每 2 分钟加载测试页 ×10、无 OOM | **E002 已通过**：30 分钟 30 个 HB + 10 次 ctrl+r；证据 experiments/E002-* |
+| 浏览器功能完整度 | 20 | 指定页、renderer 多进程、≥2 标签/窗口、键鼠输入、JS、CSS | 双窗口/输入/三页已跑；**标签页与 JS/CSS 自动判据仍缺** |
+| 性能与资源消耗 | 20 | 首帧、页面加载、renderer、峰值内存；5 次中位数；资格线 1.5G | **E003 当前无效**：frame watch 首帧缺失；E002 guest used 816MB / QEMU 2.32–2.36GB；1.5G 口径待固定 |
 | 跨层优化与工程创新 | 20 | before/after、跨层优化、3 个上游 patch | 已有 before/after 负结果与 3 个已合并 DRM patch；**需继续找改善点** |
-| 观测工具与测试套件 | 10 | 崩溃、卡死、内存泄漏定位；一键运行；使用文档 | **缺三类观测工具与一键入口** |
+| 观测工具与测试套件 | 10 | 崩溃、卡死、内存泄漏定位；一键运行；使用文档 | **E001 已完成**：observe/monitor/hb/run-finals + docs/observability.md |
 | 答辩与现场演示 | 10 | 现场可复现、数据可信 | 文档/证据体系已有；需按决赛场景重排 |
 
 ## 决赛测试矩阵
 
-在 tests/ 下建立一键入口（当前只有 tests/README.md，脚本待补）：
+在 tests/ 下已有一键入口（observe/stability30/load-loop/lowmem/mem-variant/run-finals）：
 
 | 场景 | 建议脚本 | 通过判据 | 证据 |
 |---|---|---|---|
@@ -32,7 +32,7 @@
 | before/after | host/perf_compare.py | 基线 tag + 同口径；如实记录负结果 | 两份报告 |
 | 崩溃/卡死/泄漏 | tests/observe.ps1 | 能定位到会话/进程/时间点 | console、qemu-metrics |
 
-> 当前 guest/s9-stability10.sh 只覆盖 10 分钟；决赛 30 分钟建议新增 s10-stability30.sh，不要改 10 分钟脚本的语义。
+> guest/s10-stability30.sh 已新增；s9 的 10 分钟语义未改。E003 的 frame-watch 首帧检测仍有缺陷，见 experiments/E003-performance-baseline/decision.md。
 
 ## 内核与版本
 
@@ -72,3 +72,11 @@
 - [ ] 崩溃/卡死/泄漏三类工具可一键运行
 - [ ] 内核二进制已发 Release，仓库不含 *.bin/*.png/*.mp4
 - [ ] docs/performance.md、docs/limitations.md 与最新数据一致
+
+## 2026-10-29 当前状态（恢复轮）
+
+- E000 启动通过；E001 工具完成；E002 30min + 10 次负载循环通过；
+- E004 combined 低内存功能通过，但宿主 QEMU 2.26GB，未证明 1.5G；
+- E003 无有效 5 次数据：perf_run 已修 -Disk，但 frame watch 仍找不到首帧；
+- 结果总表与复现入口：experiments/RESULTS.md；
+- 不再启动新的长任务，等 13:45 收尾。
