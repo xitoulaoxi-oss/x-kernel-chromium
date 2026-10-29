@@ -11,6 +11,11 @@ while read -r p; do
     r=$(awk '{print $2}' "/proc/$p/statm" 2>/dev/null)
     [ -n "$r" ] || r=0
     kb=$((r * 4))
+    if [ "$r" -eq 0 ] && [ -r "/proc/$p/stat" ]; then
+      r=$(awk '{print $24}' "/proc/$p/stat" 2>/dev/null)
+      [ -n "$r" ] || r=0
+      kb=$((r * 4))
+    fi
     if [ "$r" -eq 0 ] && [ -r "/proc/$p/status" ]; then
       kb=$(awk '/^VmRSS:/{print $2}' "/proc/$p/status" 2>/dev/null)
       [ -n "$kb" ] || kb=0

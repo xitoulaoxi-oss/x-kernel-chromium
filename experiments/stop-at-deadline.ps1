@@ -1,7 +1,7 @@
 # Stop QEMU processes started by this overnight session at the hard deadline.
 # Backstop only; scheduled reminders also ask the agent to stop.
-$deadline = [datetime]'2026-10-29T14:00:00+08:00'
-$cut = [datetime]'2026-10-29T12:20:00+08:00'
+$deadline = [datetime]'2026-10-30T09:00:00+08:00'
+$cut = [datetime]'2026-10-29T18:00:00+08:00'
 $log = Join-Path $PSScriptRoot 'DEADLINE-STOP.txt'
 while ((Get-Date) -lt $deadline) { Start-Sleep -Seconds 30 }
 $killed = @()
