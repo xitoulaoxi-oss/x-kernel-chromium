@@ -64,7 +64,7 @@ GUEST_UPLOADS = (
     "guest\\c1-perf-harvest.sh"
 )
 SERVE_MANIFEST = "guest\\serve-pages.txt"
-FRAME_WATCH = "2x140"                                  # 2 s cadence, 140 s window
+FRAME_WATCH = "10x300"                                 # 10 s cadence; 2 s/5 s cadences prevented paint
 FRAME_WATCH_CMD = "sh /tmp/xk-c2-perf-launch.sh"
 HARVEST_CMD = "cmd=sh /tmp/xk-c1-perf-harvest.sh"
 
