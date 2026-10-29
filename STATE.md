@@ -135,3 +135,9 @@
 - frame watch：10s 间隔、300s 窗口；
 - 单次 first_frame_s=50.038s，colors 835；
 - 5 次 e003g 运行中。
+
+## E003g 失败（20:42）
+
+- c1 delay + 10s frame watch 仍 3/3 found=false；
+- e003f 单次成功，但不能当 5 次；
+- 下一步用标准 x2/y3/x4 流程，不再用 c1-perf-x 链。

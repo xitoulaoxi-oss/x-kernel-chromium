@@ -38,3 +38,10 @@
 - 修复 2：frame watch 改为 10s 间隔 / 300s 窗口（2s/5s 会阻止页面绘制）；
 - 结果：first_frame_s=50.038（bracket 40.037..50.038），colors 835；
 - 这是首个有效的 host first-frame 样本；5 次 e003g 运行中。
+
+## 运行 7（e003g，5 次尝试）：仍然无效
+
+- 修复后 c1 Xorg settle 3s + 10s/300s frame watch；
+- e003f 单次找到 first_frame=50.038s；
+- e003g 前 3 次 frame analysis 全部 found=false，页面仍空白；
+- 结论：c1-perf-x 链不稳定，不能用 3 次全失败的数据；需要改用标准 x2/y3/x4 流程或继续定位。
