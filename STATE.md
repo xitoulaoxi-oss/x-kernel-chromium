@@ -116,3 +116,9 @@
 - E002 816MB、E005 840MB guest used，作为保守上界 <1.5G；
 - chrome-mem per-process RSS 受内核限制（statm/VmRSS=0），不能引用；
 - E005 宿主 tb-size 仅诊断，xkwin 默认已恢复。
+
+## E006 完成（19:55）
+
+- 1.5G = 客机 Chromium 内存；guest used 816–840MB，保守上界通过；
+- E003d 5 次性能（默认 TCG）启动；首帧可能仍无效，报告中会标注；
+- E005 宿主 tb-size 诊断不作为资格方案。
