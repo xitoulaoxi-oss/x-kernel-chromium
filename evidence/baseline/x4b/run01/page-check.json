@@ -1,0 +1,70 @@
+{
+  "url": "file:///usr/share/kiosk/official/index.html",
+  "title": "初赛指定测试页 · x-kernel + Chromium",
+  "ready_state": "complete",
+  "time_origin": 1793367455819.1,
+  "page_load_end_ms": 1793367476438.8,
+  "dom_content_loaded_ms": 1793367475441.8,
+  "keyboard_value": null,
+  "keyboard_echo": null,
+  "rows": {
+    "T1": {
+      "pass": false,
+      "text": null
+    },
+    "T2": {
+      "pass": false,
+      "text": null
+    },
+    "T3": {
+      "pass": false,
+      "text": null
+    },
+    "T4": {
+      "pass": false,
+      "text": null
+    },
+    "T5": {
+      "pass": false,
+      "text": null
+    },
+    "T6": {
+      "pass": false,
+      "text": null
+    },
+    "C1": {
+      "pass": false,
+      "text": null
+    },
+    "C2": {
+      "pass": false,
+      "text": null
+    },
+    "C3": {
+      "pass": false,
+      "text": null
+    },
+    "C4": {
+      "pass": false,
+      "text": null
+    },
+    "C5": {
+      "pass": false,
+      "text": null
+    },
+    "C6": {
+      "pass": false,
+      "text": null
+    }
+  },
+  "verdict_pass": false,
+  "body_sha256": "58e1c6c84fa8621a3b3ec55c7551842d4c846b57fc75853aec5539cef72c7795",
+  "body_length": 368,
+  "navigation_id": "B5DAE96EA33CA349BF8ECA56418AAD01:1793367455819.1",
+  "target_id": "B5DAE96EA33CA349BF8ECA56418AAD01",
+  "expected_url": "file:///usr/share/kiosk/official/index.html",
+  "mode": "page",
+  "ok": true,
+  "probe_id": "e83848a3-ee72-41e1-96e2-0eba257d6503",
+  "observed_at_unix": 1793367588.6437016
+}

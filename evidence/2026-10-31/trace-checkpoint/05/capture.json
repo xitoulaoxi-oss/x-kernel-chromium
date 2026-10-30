@@ -1,0 +1,110 @@
+{
+  "schema": "xk-ring-capture/1",
+  "session": "experiments\\FINALS-RUNS\\20261031T014800Z\\trace-followup\\05\\capture",
+  "stage": "complete",
+  "timeline": [
+    {
+      "event": "connect",
+      "utc": "2026-10-30T18:04:49Z"
+    },
+    {
+      "event": "stop-sent",
+      "utc": "2026-10-30T18:04:49Z"
+    },
+    {
+      "event": "paused",
+      "utc": "2026-10-30T18:04:49Z"
+    },
+    {
+      "event": "cont",
+      "utc": "2026-10-30T18:04:50Z"
+    }
+  ],
+  "resumed": true,
+  "error": null,
+  "ok": true,
+  "kimage_voffset": "0xffff7fffbfe00000",
+  "phys_base": "0x40200000",
+  "symbol_vaddr": "0xffff80000092ed80",
+  "symbol_phys": "0x40b2ed80",
+  "status_before": {
+    "status": "running",
+    "running": true
+  },
+  "status_stopped": {
+    "status": "paused",
+    "running": false
+  },
+  "header": {
+    "ok": true,
+    "problems": [],
+    "magic": "XKRING02",
+    "schema": 2,
+    "header_len": 128,
+    "total_len": 164224,
+    "cpu_count": 4,
+    "entry_size": 40,
+    "entries_per_cpu": 1024,
+    "boot_nonce": 15846768,
+    "ticks_per_sec": 62500000,
+    "clock_domain": 0,
+    "flags": 0
+  },
+  "bytes_read": 164224,
+  "dump_sha256": "42a607b6d87ba8ec7bf056fde5535a246a2f2f67254d0852fdfdf745f3c472ff",
+  "ring_ok": true,
+  "counts_by_kind": {
+    "4": 2313,
+    "3": 668,
+    "2": 669,
+    "6": 436,
+    "8": 6
+  },
+  "per_cpu": [
+    {
+      "cpu": 0,
+      "seq": 31378,
+      "dropped": 30354,
+      "retained_seq": [
+        30355,
+        31377
+      ],
+      "entries": 1023,
+      "half_written": 1
+    },
+    {
+      "cpu": 1,
+      "seq": 10958,
+      "dropped": 9934,
+      "retained_seq": [
+        9935,
+        10957
+      ],
+      "entries": 1023,
+      "half_written": 1
+    },
+    {
+      "cpu": 2,
+      "seq": 8236,
+      "dropped": 7212,
+      "retained_seq": [
+        7213,
+        8235
+      ],
+      "entries": 1023,
+      "half_written": 1
+    },
+    {
+      "cpu": 3,
+      "seq": 1417,
+      "dropped": 393,
+      "retained_seq": [
+        394,
+        1416
+      ],
+      "entries": 1023,
+      "half_written": 1
+    }
+  ],
+  "total_entries": 4092
+}

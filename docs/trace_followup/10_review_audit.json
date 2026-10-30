@@ -1,0 +1,1040 @@
+{
+  "schema": "xk-trace-followup-review/1",
+  "review_date_local": "2026-10-31",
+  "timezone": "Asia/Hong_Kong",
+  "written_at_utc": "2026-10-30T17:24:18.921550+00:00",
+  "phase_root": "experiments/FINALS-RUNS/20261031T002500Z/iteration",
+  "scope": "Read code/logs, execute existing offline checks and pure-function probes, write documentation only; no source edits/live QEMU/Git mutations/deletions",
+  "prior_task_scope_review": {
+    "01": "Accepted streaming-boundary scope; new delivery defect remains",
+    "02": "Accepted host-placed immutable 128B channel proof, not kernel ring or failure capture",
+    "03": "Design only, no kernel implementation or build; layout needs correction",
+    "05": "Partial, post batch five successes and one control error; pre batch six failures retained",
+    "06": "Accepted normal same-session role/procfs join; zombie/freshness rejection remains",
+    "07": "Partial; one field-complete sample is not qualified creation/clock baseline"
+  },
+  "independent_checks": {
+    "tests": [
+      {
+        "command": [
+          "powershell",
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "tests/command-frame-boundary-test.ps1"
+        ],
+        "rc": 0,
+        "stdout": "PASS: unterminated rc=12 is pending\r\nPASS: unterminated rc=12 at deadline is incomplete\r\nPASS: rc=0junk is malformed\r\nPASS: empty rc with terminator is malformed\r\nPASS: complete 127 is ok\r\nPASS: partial ANSI prefix is ok\r\nPASS: ANSI before echoed command is ignored\r\nPASS: two valid frames conflict\r\nPASS: malformed then valid conflicts\r\nPASS: echo only is missing\r\nPASS: wrong nonce is missing\r\nPASS: byte boundary final frame is 127\r\nPASS: byte boundary without terminator at deadline is incomplete\r\nCOMMAND-FRAME-TESTS-PASS\r\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "powershell",
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "tests/command-protocol-replay.ps1"
+        ],
+        "rc": 0,
+        "stdout": "PASS: real crash marker behind partial ANSI\r\nPASS: real single2 spliced upload, nonzero rc\r\nPASS: real stop continuation, no marker\r\nPASS: terminated empty rc is malformed\r\nPASS: echoed marker with digits is not a result\r\nPASS: wrong nonce\r\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "powershell",
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "tests/command-result-test.ps1"
+        ],
+        "rc": 0,
+        "stdout": "PASS: success\r\nPASS: failure\r\nPASS: echo only\r\nPASS: no completion\r\nPASS: wrong session\r\nPASS: ansi\r\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "powershell",
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "tests/step-encoding-test.ps1"
+        ],
+        "rc": 0,
+        "stdout": "STEP-ENCODING-TESTS-PASS\r\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "powershell",
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "tests/remote-path-test.ps1"
+        ],
+        "rc": 0,
+        "stdout": "REMOTE-PATH-TESTS-PASS\r\n",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "python",
+          "tests/observe_cases.py"
+        ],
+        "rc": 0,
+        "stdout": "PASS crash session detected as CRASH\r\nPASS crash subject keeps child PID 105\r\nPASS crash subject names the browser PID 87\r\nPASS 262-colour window is window_shell_without_page\r\nPASS shell session summarised as HANG\r\nPASS 28-colour frame is no_window_desktop_only\r\nPASS rising host WS is flagged LEAK\r\nPASS CMJSON per-process sample is available\r\nPASS per-process RSS growth is 40000 kB\r\nPASS measured CMJSON lifts attribution_limited\r\nPASS flat host WS is not flagged\r\nPASS no CMJSON keeps attribution_limited true\r\nPASS harness timeout is not a target CRASH\r\nPASS harness error alone is not crash\r\nPASS control channel is called out\r\nPASS missing HB in a session that did not configure HB is not HANG\r\nPASS missing HB is an observer limitation\r\nPASS observer limitation has its own summary\r\nall observe cases passed\r\n",
+        "stderr": ""
+      }
+    ],
+    "host_placed_record": {
+      "sha256": "22d7b864f71d081112a0e78c6cd6eb70376aa9b3e73e52855a6e32a2f101a31a",
+      "validation": {
+        "ok": true,
+        "problems": [],
+        "bytes": 128,
+        "schema": 1,
+        "nonce": 15117416080577610558,
+        "checksum": "761f324ded313f6c"
+      }
+    },
+    "short_record_probe": {
+      "exception": "error",
+      "message": "unpack_from requires a buffer of at least 32 bytes for unpacking 24 bytes at offset 8 (actual buffer size is 16)"
+    },
+    "same_session_identity": {
+      "ok": true,
+      "browser_matches": [
+        109
+      ],
+      "renderer_matches": [
+        {
+          "pid": 207,
+          "ancestry": [
+            207,
+            121,
+            109
+          ],
+          "procfs": {
+            "Name": "chromium",
+            "State": "S (sleeping)",
+            "Pid": 207,
+            "PPid": 121,
+            "Threads": 9
+          }
+        },
+        {
+          "pid": 190,
+          "ancestry": [
+            190,
+            121,
+            109
+          ],
+          "procfs": {
+            "Name": "chromium",
+            "State": "S (sleeping)",
+            "Pid": 190,
+            "PPid": 121,
+            "Threads": 10
+          }
+        }
+      ],
+      "note": "Role is from Chromium; PID, threads and parent chain are independently read from guest procfs."
+    },
+    "zombie_identity_negative": {
+      "ok": true,
+      "browser_matches": [
+        91
+      ],
+      "renderer_matches": [
+        {
+          "pid": 171,
+          "ancestry": [
+            171,
+            91
+          ],
+          "procfs": {
+            "Pid": 171,
+            "PPid": 91,
+            "Threads": 1,
+            "State": "Z (zombie)"
+          }
+        }
+      ],
+      "note": "Role is from Chromium; PID, threads and parent chain are independently read from guest procfs."
+    },
+    "sampler_recomputed": [
+      {
+        "name": "sample1",
+        "ok": false,
+        "raw_memory_samples": 0,
+        "raw_peak_kib": null,
+        "reported_memory": {
+          "samples": 0,
+          "unit_in_source": "KiB",
+          "peak_used_kib": null,
+          "peak_used_mib": null,
+          "note": "MemTotal-MemFree, includes cache, not per-process RSS"
+        },
+        "renderer": {
+          "candidate_events": 0,
+          "role_confirmed_events": 0,
+          "first_confirmed": null
+        },
+        "clock": {
+          "guest": "/proc/uptime monotonic seconds (0.01 s)",
+          "host_frame": "frame-watch Stopwatch t0 at launch dispatch",
+          "page_load": "browser loadEventEnd - navigationStart",
+          "cross_clock_subtraction": false
+        }
+      },
+      {
+        "name": "sample2",
+        "ok": false,
+        "raw_memory_samples": 41,
+        "raw_peak_kib": 961160,
+        "reported_memory": {
+          "samples": 41,
+          "unit_in_source": "KiB",
+          "peak_used_kib": 961160,
+          "peak_used_mib": 938.63,
+          "note": "MemTotal-MemFree, includes cache, not per-process RSS"
+        },
+        "renderer": {
+          "candidate_events": 11,
+          "role_confirmed_events": 0,
+          "first_confirmed": null
+        },
+        "clock": {
+          "guest": "wall seconds (kernel has no /proc/uptime; CLOCK=wall)",
+          "guest_clock_kind": "wall",
+          "host_frame": "frame-watch Stopwatch t0 at launch dispatch",
+          "page_load": "browser loadEventEnd - navigationStart",
+          "cross_clock_subtraction": false
+        }
+      },
+      {
+        "name": "sample3",
+        "ok": true,
+        "raw_memory_samples": 37,
+        "raw_peak_kib": 960100,
+        "reported_memory": {
+          "samples": 37,
+          "unit_in_source": "KiB",
+          "peak_used_kib": 960100,
+          "peak_used_mib": 937.6,
+          "note": "MemTotal-MemFree, includes cache, not per-process RSS"
+        },
+        "renderer": {
+          "candidate_events": 40,
+          "role_confirmed_events": 18,
+          "first_confirmed": {
+            "pid": 410,
+            "creation_mono_s": 1793379760.0,
+            "creation_after_t0_s": 37.0,
+            "proc_start_ticks": 0,
+            "threads": 9
+          }
+        },
+        "clock": {
+          "guest": "wall seconds (kernel has no /proc/uptime; CLOCK=wall)",
+          "guest_clock_kind": "wall",
+          "host_frame": "frame-watch Stopwatch t0 at launch dispatch",
+          "page_load": "browser loadEventEnd - navigationStart",
+          "cross_clock_subtraction": false
+        }
+      }
+    ],
+    "ab_attempt_ledger": {
+      "pre_attempts": 6,
+      "pre_nonzero": 6,
+      "post_attempts": 6,
+      "post_success": 5,
+      "post_nonzero": 1,
+      "pre_archives": [
+        "failed-pre-A1",
+        "failed-pre-A2",
+        "failed-pre-A3",
+        "failed-pre-B1",
+        "failed-pre-B2",
+        "failed-pre-B3"
+      ],
+      "caveat": "Two batches across a parser fix; not a single-version browser reliability rate. Old pre rows point to paths later reused; use failed-pre archives."
+    }
+  },
+  "candidate_bin_sha256": "c50075b653368da9b6b10d951c7e734e47219e02556f08756578d3bac77f0139",
+  "source_files": [
+    {
+      "path": "docs/next_iteration/14_plan_status.json",
+      "bytes": 4352,
+      "sha256": "9c89d3d4a5f0594a090fba0033780913b03f34bd1b19edbe86138d030a47b738"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/01/00-before.stats.json",
+      "bytes": 461,
+      "sha256": "19056e4cc45bd8341e81eb951db0621f2f013c8410744ff1aceaa9cf2c1129d4"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/01/01-after-step-cmd.stats.json",
+      "bytes": 469,
+      "sha256": "f43d828fd75d378c1710604c868e7e9f69271d89db363a761cbd9067263872d1"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/01/02-after-step-cmd.stats.json",
+      "bytes": 469,
+      "sha256": "b8291ba16c223621e143dee01e973cc7caca35b67063dc25794a2394306700ea"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/01/console.log",
+      "bytes": 4296,
+      "sha256": "731cfdb26604860ced446b6d09d533bc833cdef7c120d156e47d619f38a4bce9"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/01/failure-query-cpus-fast.json",
+      "bytes": 862,
+      "sha256": "de536e6fffdb1721f2b3ad124b55646e5ea93f774462bf46718ec3ca87d485ab"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/01/failure-query-status.json",
+      "bytes": 52,
+      "sha256": "84cf6d53f9a80d43217d241aba4a1b781b9dc0ea0b59a851d24ad914d069d4ba"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/01/handoff.md",
+      "bytes": 618,
+      "sha256": "084f4f1a6fd590dc33eacdd76f284e6bff96adab1e6d5d3e5b18d0a70eabbaa1"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/01/harness-error.txt",
+      "bytes": 48,
+      "sha256": "9f881eaa80ff5fdfb9c8783e64600f1df9da43b6dfc796492cd1f5efb342cfbb"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/01/qemu-cmd.txt",
+      "bytes": 529,
+      "sha256": "b6f1ae4ebe1df6f3efdd7bf564f5bb63be072e5d5eb5f825fa2e5fad21e6a7fc"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/01/qemu-metrics.json",
+      "bytes": 289,
+      "sha256": "75dc6e8b45cfe23f0cd1bf2c733331685497522715a03c64e05e9099138ddcc9"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/01/qemu-owner.json",
+      "bytes": 148,
+      "sha256": "d07647ae502cba0068a54ec4bd11f6056ac48b40936221aee85b3a1621ae4e77"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/01/result.json",
+      "bytes": 2382,
+      "sha256": "3c175e7dd7600cca86c6e96a43283c454d298db8f364c769f5274f444f73c37d"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/02/export-contract.json",
+      "bytes": 2351,
+      "sha256": "9d47e5ab31342e216226d2e8b41e36a20acafddb4cf076c74a36dfde3025b00c"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/02/export.json",
+      "bytes": 911,
+      "sha256": "9b710ad6a633ff046f52f043ef7c48dee569843e47e0ef89c04b932063d84420"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/02/handoff.md",
+      "bytes": 688,
+      "sha256": "cbe62351605af8ba7cbd3b59b26ee65854b65096969345383803e13527a70316"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/02/invalid-address.json",
+      "bytes": 1368,
+      "sha256": "569287c00f0a8313711770b96bcf1f03b048676b293196c5405d88dc935648c2"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/02/invalid-record-cases.json",
+      "bytes": 494,
+      "sha256": "ea3bcf5309d3db86e6d0a27cf7e82be1e440f6b1e3398722af1f4dce26a185d9"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/02/negative_verify.py",
+      "bytes": 954,
+      "sha256": "0db398130dfb4ca9f7c74ced7e722d33e86a8fed6e5d9cc27b2711984e01bcad"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/02/record.json",
+      "bytes": 290,
+      "sha256": "6d495704528e235869cd266b77c2f45bc1f514194f27b22f47da830ffe430bc6"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/02/result.json",
+      "bytes": 1318,
+      "sha256": "8fb9c444239c6b0494cb09656cd69e77b475d604c5424639a44e119776d9a26e"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/03/result.json",
+      "bytes": 1820,
+      "sha256": "cbf756d8c5a83ea9a5898a37f8f818bc01ab267ed254d4152de8700deae4263d"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/A1/console.log",
+      "bytes": 13361,
+      "sha256": "3f4e6b76d9cb5a889127cce357a891fe913e30c6aaea092557c9e926a4ea347b"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/A1/step-09-page.json",
+      "bytes": 1560,
+      "sha256": "c26ed00f6d6b3488c78c0855d749498b517dda78b3d00c904e2eedc0bcd6bd46"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/A2/console.log",
+      "bytes": 13336,
+      "sha256": "28e1f53c2c6545af0bb45df41999a9c332942a3a16d708710ae9b429baba9a41"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/A2/step-09-page.json",
+      "bytes": 1555,
+      "sha256": "97d77bce990ce417af9cece7314b482e467093a867c8c762a0ff15de9ecec5d1"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/A3/console.log",
+      "bytes": 13371,
+      "sha256": "f4fb2742b3880ac929db7f95f8f949766826642613ed54a3b716702778aaedf1"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/A3/step-09-page.json",
+      "bytes": 1554,
+      "sha256": "d75b6d625d8b1e65a05afc119c6e835392e115652a0b2c808f5628f296cbead1"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/ab-results-pre.json",
+      "bytes": 2030,
+      "sha256": "969e5d09d02963c8cc17e88ae088870953c27f8b0f325b1e4b31f052857beb02"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/ab-results.json",
+      "bytes": 2103,
+      "sha256": "cc581eb657ef2d9ab2012360e2d437175f8e414a8e314d02286e388ec98668dc"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/B1/console.log",
+      "bytes": 14009,
+      "sha256": "987f4f43c4470ad8116435d2f13eef119c95549c3b7ac4ff435e9f9a14fb8ecf"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/B1/step-06-page.json",
+      "bytes": 1551,
+      "sha256": "5f5cec777f350cd5a29c4c59d6fc48f6ff6063a6b60ed53d45ce5d77c9658538"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/B1/step-11-page.json",
+      "bytes": 1552,
+      "sha256": "f0c15c3a82121a835d582386ce58dcd7263fe39e8f069a19abf28c87d516e9be"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/B2/console.log",
+      "bytes": 14089,
+      "sha256": "3324b2ac111018ac3cae22784b660948eddd4fcc41341b97ac927d0ef083c1f2"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/B2/step-06-page.json",
+      "bytes": 1553,
+      "sha256": "389614ffb4f54eb5bd9a6a327686607abaa00ae4401b590cf6fefc4b84214093"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/B2/step-11-page.json",
+      "bytes": 1554,
+      "sha256": "6015962787db351503edc7821a30a8e5ce4ddabfb1564321578e020a510cd862"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/B3/console.log",
+      "bytes": 8321,
+      "sha256": "b28ea2365dc06badc545e52e65db35cba8c3e36d10f6dfb3d4f3d7496dd991cd"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/B3/harness-error.txt",
+      "bytes": 63,
+      "sha256": "9212b7f6ac0fb3efac0987690bd629740d9b2276d0935ba3b61c288748617fe6"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/failed-pre-A1/console.log",
+      "bytes": 4349,
+      "sha256": "51b677d8ef25130505cac18860115ccf25dcaff27c4185e3690fa972dcd38ba4"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/failed-pre-A1/harness-error.txt",
+      "bytes": 53,
+      "sha256": "4c1d95c0cb93d45953dfbe2475cd0410db549a72e4637d2d4f25539c76704d53"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/failed-pre-A2/console.log",
+      "bytes": 4349,
+      "sha256": "1a9c44f54212e2e77a868d51162e6df38dced4bbd6030e16f657e78be3400f1f"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/failed-pre-A2/harness-error.txt",
+      "bytes": 53,
+      "sha256": "4c1d95c0cb93d45953dfbe2475cd0410db549a72e4637d2d4f25539c76704d53"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/failed-pre-A3/console.log",
+      "bytes": 4349,
+      "sha256": "328d1ad8467616b63ca232ab331b0ba2e6fa00cb3ecfe8825922326e35193134"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/failed-pre-A3/harness-error.txt",
+      "bytes": 53,
+      "sha256": "4c1d95c0cb93d45953dfbe2475cd0410db549a72e4637d2d4f25539c76704d53"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/failed-pre-B1/console.log",
+      "bytes": 4349,
+      "sha256": "f675cf64ff2e4cced50e9a0f27bbb15f85f4ae7d9681380bf0b1e30c3f12dff6"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/failed-pre-B1/harness-error.txt",
+      "bytes": 53,
+      "sha256": "4c1d95c0cb93d45953dfbe2475cd0410db549a72e4637d2d4f25539c76704d53"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/failed-pre-B2/console.log",
+      "bytes": 4349,
+      "sha256": "45c5c53c42a8b1d004290b9a18ffe7afc985ae6d2569f082096e1feb167b1ea6"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/failed-pre-B2/harness-error.txt",
+      "bytes": 53,
+      "sha256": "4c1d95c0cb93d45953dfbe2475cd0410db549a72e4637d2d4f25539c76704d53"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/failed-pre-B3/console.log",
+      "bytes": 4374,
+      "sha256": "a473b3b48d8d6840eca4c569e6f041989e2e468275b10ba712d44c45078b4aeb"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/failed-pre-B3/harness-error.txt",
+      "bytes": 53,
+      "sha256": "4c1d95c0cb93d45953dfbe2475cd0410db549a72e4637d2d4f25539c76704d53"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/handoff.md",
+      "bytes": 588,
+      "sha256": "bccdf5ebeb7550f997324dd20acd0e15f464b53945e55fa387a3cfd5ccb59b21"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/result.json",
+      "bytes": 1801,
+      "sha256": "e11b1f6711da8204766bae3e4bb2fa4a2bd6f855feaac9e3f75b709f69c10a6e"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/05/run_ab.ps1",
+      "bytes": 2378,
+      "sha256": "cdc42b102c9745e56d82fd63682a09edc2ffaa8cfb5b99065cb02618fc6ba969"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/handoff.md",
+      "bytes": 534,
+      "sha256": "e4f00b038922a523df84f44dc39833f75a33804c54c43a09c02e56c6f351d7b4"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/identity/00-before.stats.json",
+      "bytes": 471,
+      "sha256": "f3c61308b014f1d7aa176062f379b360b2a7df9c891c9a749fe8ff7bc066ef5b"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/identity/01-after-06-fetch-pages.stats.json",
+      "bytes": 485,
+      "sha256": "18b8e2dc2398e087627d16191f0289cecb3f53e88e23b819f5d587f6b65f3a4b"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/identity/02-after-x1-input.stats.json",
+      "bytes": 479,
+      "sha256": "fd8036eb18e777a9f82ef8a169026765a269ffd8d705e3477c1ff49fb870c5b8"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/identity/03-after-x2-xorg.stats.json",
+      "bytes": 478,
+      "sha256": "1547f2ccd7083cbc05460a69c7770693c8daba7c1af641548ac6db2e71dab210"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/identity/04-after-y3-jwm-stock.stats.json",
+      "bytes": 979,
+      "sha256": "bf189127d9464ef66ffcf80d675a2380cddaacdc0e048847a2b2c1b252176654"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/identity/05-after-x4-win1.stats.json",
+      "bytes": 1006,
+      "sha256": "f83d8fde2d8f1809b0c5e124615a36f65adecbc8e79d71f0eced8e4fe05bb3c1"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/identity/06-after-step-cmd.stats.json",
+      "bytes": 1007,
+      "sha256": "1203e3416958771b06e5514a4715c4cbdffc4a0554ede34270ff02651a7aa2a2"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/identity/browser-processes.json",
+      "bytes": 866,
+      "sha256": "efb4e376762e208d4c4dcae35872f7e0588803b5aa1ea52651fb231d5dacdc08"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/identity/console.log",
+      "bytes": 13035,
+      "sha256": "00fe4bcc29e4d50ed479834d0b6a05cf8e24aa15c83ca21408ba12bd591dce0a"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/identity/page-check.json",
+      "bytes": 1557,
+      "sha256": "b2ecea9ea6cc5d0da62f58a774d924f0e3f88a37e0c0c056b849503d3a5d15e9"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/identity/process-identity.json",
+      "bytes": 721,
+      "sha256": "79aa86a654e59389eb455e335758b6975f24c2cdb8ded94555a38a3b0d05ad9f"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/identity/qemu-cmd.txt",
+      "bytes": 563,
+      "sha256": "93f96421efd44949879fbf37a0822f1d598c3e9268bc8a76c972268ac0d03adf"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/identity/qemu-metrics.json",
+      "bytes": 293,
+      "sha256": "0abd23080d6067f2c011c4a587d0b6b2554c095d14f07831f0a7b88d75b183e1"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/identity/qemu-owner.json",
+      "bytes": 148,
+      "sha256": "f0f8f0229d02415bb61600741a6b5bc01a51646fddbd7dbd2ca2967309d49d39"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/identity/ready-01-p1.stats.json",
+      "bytes": 1001,
+      "sha256": "fd51c561355c175a32a8d9388f12302deaf128d0967b4b58d7cde1357229651c"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/identity/startup-ready.json",
+      "bytes": 567,
+      "sha256": "f05f060694e6197c8abfca57eff6bedb523e742c1e271b2ab2b48bec0f69cb88"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/identity/zz-final.stats.json",
+      "bytes": 998,
+      "sha256": "c34fd9a2771f97a37e3a17385ecdb49b22174b393ffa03514ce5cde2053af4dd"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/06/result.json",
+      "bytes": 1402,
+      "sha256": "85b62f531ef02a858f3215e12684c32962e833333211fa550d05a8be7c02c744"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/handoff.md",
+      "bytes": 672,
+      "sha256": "8ef46b241332a812e415e591a72fcc153b651f076ae59561ac82749acb822c79"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/result.json",
+      "bytes": 1857,
+      "sha256": "b743732f38ec771c658c53d5ee2ade457173058e6ddc8fcc95a9f720121049e5"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample1/00-before.stats.json",
+      "bytes": 470,
+      "sha256": "22c35b2b9c743f1cef6d242dff8aa79a4ea38b540060cae5abc79415c3cc51f2"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample1/01-after-06-fetch-pages.stats.json",
+      "bytes": 484,
+      "sha256": "d0cd206de96f570e540377a31e7a8ee6bb73e52d4c4270306806ede3dcf74d9e"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample1/02-after-x1-input.stats.json",
+      "bytes": 478,
+      "sha256": "4f9a3b0567c5c0d82e74f7550398fb6401932841d13f9fd3106e055ff528219a"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample1/03-after-x2-xorg.stats.json",
+      "bytes": 477,
+      "sha256": "c95ab87f6a9ff7812f66a9cf08321db109d768c9697cd859f626e221b7a5cf34"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample1/04-after-y3-jwm-stock.stats.json",
+      "bytes": 978,
+      "sha256": "716d64580ba870c9123c5cfa895d336f961debfab7ae5b13f86dc80dd142e2b0"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample1/05-after-x4-perf-monitor-start-v2.stats.json",
+      "bytes": 990,
+      "sha256": "bd748e616c26821536c2006b00f41f5f9133f8bd70ba288fef95f98e8eafa4c3"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample1/06-after-step-cmd.stats.json",
+      "bytes": 1006,
+      "sha256": "c121394dc17017d2bf161dcdd6cdb5551d6f614f45a90ee5ebd3440420a82757"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample1/browser-processes.json",
+      "bytes": 866,
+      "sha256": "9de43d2e90a8a424ce68820e6c104e7774366118d8b8a0cf939b0e1074b321b0"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample1/console.log",
+      "bytes": 14623,
+      "sha256": "23ca18e498c5b4e335ac0d3270ba358f2df80c9dc5f7e504f081bb07d7b61c71"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample1/frame-watch.json",
+      "bytes": 8248,
+      "sha256": "01f169164b67f28fa5f9895d2bee82cfc4d2c76dd41805a66062a51d4c737031"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample1/page-check.json",
+      "bytes": 1550,
+      "sha256": "8b5df12c9f8b92b34505f66ff5144cfef1449cf9bc18f841a4e7ab71cef01250"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample1/perf-decode.json",
+      "bytes": 922,
+      "sha256": "660e87cbbe0893a11860910e38e732043c4cd70965c2bbd064ecbb270e78d61c"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample1/qemu-cmd.txt",
+      "bytes": 563,
+      "sha256": "137ab968a6c55bceb9996053d8a1f1f577e0be18741e375c8a34ec2bbac56b5e"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample1/qemu-metrics.json",
+      "bytes": 293,
+      "sha256": "548a80762f66b3e6244ea16952221115de3ba18755dad37a04dbf648794a249d"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample1/qemu-owner.json",
+      "bytes": 148,
+      "sha256": "f085e4bcde88837125b9a6353035d21d4a32a81dc194da35308ab6be9aab9a4d"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample1/zz-final.stats.json",
+      "bytes": 997,
+      "sha256": "e7187636be8d701fd2fb8d7f21930373df035fe6c63675a8bc861cf6dee41dba"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample2/00-before.stats.json",
+      "bytes": 470,
+      "sha256": "8ed99f30a4f31a54559609577fee3461ca49098f85e5e3121076d6896a19bfb7"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample2/01-after-06-fetch-pages.stats.json",
+      "bytes": 484,
+      "sha256": "bac677cf2b960b5036fb2c39741b675d8de7e5c8970456a2d8803634e66d3e70"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample2/02-after-x1-input.stats.json",
+      "bytes": 478,
+      "sha256": "e79aa6e3cb6b88f46ae5f393033fb5d47d51a020f251cf119659b9cd7dc8c5dd"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample2/03-after-x2-xorg.stats.json",
+      "bytes": 477,
+      "sha256": "5da567f5efc44301cf7f5d629121d1e7da9328726df735d306ae652d1623803d"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample2/04-after-y3-jwm-stock.stats.json",
+      "bytes": 978,
+      "sha256": "6e4bf090346770a3b55c2a6ce4074f4c75d587b9e6dfc97580ed7a83aa383520"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample2/05-after-x4-perf-monitor-start-v2.stats.json",
+      "bytes": 990,
+      "sha256": "e28c205b9ba24ef5931ea32840c7e2ac225e0231fa3e11ec124f84d184f9edbe"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample2/06-after-step-cmd.stats.json",
+      "bytes": 1006,
+      "sha256": "1f371010f0388fbf1a3e1557baa7080214dfe856e6a9558000816063cf26f4d3"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample2/browser-processes.json",
+      "bytes": 866,
+      "sha256": "1ea811457a667b0c10852a9f3e165945ea215f3c59754c5cb47e3517404f4c74"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample2/console.log",
+      "bytes": 14931,
+      "sha256": "d4aa9a4472c02ebe730343d71d1a6d844d23acce5842df2c0db5ffebd298ea0a"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample2/frame-watch.json",
+      "bytes": 8250,
+      "sha256": "3a863bfa6478657731615ba6f6a02e6b41f94064f45732675c928b634cb2a029"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample2/page-check.json",
+      "bytes": 1557,
+      "sha256": "f002d70101794df9cbcf798980558c358235285a3377907b20447ef3dd860728"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample2/perf-decode.json",
+      "bytes": 983,
+      "sha256": "c7a65e5e4609ff7d20b694a768770c9b178b6c12af0095410367050156ca34a3"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample2/qemu-cmd.txt",
+      "bytes": 563,
+      "sha256": "7299a4cdc8df4d3bbdacc376e47818b66f620361ef03aaac84929de7496f883a"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample2/qemu-metrics.json",
+      "bytes": 293,
+      "sha256": "c8f4065adede6569383edacf849dcdd4cbb38eaf3dc0b2ddfbff632495b02c4d"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample2/qemu-owner.json",
+      "bytes": 148,
+      "sha256": "6caa932b73ba5e7e1d843392d5f5fa1fb3e465bb94ddf56b197d1c222a1e4800"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample2/zz-final.stats.json",
+      "bytes": 997,
+      "sha256": "56f415159a2fffb5dde3ea6102d486a45847d306300e6a8f35b7af0fd8076a16"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample3/00-before.stats.json",
+      "bytes": 470,
+      "sha256": "fadecd946fe2b74d4a97976cd0529a11cbbd78e7d7b38b2f174a3720e7bed2dc"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample3/01-after-06-fetch-pages.stats.json",
+      "bytes": 484,
+      "sha256": "c610c56d3a6cbb6b98ed3d8fd69913fb264d8bde1671c223ebaf16c803260baf"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample3/02-after-x1-input.stats.json",
+      "bytes": 478,
+      "sha256": "a9dc6823c0d035cba0c02b1fe21780cf7a8bb2861d96a17af385762786d8772f"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample3/03-after-x2-xorg.stats.json",
+      "bytes": 477,
+      "sha256": "93bac741bcfe137b9a1c6532f9b7ebbb4dd6a9d6b5e55aabc0632fdb9947d58f"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample3/04-after-y3-jwm-stock.stats.json",
+      "bytes": 978,
+      "sha256": "490e11a034f2084a031151c7337ecff2a76ad2eceb9de942b307b501c4b6a886"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample3/05-after-x4-perf-monitor-start-v2.stats.json",
+      "bytes": 990,
+      "sha256": "344d7f8d722868926afe6591d07b161dabc42fe5ed8d39921f07f8c8f0adc98b"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample3/06-after-step-cmd.stats.json",
+      "bytes": 1006,
+      "sha256": "62abf22e89dafe0d6d53a990b7fba5284d80ed79f5247de5490c5252461109e7"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample3/browser-processes.json",
+      "bytes": 866,
+      "sha256": "19e7979ce0fe8b6e668ccc7be540a0a10b0ca1f202f268ff942948e94058bc8a"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample3/console.log",
+      "bytes": 16435,
+      "sha256": "ab2270da2e914510dbed7d5222c2ef5846a7bb3c3d8028d18745e2aeefa1ce8f"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample3/frame-watch.json",
+      "bytes": 8237,
+      "sha256": "f7ba64db32a61460d9dc5e289ef2d51ef0752b225343b6fdb35f63fb1e92f532"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample3/page-check.json",
+      "bytes": 1556,
+      "sha256": "3421c49a5e6c8dbfbc4611a2a7a29021f2f92e80cdf1dee1b8eafd3d2a075ecd"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample3/perf-decode.json",
+      "bytes": 1131,
+      "sha256": "83482d5ab0de5a5bf08ba79b271225ba380badf6c46f4ddd436fcce85d172c5f"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample3/qemu-cmd.txt",
+      "bytes": 563,
+      "sha256": "c9f1321c15443e68e71fc6a7c28fbaaa62d631225325c8a00447712f5c7f66cb"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample3/qemu-metrics.json",
+      "bytes": 293,
+      "sha256": "05d9e4c0daeb27e312292c15749ad1cfae30519c23909c87c22d01aec97be856"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample3/qemu-owner.json",
+      "bytes": 148,
+      "sha256": "ae97f930524093f606f00ce8379c1e8691bc0325222c8affc15f4526601d4621"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample3/zz-final.stats.json",
+      "bytes": 997,
+      "sha256": "0c71c29de0a3d02afca868bb2b27d2554107f08cdfcacf8f8adc0ac93c4b8777"
+    },
+    {
+      "path": "guest/perf-monitor-v2.sh",
+      "bytes": 1821,
+      "sha256": "14a6591bd4c4dbd387fe965ab884128a709ae243221d595ce5b895946fff9fbf"
+    },
+    {
+      "path": "guest/x4-perf-monitor-start-v2.sh",
+      "bytes": 218,
+      "sha256": "19c7d5cbc3fa7e71ae50e6156fd5946f1f6387e23174e05391b339bef4277220"
+    },
+    {
+      "path": "host/command-result.ps1",
+      "bytes": 4503,
+      "sha256": "370cfbcfeada2348db16789e0772eb6578d37fd7b332072eb0e4bc1e062176ec"
+    },
+    {
+      "path": "host/decode_perf_v2.py",
+      "bytes": 3944,
+      "sha256": "99996fc9eb943dd2a9eb31ed2bb220e6c85914a214cb805faf98938fbb9571c5"
+    },
+    {
+      "path": "host/guest-paths.ps1",
+      "bytes": 385,
+      "sha256": "6b24242092feeceb72a819860c6e143d52f2261dcd71b9cd7e27929b5aaafdbd"
+    },
+    {
+      "path": "host/process_identity_check.py",
+      "bytes": 2249,
+      "sha256": "337ade3a09ccdc6dae06320d04055f16beb8dbbfb3b6d9a5ed094f8fc4d70eee"
+    },
+    {
+      "path": "host/qmp_memory_export.py",
+      "bytes": 4882,
+      "sha256": "d7992c4828120f8ddb7208833dfef0bd008b5f2b950268dcfb8698b9e5ba5772"
+    },
+    {
+      "path": "host/xkwin.ps1",
+      "bytes": 108436,
+      "sha256": "4ebbe650fc8da50609770c74cb1b2b3bb79054ecc7d317ef4ba10609fbac47e9"
+    },
+    {
+      "path": "kernel/AGENTS.md",
+      "bytes": 7443,
+      "sha256": "0d7846cdcd6b00ae17722c74cb6a257fe4e48f077d0d4c853f3e55b66020a2ba"
+    },
+    {
+      "path": "kernel/core/ksyscall/src/sys.rs",
+      "bytes": 18783,
+      "sha256": "2f3166a25b2104a253690fbb06962f390a36eb96d256845e331e2d33d3b6b901"
+    },
+    {
+      "path": "kernel/core/ksyscall/src/time/queries.rs",
+      "bytes": 6298,
+      "sha256": "91e939a01ed49b7140e167b5fab0c9d2e363782f704f8fbdc0ff12c6eae86d99"
+    },
+    {
+      "path": "kernel/docs/ai/skills/performance-analysis/SKILL.md",
+      "bytes": 6055,
+      "sha256": "d24d7a07448e9880e15d224ce89d0304e10143393f99821afa7f8ab204abb8ac"
+    },
+    {
+      "path": "kernel/fs/filesystems/procfs/src/mem_nodes/root.rs",
+      "bytes": 4003,
+      "sha256": "c7c0420bd5ebdd2bb22f16799aa2d9a8bec0064000e10b97cc407b24fea41f6e"
+    },
+    {
+      "path": "tests/command-frame-boundary-test.ps1",
+      "bytes": 2482,
+      "sha256": "8a73da30e6981522eb98406654097e5e954455ab1eb7f395c54e8007cf3a6649"
+    },
+    {
+      "path": "tests/command-protocol-replay.ps1",
+      "bytes": 1426,
+      "sha256": "12490fc2bdcaf7f7fb8ea81c7e07c1616b061a875492da0abeebd1aabd4ff4dc"
+    },
+    {
+      "path": "tests/command-result-test.ps1",
+      "bytes": 664,
+      "sha256": "cd03f4ad0538b729a4510f6a4a43682b38f7dd8d71dc6ee2e6857b8b7f7a82e9"
+    },
+    {
+      "path": "tests/observe_cases.py",
+      "bytes": 3749,
+      "sha256": "253712d9ce52db0d71ff4424bf74a3dac69d1ba27e842cb877408f2d0c9d7838"
+    },
+    {
+      "path": "tests/process_identity_test.py",
+      "bytes": 1751,
+      "sha256": "f9606cd94ac6dfee1de57922cc98f4330a03c2d1c90507cbb4a7514a6a23d313"
+    },
+    {
+      "path": "tests/remote-path-test.ps1",
+      "bytes": 641,
+      "sha256": "51a0a4c134545cfc0162f6082ef26458722657ebc2d5cf9af8b88d76a511c903"
+    },
+    {
+      "path": "tests/step-encoding-test.ps1",
+      "bytes": 1331,
+      "sha256": "5e6736decf79a4be18bbe0bbb28274e359d56151095c9e2d2d29e5bd2544010d"
+    }
+  ],
+  "gaps": {
+    "missing_handoff": [
+      "03"
+    ],
+    "not_executed": [
+      "04",
+      "08",
+      "09",
+      "10",
+      "11",
+      "12"
+    ]
+  },
+  "documentation_updates": [
+    {
+      "path": "D:\\x-kernel-dsh-bridge\\submission\\for github\\docs\\next_iteration\\00_review_and_plan.md",
+      "backup": "C:\\Users\\a\\Documents\\Codex\\2026-10-29\\md\\work\\trace_followup_backup\\00_review_and_plan_before_trace_followup.md",
+      "before_sha256": "a7b46d04ade7dd7a88ce395af87c01687f6e76009eee42c3dcd054c4e50fe711",
+      "after_sha256": "3fbeb8583a9433dd9795316ef435e10af162e07819fe8179512f354658f9b40c",
+      "prefix_preserved": true
+    },
+    {
+      "path": "D:\\x-kernel-dsh-bridge\\submission\\x_kernel_chromium.md",
+      "backup": "C:\\Users\\a\\Documents\\Codex\\2026-10-29\\md\\work\\trace_followup_backup\\x_kernel_chromium_before_trace_followup.md",
+      "before_sha256": "6ab171dea398b7505282c0ab0ab18b0f110d3d10d5d0d9c016e3e76e59e31c9c",
+      "after_sha256": "ff774bb39421e186d22ec8736133071e0cffcd3a92d000a0714461dd4ca18d52",
+      "prefix_preserved": true
+    }
+  ],
+  "findings": [
+    {
+      "id": "F01",
+      "summary": "Ring entry lacks timestamp although ordering requires it; total budget excludes metadata"
+    },
+    {
+      "id": "F02",
+      "summary": "Exporter auto-cont, missing enforced cap and structured short-read path; 16B probe throws"
+    },
+    {
+      "id": "F03",
+      "summary": "Two AB batches total twelve attempts with reused pre-row paths; preserve six failed-pre directories"
+    },
+    {
+      "id": "F04",
+      "summary": "Renderer first seen after sampler t0 mislabeled creation; repeated observations not unique processes"
+    },
+    {
+      "id": "F05",
+      "summary": "Host Stopwatch label inconsistent with UTC/file-time implementation; sampler actual periods exceed nominal"
+    },
+    {
+      "id": "F06",
+      "summary": "Identity pure function accepts constructed zombie state with Threads=1; real S samples remain valid"
+    },
+    {
+      "id": "F07",
+      "summary": "Sample2 has 938.63MiB raw sampled maximum; sample3 937.60MiB; no baseline pooling across sampler revisions"
+    }
+  ]
+}

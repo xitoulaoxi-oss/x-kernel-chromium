@@ -1,0 +1,125 @@
+{
+  "checks": [
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/command-frame-boundary-test.ps1"
+      ],
+      "exit_code": 0,
+      "stdout": "PASS: unterminated rc=12 is pending\r\nPASS: unterminated rc=12 at deadline is incomplete\r\nPASS: rc=0junk is malformed\r\nPASS: empty rc with terminator is malformed\r\nPASS: complete 127 is ok\r\nPASS: partial ANSI prefix is ok\r\nPASS: ANSI before echoed command is ignored\r\nPASS: two valid frames conflict\r\nPASS: malformed then valid conflicts\r\nPASS: echo only is missing\r\nPASS: wrong nonce is missing\r\nPASS: byte boundary final frame is 127\r\nPASS: byte boundary without terminator at deadline is incomplete\r\nCOMMAND-FRAME-TESTS-PASS\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/command-protocol-replay.ps1"
+      ],
+      "exit_code": 0,
+      "stdout": "PASS: real crash marker behind partial ANSI\r\nPASS: real single2 spliced upload, nonzero rc\r\nPASS: real stop continuation, no marker\r\nPASS: terminated empty rc is malformed\r\nPASS: echoed marker with digits is not a result\r\nPASS: wrong nonce\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/command-result-test.ps1"
+      ],
+      "exit_code": 0,
+      "stdout": "PASS: success\r\nPASS: failure\r\nPASS: echo only\r\nPASS: no completion\r\nPASS: wrong session\r\nPASS: ansi\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/step-encoding-test.ps1"
+      ],
+      "exit_code": 0,
+      "stdout": "STEP-ENCODING-TESTS-PASS\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/remote-path-test.ps1"
+      ],
+      "exit_code": 0,
+      "stdout": "REMOTE-PATH-TESTS-PASS\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/xkwin-parse.ps1"
+      ],
+      "exit_code": 0,
+      "stdout": "XKWIN-PARSE-OK\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python",
+        "tests/ring_layout_test.py"
+      ],
+      "exit_code": 0,
+      "stdout": "PASS empty ring ok\r\nPASS header sizes\r\nPASS valid entries ok\r\nPASS half-written entry rejected\r\nPASS wrapped retained range\r\nPASS duplicate seq rejected\r\nPASS wrong schema rejected\r\nPASS wrong total rejected\r\nPASS wrong cpu count rejected\r\nPASS wrong checksum rejected\r\nPASS wrong magic rejected\r\nPASS short buffer rejected\r\nRING-LAYOUT-TESTS-PASS\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python",
+        "tests/observe_cases.py"
+      ],
+      "exit_code": 0,
+      "stdout": "PASS crash session detected as CRASH\r\nPASS crash subject keeps child PID 105\r\nPASS crash subject names the browser PID 87\r\nPASS 262-colour window is window_shell_without_page\r\nPASS shell session summarised as HANG\r\nPASS 28-colour frame is no_window_desktop_only\r\nPASS rising host WS is flagged LEAK\r\nPASS CMJSON per-process sample is available\r\nPASS per-process RSS growth is 40000 kB\r\nPASS measured CMJSON lifts attribution_limited\r\nPASS flat host WS is not flagged\r\nPASS no CMJSON keeps attribution_limited true\r\nPASS harness timeout is not a target CRASH\r\nPASS harness error alone is not crash\r\nPASS control channel is called out\r\nPASS missing HB in a session that did not configure HB is not HANG\r\nPASS missing HB is an observer limitation\r\nPASS observer limitation has its own summary\r\nall observe cases passed\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python",
+        "tests/review_regressions.py"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "test_20_first_attempts_pass (__main__.AcceptanceTests.test_20_first_attempts_pass) ... ok\r\ntest_29_minutes_fails (__main__.AcceptanceTests.test_29_minutes_fails) ... ok\r\ntest_browser_disappeared_midrun_fails (__main__.AcceptanceTests.test_browser_disappeared_midrun_fails) ... ok\r\ntest_color_only_legacy_evidence_fails (__main__.AcceptanceTests.test_color_only_legacy_evidence_fails) ... ok\r\ntest_complete_30min_navigation_evidence_passes (__main__.AcceptanceTests.test_complete_30min_navigation_evidence_passes) ... ok\r\ntest_diagnostic_policy_cannot_modify_original_disk (__main__.AcceptanceTests.test_diagnostic_policy_cannot_modify_original_disk) ... ok\r\ntest_duplicate_heartbeats_fail (__main__.AcceptanceTests.test_duplicate_heartbeats_fail) ... ok\r\ntest_incomplete_rehearsals_fail (__main__.AcceptanceTests.test_incomplete_rehearsals_fail) ... ok\r\ntest_js_not_run_fails (__main__.AcceptanceTests.test_js_not_run_fails) ... ok\r\ntest_keyboard_requires_value_and_echo (__main__.AcceptanceTests.test_keyboard_requires_value_and_echo) ... ok\r\ntest_missing_crash_marker_but_harness_error_fails (__main__.AcceptanceTests.test_missing_crash_marker_but_harness_error_fails) ... ok\r\ntest_old_frame_fails_even_if_colorful (__main__.AcceptanceTests.test_old_frame_fails_even_if_colorful) ... ok\r\ntest_one_css_failure_fails (__main__.AcceptanceTests.test_one_css_failure_fails) ... ok\r\ntest_only_19_runs_fail (__main__.AcceptanceTests.test_only_19_runs_fail) ... ok\r\ntest_probe_transport_failure_has_nonzero_and_evidence (__main__.AcceptanceTests.test_probe_transport_failure_has_nonzero_and_evidence) ... ok\r\ntest_real_js_and_css_rows_pass (__main__.AcceptanceTests.test_real_js_and_css_rows_pass) ... ok\r\ntest_repeated_directory_cannot_make_20 (__main__.AcceptanceTests.test_repeated_directory_cannot_make_20) ... ok\r\ntest_restart_is_not_first_attempt_success (__main__.AcceptanceTests.test_restart_is_not_first_attempt_success) ... ok\r\ntest_shortened_expectation_cannot_pass (__main__.AcceptanceTests.test_shortened_expectation_cannot_pass) ... ok\r\ntest_stale_echo_without_typed_value_fails (__main__.AcceptanceTests.test_stale_echo_without_typed_value_fails) ... ok\r\ntest_websocket_disconnect_is_failure (__main__.AcceptanceTests.test_websocket_disconnect_is_failure) ... ok\r\ntest_websocket_fragmentation_and_ping (__main__.AcceptanceTests.test_websocket_fragmentation_and_ping) ... ok\r\ntest_websocket_masks_client_frames (__main__.AcceptanceTests.test_websocket_masks_client_frames) ... ok\r\ntest_websocket_upgrade_validates_accept (__main__.AcceptanceTests.test_websocket_upgrade_validates_accept) ... ok\r\ntest_wrong_url_fails (__main__.AcceptanceTests.test_wrong_url_fails) ... ok\r\n\r\n----------------------------------------------------------------------\r\nRan 25 tests in 3.077s\r\n\r\nOK\r\n"
+    }
+  ],
+  "additional_probes": {
+    "full_capacity": {
+      "expected": 1024,
+      "actual": 1023,
+      "retained": [
+        1,
+        1023
+      ]
+    },
+    "future_sequence": {
+      "metadata_seq": 1,
+      "entry_seq": 9000,
+      "accepted": true
+    },
+    "note": "Existing tests pass; these additional probes expose decoder gaps. Treat this branch as a diagnostic checkpoint, fix before causal stall analysis."
+  }
+}

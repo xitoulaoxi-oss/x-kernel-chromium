@@ -1,0 +1,3 @@
+hkylin-x:~# ead -c 566 /tmp/xk-cdp-policy.sh.xtmp > /tmp/xk-cdp-policy.sh; rm -f /tmp/xk-cdp-policy.sh.xtmp
+/bin/sh: p-policy.sh.xtmp: not found
+__XK1706920__rc=127

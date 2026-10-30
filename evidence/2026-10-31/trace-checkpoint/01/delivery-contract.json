@@ -1,0 +1,37 @@
+{
+  "schema": "xk-delivery-contract/1",
+  "generated_at": "2026-10-31T02:05:00+08:00",
+  "send_path": {
+    "writer": "single host console writer (xkwin); no concurrent sender",
+    "pre_send": "Read-Available quiet 80 ms / max 400 ms to drain prompt and echo",
+    "target": "one logical line (commands may contain quoted semicolons)",
+    "gap_ms": 100,
+    "marker_line": "__xk_rc=$?; echo $__xk_rc > /tmp/xk-rc-<nonce>; echo __<nonce>__rc=$__xk_rc",
+    "why": "the old 25 ms target→marker gap produced a real corrupted marker line ('eecho') in B3; rc is saved before the echo so the target is never re-run to recover a status"
+  },
+  "trace": {
+    "file": "tx-trace.jsonl",
+    "tx_fields": ["seq", "direction", "nonce", "label", "text_bytes", "marker_bytes", "text", "marker", "at_utc"],
+    "rx_fields": ["seq", "direction", "nonce", "label", "status", "rc", "elapsed_ms", "raw_line"],
+    "limits": [
+      "bytes are logical UTF-8 bytes handed to the TCP console, not a packet capture",
+      "terminal echo/cursor-query bytes are preserved in console.log but not classified separately",
+      "no kernel-side input queue inspection"
+    ]
+  },
+  "failure_rule": {
+    "frame_missing_or_corrupt": "do not rerun the target command; report unknown unless the saved /tmp/xk-rc-<nonce> can be read and associated",
+    "current_recovery": "rc file is written but automatic recovery is not implemented; a failed frame remains a delivery failure"
+  },
+  "acceptance": {
+    "twenty_command_session": {"requested": 20, "ok": 20, "rc_expected_match": 20, "status": "ok=20"},
+    "hash_session_1": {"markers": 6, "all_ok": true, "upload_sha256": "dfe2fb57961284a28216ef365714652758ea43199ed7a67ed2a2fea1fb12214f"},
+    "hash_session_2": {"markers": 6, "all_ok": true, "upload_sha256": "dfe2fb57961284a28216ef365714652758ea43199ed7a67ed2a2fea1fb12214f"},
+    "note": "delivery validation only; not a 20-start browser reliability test"
+  },
+  "evidence": [
+    "experiments/FINALS-RUNS/20261031T014800Z/trace-followup/01/session20/tx-trace.jsonl",
+    "experiments/FINALS-RUNS/20261031T014800Z/trace-followup/01/session-hash-1/tx-trace.jsonl",
+    "experiments/FINALS-RUNS/20261031T014800Z/trace-followup/01/session-hash-2/tx-trace.jsonl"
+  ]
+}

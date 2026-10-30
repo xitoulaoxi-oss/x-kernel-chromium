@@ -1,0 +1,90 @@
+{
+  "schema": "xk-trace-followup-plan/1",
+  "source_phase": "experiments/FINALS-RUNS/20261031T002500Z/iteration",
+  "tasks": [
+    {
+      "task": "01",
+      "file": "01_repair_command_delivery.md",
+      "title": "确认命令送达并保存全部尝试",
+      "priority": "P0",
+      "dependency": "可立即开始，预算2–3小时。",
+      "status": "COMPLETED",
+      "execution_started": true
+    },
+    {
+      "task": "02",
+      "file": "02_finalize_ring_layout.md",
+      "title": "修正事件环格式与容量预算",
+      "priority": "P1",
+      "dependency": "可立即开始；不运行客机，预算1–2小时。",
+      "status": "COMPLETED",
+      "execution_started": true
+    },
+    {
+      "task": "03",
+      "file": "03_build_static_trace_storage.md",
+      "title": "实现默认关闭的静态事件存储并构建",
+      "priority": "P1",
+      "dependency": "02通过；预算2–4小时。",
+      "status": "COMPLETED",
+      "execution_started": true
+    },
+    {
+      "task": "04",
+      "file": "04_capture_timer_wakeup_events.md",
+      "title": "接入少量真实timer与唤醒事件",
+      "priority": "P1",
+      "dependency": "03通过；预算2–4小时。",
+      "status": "COMPLETED",
+      "execution_started": true
+    },
+    {
+      "task": "05",
+      "file": "05_export_frozen_trace.md",
+      "title": "让导出器适用于真实停顿现场",
+      "priority": "P1",
+      "dependency": "03可开始小记录验证，04后做完整事件导出；预算1–3小时。",
+      "status": "COMPLETED",
+      "execution_started": true
+    },
+    {
+      "task": "06",
+      "file": "06_locate_stall_and_fix.md",
+      "title": "找首个缺失事件并验证单一补丁",
+      "priority": "P1",
+      "dependency": "04、05可用，01达到送达验收；一轮假设预算4–8小时。",
+      "status": "WAITING_GATE",
+      "execution_started": false
+    },
+    {
+      "task": "07",
+      "file": "07_correct_time_and_identity_metrics.md",
+      "title": "修正时间源、发现指标与身份拒绝规则",
+      "priority": "P2",
+      "dependency": "可先离线处理；真实采集依赖01，有正常会话即可。预算2–4小时。",
+      "status": "PLANNED",
+      "execution_started": false
+    },
+    {
+      "task": "08",
+      "file": "08_compare_observer_and_navigation.md",
+      "title": "验证采样扰动并有界复查导航策略",
+      "priority": "P2",
+      "dependency": "01、07通过；与其它QEMU实验串行。预算2–4小时。",
+      "status": "WAITING_GATE",
+      "execution_started": false
+    },
+    {
+      "task": "09",
+      "file": "09_reenter_acceptance_gates.md",
+      "title": "回到稳定性、正式基线与决赛交付",
+      "priority": "GATE",
+      "dependency": "06有可解释候选；01、07、08满足相应验收。",
+      "status": "WAITING_GATE",
+      "execution_started": false
+    }
+  ],
+  "note": "New planning only. Prior execution state file preserved. Existing offline checks do not mark these tasks executed.",
+  "executed_at": "2026-10-31T02:12:00+08:00",
+  "execution_note": "01-05 COMPLETED; 06-09 WAITING_GATE. Results under experiments/FINALS-RUNS/20261031T014800Z/trace-followup/."
+}

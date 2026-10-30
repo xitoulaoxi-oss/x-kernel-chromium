@@ -75,3 +75,10 @@ kernel/target/
 *.zip
 /evidence/perf/
 /evidence/sessions/
+
+
+# Local duplicate progress packages and full baseline sessions
+/submission/
+/evidence/baseline/final1/
+/evidence/baseline/x4final/
+/tests/debug-*.ps1

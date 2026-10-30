@@ -1,0 +1,31 @@
+{
+  "task": "02_fix_startup_progress",
+  "status": "PARTIAL",
+  "fixed_one_cause": "idle WFI could be entered with no bounded wake source; rearm_local_timer disarmed the per-CPU timer when no deadline existed",
+  "change": {
+    "file": "kernel/task/ktask/src/api.rs",
+    "function": "rearm_local_timer",
+    "before": "None => disarm_timer()",
+    "after": "None => arm_timer(now + 100 ms) fallback idle tick",
+    "reload_or_restart_used": false
+  },
+  "candidate": {
+    "bin": "artifacts/kernel-final.bin",
+    "bin_sha256": "c50075b653368da9b6b10d951c7e734e47219e02556f08756578d3bac77f0139",
+    "elf": "kernel/xkernel_aarch64-qemu.elf",
+    "elf_sha256": "1b0c758d92409817041bbbec94b4d64872f6004e4ce3ba2a920759d8035fec0d",
+    "config_sha256": "fbd1615be5712bf51b5a7afc08fcef413e9508848babe771999f9d94a300f02a",
+    "source": "fa83aa5 + api.rs idle-fallback change (one file dirty)"
+  },
+  "experiments": [
+    {"name": "readiness-gated first navigation", "runs": 5, "passed": 4, "adopted": false},
+    {"name": "in-process-gpu", "runs": 1, "passed": 0, "adopted": false},
+    {"name": "no-zygote", "runs": 1, "passed": 0, "adopted": false},
+    {"name": "disable-gpu", "runs": 2, "passed": 2, "adopted": false, "note": "too few samples; not a proven fix"},
+    {"name": "GICv2 EOI mode 0", "runs": 1, "passed": 0, "adopted": false, "note": "reverted; source no longer contains it"}
+  ],
+  "regression": {"command": "python tests/review_regressions.py", "result": "25/25 OK"},
+  "remaining_failure": "11/13 first starts passed after the change; two independent stalls remain (C06 browser with 6 processes/no window; C07 console stop after W2 t=30). The idle fallback did not eliminate them.",
+  "verdict_note": "The change is a real hardening and is kept, but task 02 cannot claim the random blank/stall is eliminated. 03 remains FAIL.",
+  "next": "Continue root-cause work on the remaining Chromium startup stall; do not present this as a passed startup fix."
+}

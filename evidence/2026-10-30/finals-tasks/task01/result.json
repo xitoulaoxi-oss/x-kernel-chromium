@@ -1,0 +1,30 @@
+{
+  "task": "01_capture_startup_failure",
+  "status": "PASS",
+  "executed_at": "2026-10-30T19:12:00+08:00",
+  "command": "powershell -File host/xkwin.ps1 -Script 'guest/06-fetch-pages.sh;guest/x1-input.sh;guest/x2-xorg.sh;guest/y3-jwm-stock.sh;guest/x4-win1.sh;guest/x5c-win2.sh' -EnableGuestCdp -PageProbeMode page -ExpectedPageUrl file:///usr/share/kiosk/official/index.html -DiagnosticPollSec 20 -StartupReadyMax 1 -CommandTimeoutSec 220",
+  "same_command_success_failure": true,
+  "failure_run": "experiments/FINALS-RUNS/20261030T110856Z/task01/run4-windows",
+  "success_runs": [
+    "experiments/FINALS-RUNS/20261030T110856Z/task01/run6-windows",
+    "experiments/FINALS-RUNS/20261030T110856Z/task01/run7-windows",
+    "experiments/FINALS-RUNS/20261030T110856Z/task01/run8-windows",
+    "experiments/FINALS-RUNS/20261030T110856Z/task01/run9-windows",
+    "experiments/FINALS-RUNS/20261030T110856Z/task01/run10-windows"
+  ],
+  "first_anomaly": {
+    "when": "after 'W1 started' and 'W2 t=15 procs=5 log=776 wins=0'",
+    "what": "guest serial console stops producing output; guest-side failure diagnostics cannot be served within 10 s; QMP query-status still reports running",
+    "cpu_state": "all four vCPUs sampled at the same kernel PC (ffff8000006e39e0 = karch::aarch64::irq::restore_irq / idle loop) for 20 consecutive samples over ~7 minutes",
+    "qemu_cpu_ratio": 0.215,
+    "success_cpu_ratio": 1.0,
+    "boundary": "kernel idle/wakeup path, not Xorg/JWM/renderer"
+  },
+  "symbols": {
+    "elf": "kernel/xkernel_aarch64-qemu.elf (rebuilt from current source; c54f4fdd...)",
+    "pc_symbol": "karch::aarch64::irq::restore_irq at kernel/arch/karch/src/aarch64/irq.rs:310",
+    "caveat": "the archived ELF was rebuilt from the same tree/config as the candidate, not from the older c915565 binary"
+  },
+  "curated_evidence": "evidence/2026-10-30/startup-capture/",
+  "next": "02: fix the idle/no-wakeup cause; no reload/restart retry"
+}

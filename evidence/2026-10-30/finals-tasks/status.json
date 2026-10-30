@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-30",
+  "task_book": "docs/tasks/00_taskbook.md",
+  "statuses": {
+    "01": "PASS",
+    "02": "PARTIAL",
+    "03": "FAIL",
+    "04": "FAIL",
+    "05": "FAIL",
+    "06": "BLOCKED",
+    "07": "BLOCKED",
+    "08": "BLOCKED",
+    "09": "PARTIAL",
+    "10": "BLOCKED",
+    "11": "PARTIAL"
+  },
+  "qualified_candidate": false,
+  "startup_failure_rate": "2/13 (two attempts, plain x4)",
+  "baseline_valid_rounds": "4/6 for first frame + page load; renderer 0, guest memory 0",
+  "pushed": false,
+  "raw_root": "experiments/FINALS-RUNS/20261030T110856Z",
+  "curated_root": "evidence/2026-10-30/finals-tasks"
+}

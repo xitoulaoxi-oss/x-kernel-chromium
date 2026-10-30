@@ -24,3 +24,24 @@ Whole-guest physical allocation was additionally sampled as `MemTotal - MemFree`
 4. Continue the four-metric baseline and optimization tasks in order.
 
 Curated evidence: [finals-followup](../evidence/2026-10-30/finals-followup/manifest.json). Raw output remains in ignored local experiments/FINALS-RUNS; no browser download caches or VM images were added.
+
+## 2026-10-30 capture and fix attempt
+
+The same two-window command produced one failure and several successes. In the
+failure the guest console stopped at `W2 t=15`; QMP still reported `running`
+and all four vCPUs sat at the same PC (`ffff8000006e39e0`,
+`karch::aarch64::irq::restore_irq` / idle) for 20 samples, while QEMU CPU/wall
+was 0.215 against ~1.0 on successful boots. The boundary is the kernel
+idle/wakeup path, not Xorg or the renderer. Curated:
+[startup-capture](../evidence/2026-10-30/finals-tasks/task01/startup-capture/startup-capture.json).
+
+`rearm_local_timer()` previously disarmed the per-CPU timer when no scheduler
+or prepared deadline existed. It now arms a 100 ms fallback idle tick
+(`kernel-final.bin` c50075b6…, ELF 1b0c758d…). This removes one unbounded WFI
+state, but it did **not** remove the random startup stall: two later attempts
+passed 11/13 first starts (C06 browser with 6 processes/no window, C07 console
+stop at `W2 t=30`). Readiness-gated first navigation (4/5), in-process GPU (0/1),
+no-zygote (0/1) and GICv2 EOI mode 0 (0/1) were tested and not adopted.
+
+Do not read the idle tick as a certified fix. Twenty first starts, one full
+functional round and a four-metric baseline are still required.

@@ -1,0 +1,8 @@
+{
+  "task": "07_optimize_page_and_buffers",
+  "status": "BLOCKED",
+  "blocking_condition": "No qualified page-load baseline with five valid rounds (05 FAIL); no stable startup to attribute a page/buffer change.",
+  "variables_changed": [],
+  "measurements": [],
+  "next": "Requires 03 and 05 to pass first."
+}

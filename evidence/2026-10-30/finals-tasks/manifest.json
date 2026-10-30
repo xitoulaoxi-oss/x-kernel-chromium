@@ -1,0 +1,147 @@
+{
+  "generated_at": "2026-10-30T22:18:00+08:00",
+  "dir": "evidence\\2026-10-30\\finals-tasks",
+  "files": [
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\status.json",
+      "sha256": "bd45310c37f3db9c48f9cf4f973a1ff6c02c44da6e2a6cfc2dd159aea81a46f1",
+      "bytes": 622
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task01\\handoff.md",
+      "sha256": "0392a7abd1133417897e0353ec559ecbdb577d81efe5bce75d36053780eb9de6",
+      "bytes": 412
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task01\\result.json",
+      "sha256": "04b7bf5d9da9672522881b28572f201d3274ef6ad17d4378773e7d8438627cd9",
+      "bytes": 1947
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task01\\startup-capture\\failure-console-tail.txt",
+      "sha256": "90d4d15dabc6beddd9286b1b3c717813d17e9d49839ffdbd9201ac3236641d59",
+      "bytes": 2143
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task01\\startup-capture\\failure-harness-error.txt",
+      "sha256": "a82c1d887f2fd5b275cad49bf517b7d0d72111c65d327d93e171a2e8d88c83e9",
+      "bytes": 60
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task01\\startup-capture\\failure-query-status.json",
+      "sha256": "0bb4cd80c67d2e9446c83be0c8e4f0f5275685c8b7cbfac5b1de385af47fb465",
+      "bytes": 51
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task01\\startup-capture\\startup-capture.json",
+      "sha256": "52ebb31ef17556817d00a0ff014d225146869500b5b11624c615b737177ddbc3",
+      "bytes": 9874
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task01\\startup-capture\\success-page-check.json",
+      "sha256": "bc235659a181c939f7d3081d9f32ae2c936cc9096ef20b23eeac3d06f7268464",
+      "bytes": 1402
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task02\\handoff.md",
+      "sha256": "c26ca13c08157864ff350d2dbdc4d2324e8ceea35013f379e7eccb030920591c",
+      "bytes": 650
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task02\\result.json",
+      "sha256": "e516c3eb5111652afb9d107886582a48ecce0cc7b0bbe84253445677418290b5",
+      "bytes": 1970
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task03\\handoff.md",
+      "sha256": "d58d5f951f82cb1bb256a2390d713250a360700b9d9cad7bb33281ef026d519e",
+      "bytes": 447
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task03\\result.json",
+      "sha256": "9d23b95ef24d557661ee7f223569720f2a25dca09b9d73e7b3cfc6f1ba513eb7",
+      "bytes": 1304
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task04\\handoff.md",
+      "sha256": "303c7625c04addcc94ea8181bd3c89d1b2dfd5b1554d24f4efc26eed04d41c20",
+      "bytes": 457
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task04\\result.json",
+      "sha256": "e640275c764b9b30e68f7700ac59f824873fa8ca0a135ec29a7bf88481dcf110",
+      "bytes": 1005
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task05\\baseline-monitor-perturbed.json",
+      "sha256": "41331412417b67b0e48c087c08a0340f20508e3bff7a95b5e8ec7332ffd4fd82",
+      "bytes": 4953
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task05\\baseline-x4b.json",
+      "sha256": "c4c58d32dccdbf9e81e0c3422db8a95813fdab0442266ad1982202db64eb0c18",
+      "bytes": 5933
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task05\\handoff.md",
+      "sha256": "7ff4556c73d7655a70ae1acdfe0a1bcc247b37382a2886a69a2d14c74f1fab5a",
+      "bytes": 615
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task05\\result.json",
+      "sha256": "b99dd507e3a869b7345711231c2389c436110ea0e7c93e56165e628660fba807",
+      "bytes": 1647
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task06\\result.json",
+      "sha256": "9e067ebbac43f64b23ccec83ced50095a42a6fdca9af1e5cb1b496dd3d48b84f",
+      "bytes": 382
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task07\\result.json",
+      "sha256": "f96c7f25026d1ff1c72101a57508d73b4d3c385166726433788f12b8e825eb52",
+      "bytes": 310
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task08\\result.json",
+      "sha256": "6854c0824ebbc4d8a518a3599098ee2a86a942c09e073732059b8d619619243a",
+      "bytes": 368
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task09\\crash-observe.json",
+      "sha256": "16a470dc9958c7e5558b6f5301b44285e8323111f4566334d0e58039c2c9c117",
+      "bytes": 1502
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task09\\result.json",
+      "sha256": "42a243ccc56b7d907b1b9f352bd38aba94bb2148c166981aa1c070207a481693",
+      "bytes": 1267
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task09\\stop-observe.json",
+      "sha256": "ae1162970bf82fbafa5e5e0e7ac38f1045df2185f5dba7664cb1446fd8593432",
+      "bytes": 1499
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task10\\handoff.md",
+      "sha256": "d32ab4a7c92e71f5be7dcfdcf903a5aca73b0340d284e77cc72a7d470545d259",
+      "bytes": 309
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task10\\result.json",
+      "sha256": "691f139f6cd96e668d46508973d435dae6636ede742c5ed01deb34ebac752a8c",
+      "bytes": 718
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task11\\handoff.md",
+      "sha256": "13fff01cde604c7633d86cb5fa8246ea401587cd8b5ca98479a596e314aa3aa3",
+      "bytes": 409
+    },
+    {
+      "path": "evidence\\2026-10-30\\finals-tasks\\task11\\result.json",
+      "sha256": "9e6ab3169e19596eb9d1c6300794a9b2050ff184c0a598ec640e317d01544ffa",
+      "bytes": 851
+    }
+  ],
+  "publication_note": "Hashes below describe published Git blobs with LF normalization; original byte hashes remain in the local source manifest."
+}

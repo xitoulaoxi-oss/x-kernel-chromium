@@ -1,0 +1,115 @@
+{
+  "schema": "published-git-blob-sha256/1",
+  "files": [
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/01/delivery-contract.json",
+      "bytes": 2246,
+      "sha256": "9b4de33890d1f21f31d40177b07fa5deaac15db4ebcf4c3ea19e7906a4b88a6c"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/01/handoff.md",
+      "bytes": 536,
+      "sha256": "fe93a1bd7484a58e7f55f55e6790e33e0ae9e4752cbab3097ea017a510ce2c47"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/01/result.json",
+      "bytes": 1485,
+      "sha256": "cb15755753e51be02d576c669e72b9bb1c2fced1f38f4d6e8e426e0b180a8936"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/02/handoff.md",
+      "bytes": 469,
+      "sha256": "758dc0daccbb24ce497e87c8e01617e1752f106c0cac82d65d86b6771f0cd4ff"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/02/result.json",
+      "bytes": 844,
+      "sha256": "d052b25caf84efc8484bebe5716963fd72952f6f9da34141ac56ef8a194adcf2"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/02/ring-layout.json",
+      "bytes": 2496,
+      "sha256": "0944184a532dbee9b25e85d605742e01492c126d763da1cb8cbce52bdbfe7682"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/03/build-identity.json",
+      "bytes": 1812,
+      "sha256": "c4c9c5cac4742e3d40d35e1c5ec128bcc0fc0a09eea8a329e7a5a4dccf184759"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/03/handoff.md",
+      "bytes": 730,
+      "sha256": "e000e7bd7a3333f1df5b9ce718ecb1f20f1c2812015e86e652e34237342fb9e7"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/03/result.json",
+      "bytes": 2083,
+      "sha256": "eee26497e2cbd214f81e0fa22b02abe5654aba954178b4ac1c2cba228c65010a"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/03/symbol-address-proof.json",
+      "bytes": 1122,
+      "sha256": "9adf42cd05fa985f9941653672d3d62aa2f73fdb47f9cf5f2e7f04beb3417013"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/04/event-chain.json",
+      "bytes": 4200,
+      "sha256": "d3bd9d51578ed7ef7aab827750ebb7541b73f0c8a4e23dfdb035089b4992c1b1"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/04/handoff.md",
+      "bytes": 621,
+      "sha256": "fd1db6cb64d8e8fae0a9c34c60b0f7eb122ccb611f1d42784fd4a23c6779e489"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/04/overhead.json",
+      "bytes": 994,
+      "sha256": "83d3d4f99d40ac8df302dcbf048aecbee4dd53c54bcedfcf4a1467a0ea9b536b"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/04/result.json",
+      "bytes": 2019,
+      "sha256": "5c2e32d48c03535c8accb2926b7f2a2a44ce6ed9a10132a3908fe9aebe97811d"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/05/capture-contract.json",
+      "bytes": 2447,
+      "sha256": "3610e3782345837934692a805863185fd31ca986bd11cb269fa3bd6d693e18a1"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/05/capture.json",
+      "bytes": 2096,
+      "sha256": "1d8e2b00ccc302a0bc1f2e4782cc6ae993e0a546dc89276eaf10f08ff11dca35"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/05/failure.json",
+      "bytes": 1697,
+      "sha256": "2f2b3ef57dfe3af97e60958685b85f98e37c2c20d01d9e10f71f4ff80a760173"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/05/handoff.md",
+      "bytes": 696,
+      "sha256": "16ecca05b8f6582fe3d9419ae080d6d0aa074117ac58390abb9503367c3d94b1"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/05/result.json",
+      "bytes": 1258,
+      "sha256": "ad7f1470f345c4b51bfb8f7a4b9690f20bfff9d116f6821cabbf2764d1150ffb"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/README.md",
+      "bytes": 1737,
+      "sha256": "e482b8ea347fd2ef75f62f076adc61bf1d031b9965bf66422854903491c886a8"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/checks.json",
+      "bytes": 7474,
+      "sha256": "41da26368026f7e620960080acd10a7ac45976251efc5c91db30dbf7d71df9ec"
+    },
+    {
+      "path": "evidence/2026-10-31/trace-checkpoint/source-map.json",
+      "bytes": 66041,
+      "sha256": "c437cf98033fa9777731edfc3700ae321e8923811edeed8f78fe892097446db0"
+    }
+  ]
+}

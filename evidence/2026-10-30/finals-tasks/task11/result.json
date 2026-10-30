@@ -1,0 +1,12 @@
+{
+  "task": "11_package_and_sync_evidence",
+  "status": "PARTIAL",
+  "package": "submission/release-2026-10-30-final",
+  "contents": "README, curated task 01-10 evidence + startup capture + baseline, four status docs, git head/status, SHA-256 manifest",
+  "raw_evidence_kept_out_of_git": "experiments/FINALS-RUNS/20261030T110856Z",
+  "push_performed": false,
+  "upstream_merge_proof": false,
+  "reason_not_pushed": "Results are not verifiable as a qualified candidate (03/04/05 failed), and no push authorization was given. Task 11 forbids publishing an unverifiable result.",
+  "code_slimming": "No generated images, screenshots, videos, VM images or raw sessions were copied into the package; source remains in the repository.",
+  "next": "After 02-05 pass, regenerate the package from the final commit and push only with explicit authorization."
+}

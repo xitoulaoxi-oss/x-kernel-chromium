@@ -1,0 +1,30 @@
+﻿[
+    {
+        "arm":  "trace",
+        "run":  1,
+        "rc":  0,
+        "wall_s":  9.2,
+        "dir":  "D:\\x-kernel-dsh-bridge\\submission\\for github\\experiments\\FINALS-RUNS\\20261031T014800Z\\trace-followup\\04\\overhead-trace1"
+    },
+    {
+        "arm":  "closed",
+        "run":  1,
+        "rc":  0,
+        "wall_s":  9.2,
+        "dir":  "D:\\x-kernel-dsh-bridge\\submission\\for github\\experiments\\FINALS-RUNS\\20261031T014800Z\\trace-followup\\04\\overhead-closed1"
+    },
+    {
+        "arm":  "trace",
+        "run":  2,
+        "rc":  0,
+        "wall_s":  9.1,
+        "dir":  "D:\\x-kernel-dsh-bridge\\submission\\for github\\experiments\\FINALS-RUNS\\20261031T014800Z\\trace-followup\\04\\overhead-trace2"
+    },
+    {
+        "arm":  "closed",
+        "run":  2,
+        "rc":  0,
+        "wall_s":  9.3,
+        "dir":  "D:\\x-kernel-dsh-bridge\\submission\\for github\\experiments\\FINALS-RUNS\\20261031T014800Z\\trace-followup\\04\\overhead-closed2"
+    }
+]

@@ -151,6 +151,8 @@ pub fn init_scheduler() {
 fn init_scheduler_with_cpu_num(cpu_num: usize) {
     info!("Initialize scheduling...");
     CPU_NUM.store(cpu_num, core::sync::atomic::Ordering::Relaxed);
+    #[cfg(feature = "trace_ring")]
+    crate::trace_ring::init(cpu_num);
 
     crate::run_queue::init();
 
@@ -215,6 +217,12 @@ fn schedule_deadline_request(now_ns: u64, rel_ns: Option<u64>) -> (Option<u64>, 
     }
 }
 
+/// Fallback wake interval used only when no scheduler or prepared timer
+/// deadline exists.  A core that enters WFI with no wake source can sleep
+/// forever if a remote wakeup IPI or the last timer interrupt is lost; a
+/// bounded idle tick makes that failure recoverable instead of fatal.
+const IDLE_FALLBACK_NS: u64 = 100_000_000;
+
 /// Re-arms the local CPU hardware timer to the earliest schedule or prepared
 /// deadline. Disarms when neither source remains.
 ///
@@ -242,11 +250,22 @@ pub(crate) fn rearm_local_timer() {
             khal::percpu::this_cpu_id(),
             |prepared| match select_local_timer_deadline(sched, prepared) {
                 Some(d) => {
+                    #[cfg(feature = "trace_ring")]
+                    crate::trace_ring::record(crate::trace_ring::TIMER_ARM, d, 0);
                     khal::time::arm_timer(ktime_types::MonotonicInstant::from_span_since_origin(
                         ktime_types::TimeSpan::from_nanos(d),
                     ))
                 }
-                None => khal::time::disarm_timer(),
+                // No logical deadline: keep a bounded idle tick instead of
+                // disarming.  If a wakeup IPI or the final timer interrupt is
+                // lost, this tick lets the CPU notice the runnable task
+                // instead of parking forever.
+                None => {
+                    let now = khal::time::monotonic_time_nanos();
+                    khal::time::arm_timer(ktime_types::MonotonicInstant::from_span_since_origin(
+                        ktime_types::TimeSpan::from_nanos(now.saturating_add(IDLE_FALLBACK_NS)),
+                    ))
+                }
             },
         )
     }
@@ -328,6 +347,8 @@ pub(crate) fn set_sched_deadline_ns(deadline_ns: Option<u64>) {
 pub fn on_timer_fire() {
     use kspin::NoOp;
     let now_ns = khal::time::monotonic_time_nanos();
+    #[cfg(feature = "trace_ring")]
+    crate::trace_ring::record(crate::trace_ring::TIMER_IRQ, now_ns, 0);
     let cpu_id = khal::percpu::this_cpu_id();
     // Any local timer IRQ means this CPU is still taking interrupts. Watchdog
     // hardlockup must not wait for the 4s sample callback: a busy lone task
@@ -384,6 +405,12 @@ pub fn on_timer_fire() {
 /// Only set `need_resched`. The IRQ-tail probe arms the hrtick.
 #[cfg(feature = "smp")]
 pub(crate) fn on_remote_resched_ipi() {
+    #[cfg(feature = "trace_ring")]
+    crate::trace_ring::record(
+        crate::trace_ring::IPI_RECV,
+        khal::time::now_ticks().as_raw(),
+        0,
+    );
     current().set_preempt_pending(true);
 }
 
@@ -781,10 +808,16 @@ pub fn run_idle() -> ! {
         let guard = NoPreemptIrqSave::new();
         #[cfg(feature = "arm-timer-resume-fixup")]
         let cntpct_before = khal::time::now_ticks();
+        #[cfg(feature = "trace_ring")]
+        crate::trace_ring::record(crate::trace_ring::IDLE_ENTER, 0, 0);
         if !idle_wait_if_no_work(&guard) {
+            #[cfg(feature = "trace_ring")]
+            crate::trace_ring::record(crate::trace_ring::IDLE_RETURN, 1, 0);
             continue;
         }
         drop(guard);
+        #[cfg(feature = "trace_ring")]
+        crate::trace_ring::record(crate::trace_ring::IDLE_RETURN, 0, 0);
 
         #[cfg(feature = "arm-timer-resume-fixup")]
         {

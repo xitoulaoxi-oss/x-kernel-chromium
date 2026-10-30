@@ -1,0 +1,30 @@
+{
+  "schema": "xk-build-identity/1",
+  "generated_at": "2026-10-31T02:00:00+08:00",
+  "source": {
+    "git_head": "fa83aa5",
+    "working_tree": "trace_ring module + KFEAT_TRACE_RING + kfeat feature; api.rs init call; build configs",
+    "new_files": ["kernel/task/ktask/src/trace_ring.rs", "kernel/platforms/kplat-aarch64/qemu_trace_defconfig"],
+    "modified": ["kernel/task/ktask/Cargo.toml", "kernel/task/ktask/Kconfig.diagnostics", "kernel/task/ktask/src/lib.rs", "kernel/task/ktask/src/api.rs", "kernel/api/kfeat/Cargo.toml"]
+  },
+  "open_build": {
+    "name": "kernel-trace.bin", "bin_sha256": "182e5bbc82ab4dc224da3fb34ce5071c252cf5a5c905a1f4e85fe1e4b3106b96",
+    "elf": "artifacts/kernel-trace.elf", "elf_sha256": "d2ed55de5c8b1ebd37bb4056910b7359cc056c3e940488014c827e6668de3fec",
+    "config": "artifacts/kernel-trace.config", "config_sha256": "858670175670ad2acf109a6ca8039c9e8c984219046bbc16b63907cc5b9263ba",
+    "feature": "KFEAT_TRACE_RING=y", "bytes": 8544026
+  },
+  "closed_build": {
+    "name": "kernel-notrace.bin", "bin_sha256": "4b63211c1c0942f4171ae1af3c3a4057ec47f55d5b72b54450701c4104d5e4bb",
+    "elf": "artifacts/kernel-notrace.elf", "elf_sha256": "c5dcc8f23c724adac64a74ee82a5b949bdb3081e9dc34da92b6638265fdf6c07",
+    "config": "artifacts/kernel-notrace.config", "config_sha256": "38f5fcd9aa78e0bf2bcb0dba4cbf3f87bb6f3b2549a0c6bd0044927cfb081a36",
+    "feature": "KFEAT_TRACE_RING is not set", "bytes": 8544026
+  },
+  "commands": [
+    "OUT_NAME=kernel-trace.bin DEFCONFIG=platforms/kplat-aarch64/qemu_trace_defconfig bash build/build-kernel.sh",
+    "OUT_NAME=kernel-notrace.bin DEFCONFIG=platforms/kplat-aarch64/qemu_defconfig bash build/build-kernel.sh"
+  ],
+  "symbol_check": {
+    "open": "ffff80000092dd80 B XK_TRACE_RING size 0x28180",
+    "closed": "NO_XK_TRACE_RING"
+  }
+}

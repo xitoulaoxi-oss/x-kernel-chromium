@@ -1,0 +1,60 @@
+{
+  "schema": "xk-ring-capture/1",
+  "session": "experiments\\FINALS-RUNS\\20261031T014800Z\\trace-followup\\05\\capture",
+  "stage": "header",
+  "timeline": [
+    {
+      "event": "connect",
+      "utc": "2026-10-30T18:04:54Z"
+    },
+    {
+      "event": "stop-sent",
+      "utc": "2026-10-30T18:04:54Z"
+    },
+    {
+      "event": "paused",
+      "utc": "2026-10-30T18:04:54Z"
+    }
+  ],
+  "resumed": false,
+  "error": "header rejected: magic b'\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00'; schema 65543; header_len 0; total_len 2048; cpu_count 0; entry_size 65536; entries_per_cpu 0; header_checksum 0000000000000000 != 1ac2b8872c96f50a",
+  "ok": false,
+  "kimage_voffset": "0xffff7fffbfe00000",
+  "phys_base": "0x40200000",
+  "symbol_vaddr": "0xffff80000092dd80",
+  "symbol_phys": "0x40b2dd80",
+  "status_before": {
+    "status": "running",
+    "running": true
+  },
+  "status_stopped": {
+    "status": "paused",
+    "running": false
+  },
+  "header": {
+    "ok": false,
+    "problems": [
+      "magic b'\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00'",
+      "schema 65543",
+      "header_len 0",
+      "total_len 2048",
+      "cpu_count 0",
+      "entry_size 65536",
+      "entries_per_cpu 0",
+      "header_checksum 0000000000000000 != 1ac2b8872c96f50a"
+    ],
+    "magic": "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+    "schema": 65543,
+    "header_len": 0,
+    "total_len": 2048,
+    "cpu_count": 0,
+    "entry_size": 65536,
+    "entries_per_cpu": 0,
+    "boot_nonce": 18446462598732840960,
+    "ticks_per_sec": 18446744073709547520,
+    "clock_domain": 0,
+    "flags": 0
+  },
+  "partial_bytes": 128,
+  "partial_sha256": "be62003ce5a1dcf2ec3dc6ad7685644db60642d61394c73a7f6a2dc9bddc5ca7"
+}

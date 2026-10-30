@@ -1,0 +1,13 @@
+{
+  "task": "10_rehearse_three_scenes",
+  "status": "BLOCKED",
+  "blocking_condition": "The candidate has no qualified startup (03 FAIL: 11/13, not 20/20), no complete functional round (04 FAIL at the first DOM check), and no four-metric five-round baseline (05: perf/measurement chain did not paint or failed the DOM check).",
+  "scenes_run": [],
+  "clean_environment_run": false,
+  "not_hidden": [
+    "experiments/FINALS-RUNS/20261030T110856Z/task03/C06",
+    "experiments/FINALS-RUNS/20261030T110856Z/task03b/C07",
+    "experiments/FINALS-RUNS/20261030T110856Z/task04/single"
+  ],
+  "next": "Rehearse only after 02-05 produce a stable, fully verified candidate; a scene pass on this candidate would be invalid."
+}

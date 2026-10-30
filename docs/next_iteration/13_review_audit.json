@@ -1,0 +1,706 @@
+{
+  "schema": "xk-iteration-review/1",
+  "review_date_local": "2026-10-31",
+  "timezone": "Asia/Hong_Kong",
+  "written_at_utc": "2026-10-30T16:17:28.674615+00:00",
+  "scope": "Read-only code/results review and documentation writes; no new live QEMU experiments, source edits, deletion, commit or push",
+  "phase_root": "experiments/FINALS-RUNS/20261030T150157Z/next-phase",
+  "offline_tests": [
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/command-protocol-replay.ps1"
+      ],
+      "exit_code": 0,
+      "stdout": "PASS: real crash marker behind partial ANSI\r\nPASS: real single2 spliced upload, nonzero rc\r\nPASS: real stop continuation, no marker\r\nPASS: truncated marker is a protocol error\r\nPASS: echoed marker with digits is not a result\r\nPASS: wrong nonce",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/step-encoding-test.ps1"
+      ],
+      "exit_code": 0,
+      "stdout": "STEP-ENCODING-TESTS-PASS",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "C:\\Users\\a\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+        "tests/observe_cases.py"
+      ],
+      "exit_code": 0,
+      "stdout": "PASS crash session detected as CRASH\r\nPASS crash subject keeps child PID 105\r\nPASS crash subject names the browser PID 87\r\nPASS 262-colour window is window_shell_without_page\r\nPASS shell session summarised as HANG\r\nPASS 28-colour frame is no_window_desktop_only\r\nPASS rising host WS is flagged LEAK\r\nPASS CMJSON per-process sample is available\r\nPASS per-process RSS growth is 40000 kB\r\nPASS measured CMJSON lifts attribution_limited\r\nPASS flat host WS is not flagged\r\nPASS no CMJSON keeps attribution_limited true\r\nPASS harness timeout is not a target CRASH\r\nPASS harness error alone is not crash\r\nPASS control channel is called out\r\nPASS missing HB in a session that did not configure HB is not HANG\r\nPASS missing HB is an observer limitation\r\nPASS observer limitation has its own summary\r\nall observe cases passed",
+      "stderr": ""
+    }
+  ],
+  "command_frame_edge_probe": {
+    "command": [
+      "powershell",
+      "-NoProfile",
+      "-Command",
+      ". .\\host\\command-result.ps1\n@('__XKT__rc=12','__XKT__rc=0junk',\"__XKT__rc=`n__XKT__rc=0`n\") | ForEach-Object {\n  $r = Get-GuestCommandResultDetail -Transcript $_ -Nonce XKT\n  [pscustomobject]@{transcript=$_;status=$r.status;rc=$r.rc} | ConvertTo-Json -Compress\n}"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"transcript\":\"__XKT__rc=12\",\"status\":null,\"rc\":null}\r\n{\"transcript\":\"__XKT__rc=0junk\",\"status\":null,\"rc\":null}\r\n{\"transcript\":\"__XKT__rc=\\n__XKT__rc=0\\n\",\"status\":null,\"rc\":null}",
+    "stderr": ". : File D:\\x-kernel-dsh-bridge\\submission\\for github\\host\\command-result.ps1 cannot be loaded because running scripts \r\nis disabled on this system. For more information, see about_Execution_Policies at https:/go.microsoft.com/fwlink/?LinkI\r\nD=135170.\r\nAt line:1 char:3\r\n+ . .\\host\\command-result.ps1\r\n+   ~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : SecurityError: (:) [], PSSecurityException\r\n    + FullyQualifiedErrorId : UnauthorizedAccess\r\nGet-GuestCommandResultDetail : The term 'Get-GuestCommandResultDetail' is not recognized as the name of a cmdlet, funct\r\nion, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path \r\nis correct and try again.\r\nAt line:3 char:8\r\n+   $r = Get-GuestCommandResultDetail -Transcript $_ -Nonce XKT\r\n+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : ObjectNotFound: (Get-GuestCommandResultDetail:String) [], CommandNotFoundException\r\n    + FullyQualifiedErrorId : CommandNotFoundException\r\n \r\nGet-GuestCommandResultDetail : The term 'Get-GuestCommandResultDetail' is not recognized as the name of a cmdlet, funct\r\nion, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path \r\nis correct and try again.\r\nAt line:3 char:8\r\n+   $r = Get-GuestCommandResultDetail -Transcript $_ -Nonce XKT\r\n+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : ObjectNotFound: (Get-GuestCommandResultDetail:String) [], CommandNotFoundException\r\n    + FullyQualifiedErrorId : CommandNotFoundException\r\n \r\nGet-GuestCommandResultDetail : The term 'Get-GuestCommandResultDetail' is not recognized as the name of a cmdlet, funct\r\nion, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path \r\nis correct and try again.\r\nAt line:3 char:8\r\n+   $r = Get-GuestCommandResultDetail -Transcript $_ -Nonce XKT\r\n+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : ObjectNotFound: (Get-GuestCommandResultDetail:String) [], CommandNotFoundException\r\n    + FullyQualifiedErrorId : CommandNotFoundException"
+  },
+  "findings": [
+    {
+      "id": "F01",
+      "priority": "P0",
+      "kind": "reproduced_code_defect",
+      "summary": "Unterminated numeric marker and numeric marker with junk suffix accepted; incomplete frame returns before later completion",
+      "task": "01"
+    },
+    {
+      "id": "F02",
+      "priority": "P1",
+      "kind": "evidence_gap",
+      "summary": "No bounded event ring or first-missing-event trace; oversized interrupt trace not a closed root-cause investigation",
+      "tasks": [
+        "02",
+        "03",
+        "04"
+      ]
+    },
+    {
+      "id": "F03",
+      "priority": "P1",
+      "kind": "raw_log_classification",
+      "summary": "nav01/02 helper path failure after first DOM success; nav03 first DOM timed out before second window; navB 4/4 is not a controlled fix",
+      "task": "05"
+    },
+    {
+      "id": "F04",
+      "priority": "P2",
+      "kind": "implementation_protocol_mismatch",
+      "summary": "Frame intervals use UTC/file timestamps; guest monitor uses wall-clock whole seconds, despite monotonic protocol labels",
+      "task": "07"
+    },
+    {
+      "id": "F05",
+      "priority": "P2",
+      "kind": "qualification_gap",
+      "summary": "Heuristic renderer identity and GONE fault target do not prove creation latency or successful stop/resume",
+      "tasks": [
+        "06",
+        "11"
+      ]
+    },
+    {
+      "id": "F06",
+      "priority": "P2",
+      "kind": "unit_to_verify",
+      "summary": "Verify guest meminfo kB implementation before MiB conversion; 921028 KiB = 899.44140625 MiB, if KiB semantics confirmed",
+      "task": "07"
+    },
+    {
+      "id": "F07",
+      "priority": "DOCUMENTATION",
+      "kind": "missing_handoff",
+      "summary": "Independent handoff.md files absent for old phase tasks 06..12; retain result.json as source and do not claim all handoffs exist",
+      "task": "All future tasks must provide result.json and handoff.md"
+    }
+  ],
+  "code_identity": {
+    "elf_sha256": "896bf780d0f6290af185a092ab6a01739f2efc2be50e4ec382f31a564ceebb68",
+    "elf_text_file_offset": 69632,
+    "raw_bin_text_file_offset": 4096,
+    "text_size": 7503872,
+    "text_sha256": "67413c50133d06bcbded0e48e3fa4071c0f2c7aebe3a2a26dca1e44271755a84",
+    "note": "0x10000 is a file-offset adjustment, not a guest physical address; identity applies to .text only",
+    "kernel-final.bin": {
+      "sha256": "c50075b653368da9b6b10d951c7e734e47219e02556f08756578d3bac77f0139",
+      "text_matches": true
+    },
+    "kernel-idlefix.bin": {
+      "sha256": "8ab6882bf9201beec3004e8d39a0a76cc26dd19b393bc53718e88d6f612623de",
+      "text_matches": true
+    }
+  },
+  "package_manifest_verification": {
+    "package": "D:\\x-kernel-dsh-bridge\\submission\\for github\\submission\\release-2026-10-30-next-phase",
+    "declared": 33,
+    "matched": 33,
+    "files": [
+      {
+        "path": "00_next_plan.md",
+        "bytes": 6709,
+        "sha256": "d9ffaed07aca7be19a4a88670991590530ad24fb8573ac110c7bfe8e10b752fb",
+        "matched": true
+      },
+      {
+        "path": "01_freeze_and_classify.md",
+        "bytes": 1791,
+        "sha256": "4e8c300735ddc4a5973a1b5f11862b0f370743e9a96599ddec326a6754bc74a4",
+        "matched": true
+      },
+      {
+        "path": "evidence/01/handoff.md",
+        "bytes": 680,
+        "sha256": "1bd4446b948fd7b19fa74017c924d4e77331e01cfe8360fc8b2610426ec6f15b",
+        "matched": true
+      },
+      {
+        "path": "evidence/01/result.json",
+        "bytes": 1886,
+        "sha256": "9f53a32893c354f38d837e3e5fe36470f48f3c5e0750fbb647b941f64c88f9c3",
+        "matched": true
+      },
+      {
+        "path": "evidence/02/handoff.md",
+        "bytes": 619,
+        "sha256": "5a72fbb6f4ad0bbcb459041b493c0165b970515d626253bd0d8c34d1e9405261",
+        "matched": true
+      },
+      {
+        "path": "evidence/02/result.json",
+        "bytes": 1957,
+        "sha256": "d58e639f6ea30db57034992b978d4622d317c29b540932fb0eb28b30240fca8e",
+        "matched": true
+      },
+      {
+        "path": "evidence/03/handoff.md",
+        "bytes": 624,
+        "sha256": "14b1bd92d49ccf93170f8546616317d896f284d7d186814e606ea7ac3191bf29",
+        "matched": true
+      },
+      {
+        "path": "evidence/03/result.json",
+        "bytes": 1999,
+        "sha256": "8f74f35c2a86d03096ff2c32c98526584327149a31bbdec63e0a45e0a0325199",
+        "matched": true
+      },
+      {
+        "path": "evidence/04/handoff.md",
+        "bytes": 512,
+        "sha256": "344c0553c28ba09100ca3d38a2c5f5e5b50c3b258ae6c519017e9c4226ca8143",
+        "matched": true
+      },
+      {
+        "path": "evidence/04/result.json",
+        "bytes": 1661,
+        "sha256": "05c2eb9ef4aadd9c80ba946fe7941dc94d003b6ab7445018659fafb7bb750be7",
+        "matched": true
+      },
+      {
+        "path": "evidence/05/handoff.md",
+        "bytes": 496,
+        "sha256": "eb9627229d0c169627fbbe5fdc5e6397ae13e286730f0d18417e9d5c63bbed07",
+        "matched": true
+      },
+      {
+        "path": "evidence/05/result.json",
+        "bytes": 1684,
+        "sha256": "07880505a84e4248fee67c2e34a7da9e79d9ceac50c3ac183848eb9f6ee0984a",
+        "matched": true
+      },
+      {
+        "path": "evidence/06/result.json",
+        "bytes": 826,
+        "sha256": "a4be77dab87749edfd2164cdd5b13f969466877db73aee6c23076be09b03f842",
+        "matched": true
+      },
+      {
+        "path": "evidence/07/result.json",
+        "bytes": 1117,
+        "sha256": "bc2083c904c477f39c21fc8ae74ed7eec7771d5af635ed1ee7834a7686fe5d60",
+        "matched": true
+      },
+      {
+        "path": "evidence/08/result.json",
+        "bytes": 1307,
+        "sha256": "3b94ad2cf1e700dea7100553319ee84212cbf034fb51c100225590db3114fcbd",
+        "matched": true
+      },
+      {
+        "path": "evidence/09/result.json",
+        "bytes": 678,
+        "sha256": "a92b5b7315bad16cbf26d41ba8700906baa5d62d561f61870a196f6159c7ee5a",
+        "matched": true
+      },
+      {
+        "path": "evidence/10/result.json",
+        "bytes": 390,
+        "sha256": "cf173b2151691a3226267b0a541f43f98e5bb7af1adb0f8b894148064ee78c70",
+        "matched": true
+      },
+      {
+        "path": "evidence/11/result.json",
+        "bytes": 725,
+        "sha256": "83056009e6df13167c2879bf677d145bb39c416b6259b70439cfcfdceb045795",
+        "matched": true
+      },
+      {
+        "path": "evidence/12/result.json",
+        "bytes": 811,
+        "sha256": "3d5fe23e0a04927279726a70ecf4afbda9fcb65dde75ce369c750df32f56e041",
+        "matched": true
+      },
+      {
+        "path": "evidence/baseline-x4b.json",
+        "bytes": 6127,
+        "sha256": "9f0c2cc5bd58ae496d5a6e52137dfb70bfb18893fe2faabce97f928cc6826dae",
+        "matched": true
+      },
+      {
+        "path": "evidence/metric-protocol.json",
+        "bytes": 5150,
+        "sha256": "91890e9729569a2fe175f3777aeaa1547a90f390bd2ad949c8a9d786aac65e64",
+        "matched": true
+      },
+      {
+        "path": "evidence/nav-attempts.json",
+        "bytes": 1460,
+        "sha256": "9af8df6c26776cf9556fd76e497563ec80a1dd4a9fd65680a684928785f7cd74",
+        "matched": true
+      },
+      {
+        "path": "evidence/observe-old-crash.json",
+        "bytes": 1836,
+        "sha256": "ae3cfea484cbb7111a33fe4505f5f93971c4f3cc61bb37515f1374804dab7104",
+        "matched": true
+      },
+      {
+        "path": "evidence/observe-old-stop.json",
+        "bytes": 1832,
+        "sha256": "2153a2b8eb2475c3167b2feea163d6c8b3f1924619cc7ff6451784a5bc9c827d",
+        "matched": true
+      },
+      {
+        "path": "evidence/run-ledger.json",
+        "bytes": 27661,
+        "sha256": "3e4923a188f89a4d1c381c51278ff7ae5ab6ecd8ebcc3190f45859aa84a30b03",
+        "matched": true
+      },
+      {
+        "path": "evidence/startup-capture.json",
+        "bytes": 10187,
+        "sha256": "43005f50050a6d85b9bc731a504f4755e5c73635375a7f64f56ee3b252d174ee",
+        "matched": true
+      },
+      {
+        "path": "evidence/upload-verification.json",
+        "bytes": 2660,
+        "sha256": "a7207314fadd101bb58ab90093a2c34501a3fa47425178d7a3c9f647ca4c4cd3",
+        "matched": true
+      },
+      {
+        "path": "evidence/version-matrix.json",
+        "bytes": 2208,
+        "sha256": "f760f4ae991a4f29f9dccb2e9412eda8c752b72650796f9c9905a139cd936df7",
+        "matched": true
+      },
+      {
+        "path": "performance.md",
+        "bytes": 2819,
+        "sha256": "2e0b550eaff91923d13858575c5a92d9e11e5d72a8202ce89abafc48d00a86e2",
+        "matched": true
+      },
+      {
+        "path": "README.md",
+        "bytes": 1942,
+        "sha256": "9f35db03ff8aa1a7a9c8fb1637a82ec114de84a3dbf6f5c0213360a88c13dd11",
+        "matched": true
+      },
+      {
+        "path": "startup-diagnosis.md",
+        "bytes": 3795,
+        "sha256": "f5da29447cdeba6c6af20f2361c1f94f96c3416d3e45086d1bac96bfeb1d7d5e",
+        "matched": true
+      },
+      {
+        "path": "upstream.md",
+        "bytes": 5987,
+        "sha256": "58a95d289bfe239c8a6460a384ae868afb61bbfa6e7c14a4134df8efe687ac30",
+        "matched": true
+      },
+      {
+        "path": "verification.md",
+        "bytes": 2593,
+        "sha256": "af1135b9d01d818f7980906c85493b96b8eef19a547eb8c54c8c6c0b0b955bd9",
+        "matched": true
+      }
+    ]
+  },
+  "source_files": [
+    {
+      "path": "docs/performance.md",
+      "bytes": 2819,
+      "sha256": "2e0b550eaff91923d13858575c5a92d9e11e5d72a8202ce89abafc48d00a86e2"
+    },
+    {
+      "path": "docs/startup-diagnosis.md",
+      "bytes": 3795,
+      "sha256": "f5da29447cdeba6c6af20f2361c1f94f96c3416d3e45086d1bac96bfeb1d7d5e"
+    },
+    {
+      "path": "docs/verification.md",
+      "bytes": 2593,
+      "sha256": "af1135b9d01d818f7980906c85493b96b8eef19a547eb8c54c8c6c0b0b955bd9"
+    },
+    {
+      "path": "evidence/baseline/x4b.json",
+      "bytes": 6127,
+      "sha256": "9f0c2cc5bd58ae496d5a6e52137dfb70bfb18893fe2faabce97f928cc6826dae"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/01/handoff.md",
+      "bytes": 680,
+      "sha256": "1bd4446b948fd7b19fa74017c924d4e77331e01cfe8360fc8b2610426ec6f15b"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/01/result.json",
+      "bytes": 1886,
+      "sha256": "9f53a32893c354f38d837e3e5fe36470f48f3c5e0750fbb647b941f64c88f9c3"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/01/run-ledger.json",
+      "bytes": 27661,
+      "sha256": "3e4923a188f89a4d1c381c51278ff7ae5ab6ecd8ebcc3190f45859aa84a30b03"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/01/text_compare.py",
+      "bytes": 1732,
+      "sha256": "3203885ca63d0cbbe6311f8ca8129df6e8a14a87c169372ffaa75a60a4aa9605"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/01/version-matrix.json",
+      "bytes": 2208,
+      "sha256": "f760f4ae991a4f29f9dccb2e9412eda8c752b72650796f9c9905a139cd936df7"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/02/handoff.md",
+      "bytes": 619,
+      "sha256": "5a72fbb6f4ad0bbcb459041b493c0165b970515d626253bd0d8c34d1e9405261"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/02/result.json",
+      "bytes": 1957,
+      "sha256": "d58e639f6ea30db57034992b978d4622d317c29b540932fb0eb28b30240fca8e"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/02/upload-verification.json",
+      "bytes": 2660,
+      "sha256": "a7207314fadd101bb58ab90093a2c34501a3fa47425178d7a3c9f647ca4c4cd3"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/03/handoff.md",
+      "bytes": 624,
+      "sha256": "14b1bd92d49ccf93170f8546616317d896f284d7d186814e606ea7ac3191bf29"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/03/result.json",
+      "bytes": 1999,
+      "sha256": "8f74f35c2a86d03096ff2c32c98526584327149a31bbdec63e0a45e0a0325199"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/04/handoff.md",
+      "bytes": 512,
+      "sha256": "344c0553c28ba09100ca3d38a2c5f5e5b50c3b258ae6c519017e9c4226ca8143"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/04/result.json",
+      "bytes": 1661,
+      "sha256": "05c2eb9ef4aadd9c80ba946fe7941dc94d003b6ab7445018659fafb7bb750be7"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/first-step-failure.json",
+      "bytes": 305,
+      "sha256": "db869302a56439bad1e7af72057a3148f7cdaaca344145fc095b7de652e12021"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/handoff.md",
+      "bytes": 496,
+      "sha256": "eb9627229d0c169627fbbe5fdc5e6397ae13e286730f0d18417e9d5c63bbed07"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/nav-01/console.log",
+      "bytes": 31528,
+      "sha256": "115517b93037c011b6fa6f15bf5f685c901da838c8a4dbb23805adae6e75dd46"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/nav-01/harness-error.txt",
+      "bytes": 55,
+      "sha256": "872456a01ba38305ad1561c5947636b1af829bc712217f1da6e4daa889c2553a"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/nav-01/step-06-page.json",
+      "bytes": 1556,
+      "sha256": "8e8b116b54560bbc33bec4f3f2a7a02e7feb2677d36d9deaa0369e12dd0ac070"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/nav-02/console.log",
+      "bytes": 31553,
+      "sha256": "186e4e1ab0aa66ab81fcf324e6fc538eca891f0530fd0ba09114a1f615f369bb"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/nav-02/harness-error.txt",
+      "bytes": 55,
+      "sha256": "872456a01ba38305ad1561c5947636b1af829bc712217f1da6e4daa889c2553a"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/nav-02/step-06-page.json",
+      "bytes": 1554,
+      "sha256": "38164790d1d698ef3a54c8f2b298af91ac22effb178a49afffffe4113c371baf"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/nav-03/console.log",
+      "bytes": 23318,
+      "sha256": "9af47a989acbca12afe44675586f2dff6b84042ee623a84d57d37ccfe4653dfb"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/nav-03/harness-error.txt",
+      "bytes": 26,
+      "sha256": "a475dd5176c4eb342597c2cb00bd7c823a2eb2fd8a5174ccd45ab9fc75cab364"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/nav-03/step-06-page.json",
+      "bytes": 169,
+      "sha256": "3444d1d59c12754cadf563b2f1f38a280bb28bd20ffde69bf97393686fc0d5b5"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/nav-attempts.json",
+      "bytes": 1460,
+      "sha256": "9af8df6c26776cf9556fd76e497563ec80a1dd4a9fd65680a684928785f7cd74"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/navB-01/console.log",
+      "bytes": 14407,
+      "sha256": "8e6e1ac77d5ec2864cc44f36fcb48e7457b3d84c86145d88ecbf092bc185f62f"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/navB-01/step-06-page.json",
+      "bytes": 1551,
+      "sha256": "594a7704909d2fc5aeb26776dcf2fc7817f656ec666b9570b8bc1cc0b543300a"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/navB-01/step-11-page.json",
+      "bytes": 1552,
+      "sha256": "a265c0ba1df00b5e34096399cc550a2d3ffde034b85308be51fec001d9e2acd6"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/navB-02/console.log",
+      "bytes": 14407,
+      "sha256": "4f3c547dc6316354b1f59e1a6a0912a65b8bdd7b6786aa43ac368a934cf43128"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/navB-02/step-06-page.json",
+      "bytes": 1559,
+      "sha256": "f2f8bfdbfcec238f5110726be54b497fb2dda5e59b98165fb4d2f5277aec33c5"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/navB-02/step-11-page.json",
+      "bytes": 1560,
+      "sha256": "b9cdc2330005f25687437cad87c4203190d08eb873ad8c305f76774af1add481"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/navB-03/console.log",
+      "bytes": 13933,
+      "sha256": "82e7c6b2775c949914ae10d7df11aa47c87cb2cf202c24354dea7b901fa27be6"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/navB-03/step-06-page.json",
+      "bytes": 1557,
+      "sha256": "4a1a31f5be8738fcae69c1d24b763480e17d6473fb732f3be230bb0ab95687bd"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/navB-03/step-11-page.json",
+      "bytes": 1557,
+      "sha256": "fb89d328ecf86b6519f25067d0843031c055b0fcaaaa1e5b93bd83569afd1b79"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/navB-04/console.log",
+      "bytes": 13858,
+      "sha256": "fb6bd1429fb00e4a58d7a41124c3d8790ac8881f5af7a019949935f98fd740d0"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/navB-04/step-06-page.json",
+      "bytes": 1553,
+      "sha256": "1d3b07cc597838331595798fd397d2a6125f508d9a0ad21edb2c2a00a3b82692"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/navB-04/step-11-page.json",
+      "bytes": 1554,
+      "sha256": "678b96dd7b647c0a95eb9690f311f2fca6d3ace4dadfa800b6abf2c72aee1817"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/result.json",
+      "bytes": 1684,
+      "sha256": "07880505a84e4248fee67c2e34a7da9e79d9ceac50c3ac183848eb9f6ee0984a"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/05/run_nav_trace.ps1",
+      "bytes": 2305,
+      "sha256": "ca7a47798fe94612d24ba05aa3812443c9bc37ec95d282b9bd9ff9011baa1309"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/06/result.json",
+      "bytes": 826,
+      "sha256": "a4be77dab87749edfd2164cdd5b13f969466877db73aee6c23076be09b03f842"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/07/result.json",
+      "bytes": 1117,
+      "sha256": "bc2083c904c477f39c21fc8ae74ed7eec7771d5af635ed1ee7834a7686fe5d60"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/08/build_metric_protocol.py",
+      "bytes": 4277,
+      "sha256": "a7e9dc1f5b409a983479989036d73f677756bb0110cb21c36628ef51419b222a"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/08/metric-protocol.json",
+      "bytes": 5150,
+      "sha256": "91890e9729569a2fe175f3777aeaa1547a90f390bd2ad949c8a9d786aac65e64"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/08/result.json",
+      "bytes": 1307,
+      "sha256": "3b94ad2cf1e700dea7100553319ee84212cbf034fb51c100225590db3114fcbd"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/09/result.json",
+      "bytes": 678,
+      "sha256": "a92b5b7315bad16cbf26d41ba8700906baa5d62d561f61870a196f6159c7ee5a"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/10/result.json",
+      "bytes": 390,
+      "sha256": "cf173b2151691a3226267b0a541f43f98e5bb7af1adb0f8b894148064ee78c70"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/11/result.json",
+      "bytes": 725,
+      "sha256": "83056009e6df13167c2879bf677d145bb39c416b6259b70439cfcfdceb045795"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T150157Z/next-phase/12/result.json",
+      "bytes": 811,
+      "sha256": "3d5fe23e0a04927279726a70ecf4afbda9fcb65dde75ce369c750df32f56e041"
+    },
+    {
+      "path": "guest/c2-perf-launch.sh",
+      "bytes": 781,
+      "sha256": "5e4a5f71b779cf1fe0022803189ac49619aa4e9865150f309f38790ba295b8ce"
+    },
+    {
+      "path": "guest/c2-perf-monitor.sh",
+      "bytes": 1824,
+      "sha256": "2a536348d2502e0e39221bd6372b308facbf597d102383f99fa1cd9d22f3f877"
+    },
+    {
+      "path": "guest/fault-status.sh",
+      "bytes": 537,
+      "sha256": "13a1605e33b850c5d3efb1b3c511a33d6081ab437c77aca1e060e94e226b207d"
+    },
+    {
+      "path": "guest/xk-targets.sh",
+      "bytes": 297,
+      "sha256": "892d14bfefb8c0949650072a630ebbbae1b183f0a33266a3d4099bf7d6d9d89a"
+    },
+    {
+      "path": "host/baseline_run.py",
+      "bytes": 8137,
+      "sha256": "563d1c97ae1cc3ec9b9a5e27fa0743c05a4d2df20a5d831f4858d27ec2619329"
+    },
+    {
+      "path": "host/baseline_x4b.py",
+      "bytes": 7698,
+      "sha256": "0d9fdb10b873e71f2dbc7783b56ff8b334e2db2fb2ad5ec73cc1625fb4f85142"
+    },
+    {
+      "path": "host/command-result.ps1",
+      "bytes": 2033,
+      "sha256": "b3d860c0c5a8c401b2ec4c7ded5157fbe2898b569a4d721810f40709fc5efe0a"
+    },
+    {
+      "path": "host/observe.py",
+      "bytes": 13807,
+      "sha256": "0b4df09b5168494f85573bacc3710fe6a7f69fc4949c7ce214e403be898a7bf9"
+    },
+    {
+      "path": "host/step-spec.ps1",
+      "bytes": 2693,
+      "sha256": "7f7d69a0aea092fc487485c115871270e3643d2cf5a4d1d0c9e93e619ae026fd"
+    },
+    {
+      "path": "host/xkwin.ps1",
+      "bytes": 106521,
+      "sha256": "8c30d17fe9e23ec850c31fcdb20894e219d9c1ee2cd7fb1438c4a9fb7a82c2ce"
+    },
+    {
+      "path": "kernel/task/ktask/src/api.rs",
+      "bytes": 41421,
+      "sha256": "9ae6ce33fc88afd8d778b4ea853dc7e2039fc96d7ed32b023822b735a28055b1"
+    },
+    {
+      "path": "submission/release-2026-10-30-next-phase/manifest.json",
+      "bytes": 5434,
+      "sha256": "9e4bc0a0012a8cdf5301e01fa187b0ef2e4997984c81d9f60590d1a6f1e6404b"
+    },
+    {
+      "path": "tests/command-protocol-replay.ps1",
+      "bytes": 1431,
+      "sha256": "8eac455a273cf1ae29fd69b3b4012c518ded9535dd44c362936baf9bf3282eb5"
+    },
+    {
+      "path": "tests/observe_cases.py",
+      "bytes": 3749,
+      "sha256": "253712d9ce52db0d71ff4424bf74a3dac69d1ba27e842cb877408f2d0c9d7838"
+    },
+    {
+      "path": "tests/step-encoding-test.ps1",
+      "bytes": 1331,
+      "sha256": "5e6736decf79a4be18bbe0bbb28274e359d56151095c9e2d2d29e5bd2544010d"
+    }
+  ],
+  "optional_paths_not_found": [
+    "experiments/FINALS-RUNS/20261030T150157Z/next-phase/06/handoff.md",
+    "experiments/FINALS-RUNS/20261030T150157Z/next-phase/07/handoff.md",
+    "experiments/FINALS-RUNS/20261030T150157Z/next-phase/08/handoff.md",
+    "experiments/FINALS-RUNS/20261030T150157Z/next-phase/09/handoff.md",
+    "experiments/FINALS-RUNS/20261030T150157Z/next-phase/10/handoff.md",
+    "experiments/FINALS-RUNS/20261030T150157Z/next-phase/11/handoff.md",
+    "experiments/FINALS-RUNS/20261030T150157Z/next-phase/12/handoff.md"
+  ],
+  "documentation_updates": [
+    {
+      "path": "D:\\x-kernel-dsh-bridge\\submission\\for github\\docs\\next_phase\\00_next_plan.md",
+      "backup": "C:\\Users\\a\\Documents\\Codex\\2026-10-29\\md\\work\\iteration_review_backup\\00_next_plan_before_iteration.md",
+      "before_sha256": "d9ffaed07aca7be19a4a88670991590530ad24fb8573ac110c7bfe8e10b752fb",
+      "after_sha256": "2b09f7b6d9687b5782b220a63984a5d35defef4d5420f043c3f7f2658cb9e120",
+      "original_bytes_preserved_as_prefix": true
+    },
+    {
+      "path": "D:\\x-kernel-dsh-bridge\\submission\\x_kernel_chromium.md",
+      "backup": "C:\\Users\\a\\Documents\\Codex\\2026-10-29\\md\\work\\iteration_review_backup\\x_kernel_chromium_before_iteration.md",
+      "before_sha256": "c68d680af8c0f99554268a0e3b93d923260ee3d73e1922bd73e8cd55eb2369ab",
+      "after_sha256": "6ab171dea398b7505282c0ab0ab18b0f110d3d10d5d0d9c016e3e76e59e31c9c",
+      "original_bytes_preserved_as_prefix": true
+    }
+  ],
+  "handoff_coverage": {
+    "result_files_read": 12,
+    "handoff_files_found_and_read": 5,
+    "handoff_files_absent": [
+      "06",
+      "07",
+      "08",
+      "09",
+      "10",
+      "11",
+      "12"
+    ],
+    "note": "Absent handoff files are a documentation gap; result files were present for all 12 tasks"
+  }
+}

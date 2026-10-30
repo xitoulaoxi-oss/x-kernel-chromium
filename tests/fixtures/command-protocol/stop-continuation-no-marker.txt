@@ -1,0 +1,2 @@
+kylin-x:~# sh -c 'p=$(cat /tmp/xk-fault-pid); grep State /proc/$p/status'
+> 

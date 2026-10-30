@@ -20,6 +20,7 @@ smp = ["kspin/smp", "ipi", "ktimer_core/smp"]
 
 sched_stat = []
 arm-timer-resume-fixup = []
+trace_ring = []
 
 
 [dependencies]

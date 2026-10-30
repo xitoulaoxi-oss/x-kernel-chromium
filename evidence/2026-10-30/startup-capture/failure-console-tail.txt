@@ -1,0 +1,40 @@
+kylin-x:~# echo __XK8466789__rc=$?
+__XK8466789__rc=0
+kylin-x:~# sh /tmp/xk-y3-jwm-stock.sh 2>&1
+Y1
+187:    <Key mask="A" key="Tab">nextstacked</Key>
+188:    <Key mask="A" key="F4">close</Key>
+189:    <Key mask="A" key="#">desktop#</Key>
+190:    <Key mask="A" key="F1">root:1</Key>
+191:    <Key mask="A" key="F2">window</Key>
+192:    <Key mask="A" key="F10">maximize</Key>
+193:    <Key mask="A" key="Right">rdesktop</Key>
+194:    <Key mask="A" key="Left">ldesktop</Key>
+195:    <Key mask="A" key="Up">udesktop</Key>
+196:    <Key mask="A" key="Down">ddesktop</Key>
+[ 31.551402 3:74 devfs::nodes::event:403] unknown ioctl for evdev: 21523 140733193384696
+[ 31.553383 3:74 devfs::nodes::event:403] unknown ioctl for evdev: 21515 0
+[ 31.595365 3:74 devfs::nodes::event:403] unknown ioctl for evdev: 21523 140733193383944
+[ 31.597238 3:74 devfs::nodes::event:403] unknown ioctl for evdev: 21515 0
+[ 31.620043 3:74 devfs::nodes::event:403] unknown ioctl for evdev: 21523 140733193384696
+[ 31.622256 3:74 devfs::nodes::event:403] unknown ioctl for evdev: 21515 0
+[ 31.649185 3:74 devfs::nodes::event:403] unknown ioctl for evdev: 21523 140733193383944
+[ 31.651315 3:74 devfs::nodes::event:403] unknown ioctl for evdev: 21515 0
+Y2 jwm=3 jwlog=27
+Y3 wm=_NET_SUPPORTING_WM_CHECK(WINDOW): window id # 0x200001
+/bin/sh: xclock: not found
+Y4
+kylin-x:~# echo __XK3023029__rc=$?
+__XK3023029__rc=0
+kylin-x:~# wget -q -O /tmp/xk-x4-win1.sh 'http://10.0.2.2:53363/x4-win1.sh' && sha256sum /tmp/xk-x4-win1.sh
+1b29a871175dbf01c0347b91479cf8b3408dcd3a4b414185b6c934a3baaa7422  /tmp/xk-x4-win1.sh
+kylin-x:~# echo __XK3969514__rc=$?
+__XK3969514__rc=0
+kylin-x:~# chmod +x /tmp/xk-x4-win1.sh
+kylin-x:~# echo __XK2243847__rc=$?
+__XK2243847__rc=0
+kylin-x:~# sh /tmp/xk-x4-win1.sh 2>&1
+W1 started
+[ 45.273825 1:109 ksyscall::dispatch:885] Unimplemented syscall: landlock_create_ruleset (tid=109)
+W2 t=15 procs=5 log=776 wins=0
+echo FAILURE_DIAGNOSTICS_BEGIN; ps w; for f in /tmp/w.log /tmp/w2.log /tmp/w3.log /tmp/int.log /tmp/lay.log /tmp/xo3.log /tmp/xk-cdp-relay.log; do if [ -r "$f" ]; then echo "LOG_FILE=$f"; tail -n 120 "$f"; fi; done; echo FAILURE_DIAGNOSTICS_END

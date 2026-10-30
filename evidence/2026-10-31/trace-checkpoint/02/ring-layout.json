@@ -1,0 +1,38 @@
+{
+  "schema": "xk-ring-layout/2",
+  "generated_at": "2026-10-31T02:15:00+08:00",
+  "total_budget_bytes": 196608,
+  "total_object_bytes": 164224,
+  "layout": {
+    "header": {"offset": 0, "size": 128},
+    "per_cpu_metadata": {"offset": 128, "stride": 64, "count": 4, "size": 256},
+    "entries": {"offset": 384, "cpu_stride": 40960, "entry_size": 40, "entries_per_cpu": 1024, "size": 163840}
+  },
+  "header_fields": {
+    "magic_0": "XKRING02", "schema_u32_8": 2, "header_len_u32_12": 128,
+    "total_len_u32_16": 164224, "cpu_count_u32_20": 4, "entry_size_u32_24": 40,
+    "entries_per_cpu_u32_28": 1024, "boot_nonce_u64_32": "runtime",
+    "ticks_per_sec_u64_40": "runtime", "clock_domain_u32_48": "0 = arch timer counter",
+    "flags_u32_52": 0, "header_checksum_u64_56": "FNV-1a over header with field zeroed",
+    "reserved_64_127": 0
+  },
+  "metadata_fields": {"seq_u64_0": "total writes", "dropped_u64_8": "overwritten because of wrap",
+                        "head_u32_16": "next slot", "flags_u32_20": 0, "reserved_24_63": 0},
+  "entry_fields": {"seq_u64_0": "per-CPU sequence", "ticks_u64_8": "arch timer at write",
+                    "arg0_u64_16": "event-specific", "arg1_u64_24": "event-specific",
+                    "kind_u16_32": "event kind", "cpu_u16_34": "CPU id",
+                    "flags_u32_36": "bit0 COMMITTED; 0 = writing/unused"},
+  "invariants": {
+    "commit": "writer fills seq/ticks/args/kind/cpu, then sets COMMITTED with release; reader requires COMMITTED and seq in the retained window",
+    "half_write": "non-zero slot without COMMITTED is reported, never decoded",
+    "wrap": "slot = seq % 1024; retained range [seq-1023, seq-1] while seq>0",
+    "overwrite_count": "dropped counter and retained range only; no host read cursor, so this is not an exact unread-loss count",
+    "cross_cpu": "ticks from one arch counter; equal ticks do not imply a total order; seq ordering is only within a CPU",
+    "same_cpu_nesting": "the writer reserves a slot before filling it; an interrupt nesting the writer must not reuse the same slot (seq reservation is atomic)",
+    "initial_export": "frozen dump only; no concurrent live decode promised"
+  },
+  "decoder": "host/ring_decode.py",
+  "tests": "tests/ring_layout_test.py: 12/12 (empty, valid, half-write, wrap, duplicate seq, wrong schema/length/cpu/checksum/magic, short buffer)",
+  "not_yet": "no kernel static object or writer; task 03 builds that",
+  "next": "03 static default-off storage and two builds"
+}

@@ -1,0 +1,116 @@
+{
+  "schema": "xk-iteration-plan/1",
+  "tasks": [
+    {
+      "task": "01",
+      "file": "01_complete_command_frames.md",
+      "priority": "P0",
+      "status": "COMPLETED",
+      "execution_started": true,
+      "dependency": "无；首个实施任务。建议1–2小时。",
+      "title": "补齐串口回执的流式边界"
+    },
+    {
+      "task": "02",
+      "file": "02_verify_host_trace_export.md",
+      "priority": "P1",
+      "status": "COMPLETED",
+      "execution_started": true,
+      "dependency": "01通过后可做短会话验证；建议2–4小时。",
+      "title": "验证不依赖客机命令的内存取证"
+    },
+    {
+      "task": "03",
+      "file": "03_record_bounded_kernel_events.md",
+      "priority": "P1",
+      "status": "PARTIAL",
+      "execution_started": true,
+      "dependency": "02的导出通道通过；建议3–6小时。",
+      "title": "加入固定容量的每CPU事件记录"
+    },
+    {
+      "task": "04",
+      "file": "04_locate_first_missing_event.md",
+      "priority": "P1",
+      "status": "WAITING_GATE",
+      "execution_started": false,
+      "dependency": "03可用；按假设分轮，每轮预算4–8小时，未定位则交接。",
+      "title": "捕获首个缺失事件并做单一修复"
+    },
+    {
+      "task": "05",
+      "file": "05_validate_navigation_sequence.md",
+      "priority": "P1",
+      "status": "PARTIAL",
+      "execution_started": true,
+      "dependency": "01通过；可独立分析，QEMU实验与其它任务串行。建议2–3小时。",
+      "title": "对照验证首页确认与第二窗口时序"
+    },
+    {
+      "task": "06",
+      "file": "06_confirm_process_identity.md",
+      "priority": "P2",
+      "status": "COMPLETED",
+      "execution_started": true,
+      "dependency": "01通过且有一个可用浏览器会话即可；无需等待20轮完成。建议2–4小时。",
+      "title": "建立同会话renderer身份与生命周期证明"
+    },
+    {
+      "task": "07",
+      "file": "07_align_clocks_and_sampling.md",
+      "priority": "P2",
+      "status": "PARTIAL",
+      "execution_started": true,
+      "dependency": "01、06通过；可先离线改时钟记录，实验串行。建议2–4小时。",
+      "title": "对齐计时实现并验证低扰动采样"
+    },
+    {
+      "task": "08",
+      "file": "08_accept_stable_candidate.md",
+      "priority": "GATE",
+      "status": "WAITING_GATE",
+      "execution_started": false,
+      "dependency": "04产生可解释修复、05策略确认；01通过，06/07采集已可用。",
+      "title": "验证当前候选的首次启动与完整功能"
+    },
+    {
+      "task": "09",
+      "file": "09_collect_five_run_baseline.md",
+      "priority": "GATE",
+      "status": "WAITING_GATE",
+      "execution_started": false,
+      "dependency": "07实现与08候选门槛通过。",
+      "title": "形成同版本同轮四项五轮基线"
+    },
+    {
+      "task": "10",
+      "file": "10_measure_three_optimizations.md",
+      "priority": "P3",
+      "status": "WAITING_GATE",
+      "execution_started": false,
+      "dependency": "09通过后才测收益；可提前只读分析热点。",
+      "title": "按瓶颈逐项测量最多三项优化"
+    },
+    {
+      "task": "11",
+      "file": "11_validate_fault_diagnosis.md",
+      "priority": "P3",
+      "status": "WAITING_GATE",
+      "execution_started": false,
+      "dependency": "01、06通过且注入前页面/目标就绪；无需等待三项优化结束。",
+      "title": "验证身份可证的崩溃、卡顿和泄漏诊断"
+    },
+    {
+      "task": "12",
+      "file": "12_rehearse_and_package.md",
+      "priority": "RELEASE",
+      "status": "WAITING_GATE",
+      "execution_started": false,
+      "dependency": "08、09、11达到对应交付门槛；10按实际结果披露。",
+      "title": "三场彩排、证据精简与发布交接"
+    }
+  ],
+  "note": "Offline tests in review audit are review checks, not execution of these new tasks; retain previous phase statuses unchanged",
+  "executed_at": "2026-10-31T01:12:00+08:00",
+  "execution_note": "01/02/06 PASS; 03/05/07 PARTIAL; 04/08-12 WAITING_GATE. Results under experiments/FINALS-RUNS/20261031T002500Z/iteration/."
+}

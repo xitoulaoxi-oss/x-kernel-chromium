@@ -1,0 +1,228 @@
+{
+  "schema": "xk-event-chain/1",
+  "header": {
+    "magic": "XKRING02",
+    "schema": 2,
+    "boot_nonce": 16256006,
+    "ticks_per_sec": 62500000
+  },
+  "timer_chain_cpu0": [
+    {
+      "seq": 29096,
+      "ticks": 2966595268,
+      "kind": "idle_enter",
+      "arg0": 0
+    },
+    {
+      "seq": 29097,
+      "ticks": 2967216687,
+      "kind": "timer_irq",
+      "arg0": 47475463792
+    },
+    {
+      "seq": 29098,
+      "ticks": 2967219781,
+      "kind": "timer_arm",
+      "arg0": 47485483392
+    },
+    {
+      "seq": 29099,
+      "ticks": 2967224118,
+      "kind": "timer_arm",
+      "arg0": 47485483392
+    },
+    {
+      "seq": 29100,
+      "ticks": 2967228318,
+      "kind": "timer_arm",
+      "arg0": 47485483392
+    },
+    {
+      "seq": 29101,
+      "ticks": 2967230812,
+      "kind": "timer_arm",
+      "arg0": 47485483392
+    },
+    {
+      "seq": 29102,
+      "ticks": 2967232381,
+      "kind": "idle_return",
+      "arg0": 0
+    },
+    {
+      "seq": 29103,
+      "ticks": 2967233543,
+      "kind": "timer_arm",
+      "arg0": 47485483392
+    },
+    {
+      "seq": 29104,
+      "ticks": 2967234006,
+      "kind": "idle_enter",
+      "arg0": 0
+    },
+    {
+      "seq": 29105,
+      "ticks": 2967967243,
+      "kind": "timer_irq",
+      "arg0": 47487474192
+    },
+    {
+      "seq": 29106,
+      "ticks": 2967969331,
+      "kind": "timer_arm",
+      "arg0": 47497485696
+    },
+    {
+      "seq": 29107,
+      "ticks": 2967973525,
+      "kind": "timer_arm",
+      "arg0": 47497485696
+    },
+    {
+      "seq": 29108,
+      "ticks": 2967976868,
+      "kind": "timer_arm",
+      "arg0": 47497485696
+    },
+    {
+      "seq": 29109,
+      "ticks": 2967980037,
+      "kind": "timer_arm",
+      "arg0": 47497485696
+    },
+    {
+      "seq": 29110,
+      "ticks": 2967981725,
+      "kind": "idle_return",
+      "arg0": 0
+    },
+    {
+      "seq": 29111,
+      "ticks": 2967982443,
+      "kind": "timer_arm",
+      "arg0": 47497485696
+    }
+  ],
+  "ipi_recv": [
+    {
+      "cpu": 3,
+      "seq": 845,
+      "ticks": 58539162,
+      "arg0": 58539006,
+      "arg1": 0,
+      "kind": 8,
+      "flags": 1
+    },
+    {
+      "cpu": 3,
+      "seq": 853,
+      "ticks": 60090456,
+      "arg0": 60090381,
+      "arg1": 0,
+      "kind": 8,
+      "flags": 1
+    },
+    {
+      "cpu": 3,
+      "seq": 859,
+      "ticks": 60238550,
+      "arg0": 60238481,
+      "arg1": 0,
+      "kind": 8,
+      "flags": 1
+    },
+    {
+      "cpu": 3,
+      "seq": 865,
+      "ticks": 60299343,
+      "arg0": 60299281,
+      "arg1": 0,
+      "kind": 8,
+      "flags": 1
+    },
+    {
+      "cpu": 3,
+      "seq": 871,
+      "ticks": 60359806,
+      "arg0": 60359743,
+      "arg1": 0,
+      "kind": 8,
+      "flags": 1
+    },
+    {
+      "cpu": 3,
+      "seq": 877,
+      "ticks": 60464743,
+      "arg0": 60464662,
+      "arg1": 0,
+      "kind": 8,
+      "flags": 1
+    }
+  ],
+  "per_cpu": [
+    {
+      "cpu": 0,
+      "seq": 30119,
+      "dropped": 29095,
+      "retained_seq": [
+        29096,
+        30118
+      ],
+      "entries": 1023,
+      "half_written": 1
+    },
+    {
+      "cpu": 1,
+      "seq": 23062,
+      "dropped": 22038,
+      "retained_seq": [
+        22039,
+        23061
+      ],
+      "entries": 1023,
+      "half_written": 1
+    },
+    {
+      "cpu": 2,
+      "seq": 1456,
+      "dropped": 432,
+      "retained_seq": [
+        433,
+        1455
+      ],
+      "entries": 1023,
+      "half_written": 1
+    },
+    {
+      "cpu": 3,
+      "seq": 1424,
+      "dropped": 400,
+      "retained_seq": [
+        401,
+        1423
+      ],
+      "entries": 1023,
+      "half_written": 1
+    }
+  ],
+  "code_locations": {
+    "idle_enter_idle_return": "ktask::api::run_idle",
+    "timer_arm": "ktask::api::rearm_local_timer",
+    "timer_irq": "ktask::api::on_timer_fire",
+    "ipi_recv": "ktask::api::on_remote_resched_ipi"
+  },
+  "wrap_and_half_write": "each CPU seq exceeds 1024; dropped>0; one stopped-in-progress slot per CPU is rejected by the decoder",
+  "overhead_wall_s": {
+    "trace": [
+      9.2,
+      9.1
+    ],
+    "closed": [
+      9.2,
+      9.3
+    ],
+    "note": "boot-to-shell wall, same disk/kernel base, 0.1 s resolution; no measurable difference at this resolution"
+  },
+  "ok": true
+}

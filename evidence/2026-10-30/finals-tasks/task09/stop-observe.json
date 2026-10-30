@@ -1,0 +1,58 @@
+{
+  "schema_version": 2,
+  "session": "experiments\\FINALS-RUNS\\20261030T110856Z\\task09\\stop",
+  "summary": [
+    "CRASH",
+    "HANG"
+  ],
+  "crash": {
+    "detected": true,
+    "subjects": [],
+    "signals": [],
+    "harness_error": true,
+    "harness_error_tail": "Guest command did not complete: sh -c 'p=$(cat /tmp/xk-fault-pid) (timeout 300s)",
+    "qemu_stderr_tail": "",
+    "chromium_log_lines": 0
+  },
+  "hang": {
+    "detected": true,
+    "class": "heartbeat_missing",
+    "reasons": [
+      "no heartbeat lines for a timed session"
+    ],
+    "heartbeats": 0,
+    "last_heartbeat": null,
+    "final_stats": "ready-01-p1.stats.json",
+    "final_colors": 835,
+    "final_blank": false
+  },
+  "leak": {
+    "detected": false,
+    "host_qemu_ws": {
+      "samples": 0,
+      "insufficient_data": true,
+      "warmup_minutes": 5.0
+    },
+    "guest_chromium": {
+      "available": false,
+      "reason": "no CMJSON sample in console (chrome-mem.sh not run or interface missing)",
+      "samples": 0
+    },
+    "threshold_mb": 256.0,
+    "threshold_slope": 2.0,
+    "attribution_limited": true,
+    "note": "host QEMU working set is a lead only; guest per-process RSS is a separate quantity"
+  },
+  "qemu_metrics": {
+    "qemu_pid": 42012,
+    "peak_working_set_b": 2145046528,
+    "cpu_seconds": 226.48,
+    "has_exited": false,
+    "wall_seconds": 423.1,
+    "smp_cpus": 4,
+    "guest_mem_mb": 4096,
+    "host_ram_b": 34243506176,
+    "host_logical_cpus": 16,
+    "qemu_threads": 14
+  }
+}

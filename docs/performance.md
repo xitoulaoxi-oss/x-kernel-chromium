@@ -9,3 +9,21 @@
 CDP 与抓帧会影响时序。未来比较必须冻结源码、页面、内核和启动参数，使用相同平台与计时定义，保留失败率。历史旧读数见 Git 历史，不据此推算当前成绩。
 
 附加复现检查：归档ELF导出二进制与当前运行内核的哈希不一致。正式基线应重建或取得匹配的bin/ELF及配置，不能直接依据旧ELF行号修改当前内核。
+
+## 2026-10-30 measurement attempt
+
+- Rebuilt `kernel-final.bin` with matching `kernel.elf` and config (same build): bin `c50075b6…`, ELF `1b0c758d…`, config `fbd1615b…`.
+- Plain x4 launch under a 10 s frame watch: six rounds, four valid. First frame n=4, median 60.046 s, spread 0.013 s; page load n=4, median 51.454 s, spread 3.774 s. Failure rate 2/6.
+- Renderer creation n=0: starting a 1 Hz monitor before launch made startup fail 5/5, so those runs were discarded rather than reported. Guest peak memory n=0. Host QEMU peak n=6, median 2058 MB.
+- Therefore the four-metric five-round baseline is still not qualified; no before/after percentage is published. Raw: [baseline-x4b.json](../evidence/2026-10-30/finals-tasks/task05/baseline-x4b.json).
+
+## 2026-10-30 metric correction
+
+The `51.454 s` page-load value above is **superseded**: it subtracted the host launch t0 from a browser epoch and included browser startup. The corrected independent page load is `loadEventEnd - navigationStart` on the browser clock. On the same four valid x4b runs it is median **17.56 s** (range 16.77-20.62 s), n=4.
+
+The first-frame value is a sampling bracket, not a 0.013 s point estimate: run01 is `[50.031, 60.044] s` at a 10.013 s frame interval. Renderer creation and guest memory still have n=0 for that set. The versioned protocol and reparse are in `experiments/FINALS-RUNS/20261030T150157Z/next-phase/08/metric-protocol.json`; originals were not modified.
+
+
+## 2026-10-31 checkpoint clarification
+
+补充纠偏：旧监控5轮中3轮是上传失败，不能据此断言监控导致5/5失败。sample2/3客机整体占用抽样最大值分别938.63/937.60MiB；renderer +37秒仅为wall时钟相对采样器起点的首次发现，不是创建延迟。宿主首帧实现仍需对齐单调时钟。

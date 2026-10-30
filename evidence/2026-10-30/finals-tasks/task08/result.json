@@ -1,0 +1,8 @@
+{
+  "task": "08_optimize_renderer_path",
+  "status": "BLOCKED",
+  "blocking_condition": "No role-confirmed renderer-creation samples (05: n=0) and no qualified baseline. Renderer identity must be real, so no heuristic number is reported.",
+  "variables_changed": [],
+  "measurements": [],
+  "next": "Requires a non-perturbing renderer sampler and 05 to pass first."
+}

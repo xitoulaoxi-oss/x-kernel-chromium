@@ -1,0 +1,23 @@
+{
+  "task": "trace-followup/04_capture_timer_wakeup_events",
+  "status": "PASS",
+  "build": {"bin": "artifacts/kernel-trace2.bin", "bin_sha256": "5e4e443d3242d2221973969a735e271dc091d94e5f63a682f8634b38e548a2f0",
+            "elf_sha256": "48c41194f17fc37aec6db152742f84c559e2442ee14bce432f8eabacd4472c2b",
+            "config_sha256": "858670175670ad2acf109a6ca8039c9e8c984219046bbc16b63907cc5b9263ba",
+            "symbol": "XK_TRACE_RING ffff80000092ed80, phys 0x40b2ed80"},
+  "events": {"idle_enter": 860, "idle_return": 858, "timer_arm": 2038, "timer_irq": 330, "ipi_recv": 6, "total": 4092},
+  "timer_chain": "CPU0 seq 29096 idle_enter -> 29097 timer_irq -> 29098..29098 timer_arm; see event-chain.json",
+  "ipi_chain": "CPU3 seq 845/853/... kind=ipi_recv; arg0 is the counter sample 50-75 us before the handler sample",
+  "code_locations": {"idle": "ktask::api::run_idle", "timer_arm": "ktask::api::rearm_local_timer",
+                     "timer_irq": "ktask::api::on_timer_fire", "ipi_recv": "ktask::api::on_remote_resched_ipi"},
+  "wrap": {"cpu0": {"seq": 30119, "dropped": 29095, "retained": [29096, 30118]},
+           "cpu1": {"seq": 23062, "dropped": 22038, "retained": [22039, 23061]},
+           "cpu2": {"seq": 1456, "dropped": 432, "retained": [433, 1455]},
+           "cpu3": {"seq": 1424, "dropped": 400, "retained": [401, 1423]}},
+  "half_write": "one in-progress slot per CPU was captured while QMP-stopped and rejected by the decoder",
+  "overhead": {"trace_wall_s": [9.2, 9.1], "closed_wall_s": [9.2, 9.3], "resolution_s": 0.1,
+               "note": "boot-to-shell wall, same disk; no measurable difference at 0.1 s resolution"},
+  "export": "experiments/FINALS-RUNS/20261031T014800Z/trace-followup/04/timer-chain2.json; frozen raw timer-chain2.bin; decoded event-chain.json",
+  "limits": ["one boot session", "QMP stopped full read only", "cross-CPU ticks are not a total order"],
+  "next": "05 make the exporter fail-safe for a real stall (no auto-cont, partial read/short dump, 1MiB cap)"
+}

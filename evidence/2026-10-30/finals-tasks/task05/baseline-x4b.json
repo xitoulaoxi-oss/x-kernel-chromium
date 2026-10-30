@@ -1,0 +1,194 @@
+{
+  "schema": "xk-baseline-x4b/1",
+  "generated_at": "2026-10-30T21:50:32+0800",
+  "kernel": "artifacts\\kernel-final.bin",
+  "repeats": 6,
+  "definitions": {
+    "startup_first_frame_s": {
+      "unit": "s",
+      "origin": "frame-watch t0 = launch dispatch",
+      "resolution_s": 10.0,
+      "method": "QEMU screendump; first frame with saturation>=0.06, >=300 colours, not blank",
+      "type": "sampled upper bound"
+    },
+    "page_load_s": {
+      "unit": "s",
+      "origin": "frame-watch t0 (host UTC)",
+      "resolution_s": 0.001,
+      "method": "page performance.timeOrigin + navigation.loadEventEnd minus frame-watch t0",
+      "type": "browser-clock exact, requires guest/host epoch agreement"
+    },
+    "renderer_creation_s": {
+      "unit": "s",
+      "origin": "/tmp/perf.t0 just before launch",
+      "resolution_s": 1.0,
+      "method": "1 Hz guest monitor first zygote child; accepted only if Chromium SystemInfo lists that PID",
+      "type": "sampled, role-confirmed"
+    },
+    "peak_guest_used_mb": {
+      "unit": "MB",
+      "origin": "launch -> harvest",
+      "resolution_s": 1.0,
+      "method": "max(MemTotal-MemFree) over 1 Hz guest samples; whole-guest upper bound",
+      "type": "sampled upper bound"
+    }
+  },
+  "samples": [
+    {
+      "run": 1,
+      "wall_s": 207.7,
+      "harness_rc": 0,
+      "url": "file:///usr/share/kiosk/official/index.html",
+      "page_ok": true,
+      "t0_utc": "2026-10-30T13:37:01.7388327Z",
+      "startup_first_frame_s": 60.044,
+      "navigation_start_s": 34.08,
+      "page_load_s": 54.7,
+      "epoch_delta_s": 34.08,
+      "renderer_creation_s": null,
+      "renderer_s_raw": null,
+      "renderer_pid": null,
+      "renderer_role_confirmed": false,
+      "peak_guest_used_mb": null,
+      "peak_host_qemu_mb": 2024.6,
+      "evidence_dir": "D:\\x-kernel-dsh-bridge\\submission\\for github\\evidence\\baseline\\x4b\\run01"
+    },
+    {
+      "run": 2,
+      "wall_s": 217.3,
+      "harness_rc": 0,
+      "url": "file:///usr/share/kiosk/official/index.html",
+      "page_ok": true,
+      "t0_utc": "2026-10-30T13:40:28.9945353Z",
+      "startup_first_frame_s": 60.05,
+      "navigation_start_s": 34.59,
+      "page_load_s": 51.359,
+      "epoch_delta_s": 34.59,
+      "renderer_creation_s": null,
+      "renderer_s_raw": null,
+      "renderer_pid": null,
+      "renderer_role_confirmed": false,
+      "peak_guest_used_mb": null,
+      "peak_host_qemu_mb": 2137.9,
+      "evidence_dir": "D:\\x-kernel-dsh-bridge\\submission\\for github\\evidence\\baseline\\x4b\\run02"
+    },
+    {
+      "run": 3,
+      "wall_s": 207.4,
+      "harness_rc": 0,
+      "url": "file:///usr/share/kiosk/official/index.html",
+      "page_ok": true,
+      "t0_utc": "2026-10-30T13:44:06.3989468Z",
+      "startup_first_frame_s": 60.049,
+      "navigation_start_s": 33.944,
+      "page_load_s": 50.926,
+      "epoch_delta_s": 33.944,
+      "renderer_creation_s": null,
+      "renderer_s_raw": null,
+      "renderer_pid": null,
+      "renderer_role_confirmed": false,
+      "peak_guest_used_mb": null,
+      "peak_host_qemu_mb": 2026.7,
+      "evidence_dir": "D:\\x-kernel-dsh-bridge\\submission\\for github\\evidence\\baseline\\x4b\\run03"
+    },
+    {
+      "run": 4,
+      "wall_s": 207.0,
+      "harness_rc": 0,
+      "url": "file:///usr/share/kiosk/official/index.html",
+      "page_ok": true,
+      "t0_utc": "2026-10-30T13:47:33.6898851Z",
+      "startup_first_frame_s": 60.037,
+      "navigation_start_s": 33.41,
+      "page_load_s": 51.55,
+      "epoch_delta_s": 33.41,
+      "renderer_creation_s": null,
+      "renderer_s_raw": null,
+      "renderer_pid": null,
+      "renderer_role_confirmed": false,
+      "peak_guest_used_mb": null,
+      "peak_host_qemu_mb": 2092.3,
+      "evidence_dir": "D:\\x-kernel-dsh-bridge\\submission\\for github\\evidence\\baseline\\x4b\\run04"
+    },
+    {
+      "run": 5,
+      "wall_s": 11.1,
+      "harness_rc": 1,
+      "url": null,
+      "page_ok": null,
+      "t0_utc": null,
+      "startup_first_frame_s": null,
+      "navigation_start_s": null,
+      "page_load_s": null,
+      "epoch_delta_s": null,
+      "renderer_creation_s": null,
+      "renderer_s_raw": null,
+      "renderer_pid": null,
+      "renderer_role_confirmed": false,
+      "peak_guest_used_mb": null,
+      "peak_host_qemu_mb": 146.7,
+      "evidence_dir": "D:\\x-kernel-dsh-bridge\\submission\\for github\\evidence\\baseline\\x4b\\run05"
+    },
+    {
+      "run": 6,
+      "wall_s": 215.4,
+      "harness_rc": 1,
+      "url": null,
+      "page_ok": null,
+      "t0_utc": "2026-10-30T13:51:21.0651584Z",
+      "startup_first_frame_s": null,
+      "navigation_start_s": null,
+      "page_load_s": null,
+      "epoch_delta_s": null,
+      "renderer_creation_s": null,
+      "renderer_s_raw": null,
+      "renderer_pid": null,
+      "renderer_role_confirmed": false,
+      "peak_guest_used_mb": null,
+      "peak_host_qemu_mb": 1404.0,
+      "evidence_dir": "D:\\x-kernel-dsh-bridge\\submission\\for github\\evidence\\baseline\\x4b\\run06"
+    }
+  ],
+  "summary": {
+    "startup_first_frame_s": {
+      "n": 4,
+      "median": 60.046,
+      "min": 60.037,
+      "max": 60.05,
+      "spread": 0.013,
+      "all": [
+        60.044,
+        60.05,
+        60.049,
+        60.037
+      ]
+    },
+    "page_load_s": {
+      "n": 4,
+      "median": 51.454,
+      "min": 50.926,
+      "max": 54.7,
+      "spread": 3.774,
+      "all": [
+        54.7,
+        51.359,
+        50.926,
+        51.55
+      ]
+    },
+    "renderer_creation_s": {
+      "n": 0,
+      "median": null
+    },
+    "peak_guest_used_mb": {
+      "n": 0,
+      "median": null
+    }
+  },
+  "failure_rate": 0.333,
+  "notes": [
+    "first_frame and peak memory are sampled upper bounds; page load is a browser-clock interval.",
+    "renderer_creation_s is reported only when Chromium's process list confirms the PID role.",
+    "A run whose DOM check failed is not used for page_load or renderer_creation."
+  ]
+}

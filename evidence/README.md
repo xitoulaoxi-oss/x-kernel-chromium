@@ -24,3 +24,24 @@
 ## Subsequent task execution
 
 [Startup diagnostics and CRLF fix](../docs/startup-diagnosis.md): corrected local shell-script line endings, added pre-upload rejection, reran an actual startup successfully, and passed a fresh input/renderer subset 2/2. Previous failures remain. This does not certify a complete functional run or twenty first starts.
+
+## 2026-10-30 finals task book (01-11)
+
+| 任务 | 结果 | 关键证据 |
+|---|---|---|
+| 01 抓取首次启动失败 | PASS | [同命令成功/失败、四 vCPU 同一空闲 PC、QEMU CPU 0.215](2026-10-30/finals-tasks/task01/startup-capture/startup-capture.json) |
+| 02 修复启动推进 | PARTIAL | [空闲 tick 修复与未消除的随机停顿](2026-10-30/finals-tasks/task02/result.json) |
+| 03 二十次首次启动 | FAIL：11/13 | [两次尝试，失败保留](2026-10-30/finals-tasks/task03/result.json) |
+| 04 一轮完整功能 | FAIL：首次 DOM 即 about:blank | [结果](2026-10-30/finals-tasks/task04/result.json) |
+| 05 四项指标基线 | FAIL：2 项 n=4，renderer/客机峰值 n=0 | [原始基线](2026-10-30/finals-tasks/task05/baseline-x4b.json) |
+| 06-08 三项优化 | BLOCKED | [06](2026-10-30/finals-tasks/task06/result.json)、[07](2026-10-30/finals-tasks/task07/result.json)、[08](2026-10-30/finals-tasks/task08/result.json) |
+| 09 真实故障诊断 | PARTIAL：crash/stop 注入成功但诊断被超时打断；leak 未运行 | [结果](2026-10-30/finals-tasks/task09/result.json) |
+| 10 三场景彩排 | BLOCKED | [结果](2026-10-30/finals-tasks/task10/result.json) |
+| 11 打包与同步 | PARTIAL：证据包已生成，未推送 | 本目录 + `submission/release-2026-10-30-final/` |
+
+`finals-tasks/manifest.json` 记录 25 个公开证据文件的 SHA-256。原始会话、截图和逐帧日志仍在被 Git 忽略的 `experiments/FINALS-RUNS/20261030T110856Z/`；公开目录只保留结论、失败证据和可复核 JSON。
+
+
+## 2026-10-31 trace checkpoint
+
+[结果、边界与哈希](2026-10-31/trace-checkpoint/README.md)。完整实验日志本地保留，公开目录只留代表证据。

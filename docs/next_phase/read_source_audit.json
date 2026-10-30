@@ -1,0 +1,551 @@
+{
+  "review_date_hong_kong": "2026-10-30",
+  "scope": "Read-only log and source review; no new experiments or code changes",
+  "curated_manifest_entries_verified": 28,
+  "curated_manifest_mismatches": 0,
+  "sources": [
+    {
+      "path": "docs/performance.md",
+      "bytes": 2116,
+      "sha256": "220be8f33ff4a6027fcfcbf184ebc4924d9460bfdc3044826ff4925085e730dd"
+    },
+    {
+      "path": "docs/startup-diagnosis.md",
+      "bytes": 3795,
+      "sha256": "f5da29447cdeba6c6af20f2361c1f94f96c3416d3e45086d1bac96bfeb1d7d5e"
+    },
+    {
+      "path": "docs/verification.md",
+      "bytes": 1818,
+      "sha256": "c6c7a4b2fce47e40469c2c828d4c80a34ba2a05519a2072e13ea9ea2acc9b39a"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/manifest.json",
+      "bytes": 5735,
+      "sha256": "6f19fee7d866253ffd1d6cdc5853cb3c20b9e18d187077a260d0f23c5bd5efe2"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task01/handoff.md",
+      "bytes": 412,
+      "sha256": "0392a7abd1133417897e0353ec559ecbdb577d81efe5bce75d36053780eb9de6"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task01/result.json",
+      "bytes": 1947,
+      "sha256": "04b7bf5d9da9672522881b28572f201d3274ef6ad17d4378773e7d8438627cd9"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task02/handoff.md",
+      "bytes": 650,
+      "sha256": "c26ca13c08157864ff350d2dbdc4d2324e8ceea35013f379e7eccb030920591c"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task02/result.json",
+      "bytes": 1970,
+      "sha256": "e516c3eb5111652afb9d107886582a48ecce0cc7b0bbe84253445677418290b5"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task03/handoff.md",
+      "bytes": 447,
+      "sha256": "d58d5f951f82cb1bb256a2390d713250a360700b9d9cad7bb33281ef026d519e"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task03/result.json",
+      "bytes": 1304,
+      "sha256": "9d23b95ef24d557661ee7f223569720f2a25dca09b9d73e7b3cfc6f1ba513eb7"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task04/handoff.md",
+      "bytes": 457,
+      "sha256": "303c7625c04addcc94ea8181bd3c89d1b2dfd5b1554d24f4efc26eed04d41c20"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task04/result.json",
+      "bytes": 1005,
+      "sha256": "e640275c764b9b30e68f7700ac59f824873fa8ca0a135ec29a7bf88481dcf110"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task05/handoff.md",
+      "bytes": 615,
+      "sha256": "7ff4556c73d7655a70ae1acdfe0a1bcc247b37382a2886a69a2d14c74f1fab5a"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task05/result.json",
+      "bytes": 1647,
+      "sha256": "b99dd507e3a869b7345711231c2389c436110ea0e7c93e56165e628660fba807"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task06/result.json",
+      "bytes": 382,
+      "sha256": "9e067ebbac43f64b23ccec83ced50095a42a6fdca9af1e5cb1b496dd3d48b84f"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task07/result.json",
+      "bytes": 310,
+      "sha256": "f96c7f25026d1ff1c72101a57508d73b4d3c385166726433788f12b8e825eb52"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task08/result.json",
+      "bytes": 368,
+      "sha256": "6854c0824ebbc4d8a518a3599098ee2a86a942c09e073732059b8d619619243a"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task09/result.json",
+      "bytes": 1267,
+      "sha256": "42a243ccc56b7d907b1b9f352bd38aba94bb2148c166981aa1c070207a481693"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task10/handoff.md",
+      "bytes": 309,
+      "sha256": "d32ab4a7c92e71f5be7dcfdcf903a5aca73b0340d284e77cc72a7d470545d259"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task10/result.json",
+      "bytes": 718,
+      "sha256": "691f139f6cd96e668d46508973d435dae6636ede742c5ed01deb34ebac752a8c"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task11/handoff.md",
+      "bytes": 409,
+      "sha256": "13fff01cde604c7633d86cb5fa8246ea401587cd8b5ca98479a596e314aa3aa3"
+    },
+    {
+      "path": "evidence/2026-10-30/finals-tasks/task11/result.json",
+      "bytes": 851,
+      "sha256": "9e6ab3169e19596eb9d1c6300794a9b2050ff184c0a598ec640e317d01544ffa"
+    },
+    {
+      "path": "evidence/baseline/x4b/run01/frame-watch.json",
+      "bytes": 8253,
+      "sha256": "8f3f9e57fd71e0793a6999829e05ce71235109056a4c445ebedc0a36b4846d81"
+    },
+    {
+      "path": "evidence/baseline/x4b/run01/harness-result.json",
+      "bytes": 16,
+      "sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01"
+    },
+    {
+      "path": "evidence/baseline/x4b/run01/page-check.json",
+      "bytes": 1554,
+      "sha256": "aeb859a366a4e167d68c19765d7f1d727731ec57ad16d404761ccd8865ff2a7c"
+    },
+    {
+      "path": "evidence/baseline/x4b/run02/frame-watch.json",
+      "bytes": 8682,
+      "sha256": "bdfd7bfc80adaca4af2d56b2b610de562aba268213237aac297b675dd85fe0e6"
+    },
+    {
+      "path": "evidence/baseline/x4b/run02/harness-result.json",
+      "bytes": 16,
+      "sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01"
+    },
+    {
+      "path": "evidence/baseline/x4b/run02/page-check.json",
+      "bytes": 1554,
+      "sha256": "a1de76f266c874e099b78b894b653733e426f181d8e9bb2d655d0fb2147e1d99"
+    },
+    {
+      "path": "evidence/baseline/x4b/run03/frame-watch.json",
+      "bytes": 8247,
+      "sha256": "fb91e2021321d86f9c2c42843410883cd9a5564244a3c21e0b295c5b29da5dc7"
+    },
+    {
+      "path": "evidence/baseline/x4b/run03/harness-result.json",
+      "bytes": 16,
+      "sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01"
+    },
+    {
+      "path": "evidence/baseline/x4b/run03/page-check.json",
+      "bytes": 1557,
+      "sha256": "989a12ac8c692e232d7088aa4dbfa072379ae30fcc8e3231761210d06121c03c"
+    },
+    {
+      "path": "evidence/baseline/x4b/run04/frame-watch.json",
+      "bytes": 8253,
+      "sha256": "d18b440a60b0e1094a8bc6044f911d0c58be0e85ace2c6533aa9b97e064dd202"
+    },
+    {
+      "path": "evidence/baseline/x4b/run04/harness-result.json",
+      "bytes": 16,
+      "sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01"
+    },
+    {
+      "path": "evidence/baseline/x4b/run04/page-check.json",
+      "bytes": 1553,
+      "sha256": "ef3276609c65ddaa25a35cc51d9a293724ec8cf863f04c63c6774bb09231bdef"
+    },
+    {
+      "path": "evidence/baseline/x4b/run05/harness-error.txt",
+      "bytes": 53,
+      "sha256": "4c1d95c0cb93d45953dfbe2475cd0410db549a72e4637d2d4f25539c76704d53"
+    },
+    {
+      "path": "evidence/baseline/x4b/run05/harness-result.json",
+      "bytes": 16,
+      "sha256": "2618b95f1f6be6bfde8537756f85b83845d039001563135b9d59d817446733eb"
+    },
+    {
+      "path": "evidence/baseline/x4b/run06/frame-watch.json",
+      "bytes": 8011,
+      "sha256": "8b2de3e4e867e587ee64a07d88633007b69759e5474df322253177f478a55266"
+    },
+    {
+      "path": "evidence/baseline/x4b/run06/harness-error.txt",
+      "bytes": 38,
+      "sha256": "af2d66c77f3a380684f14da55c0933cf2d16e6c991231101778255078efc61bf"
+    },
+    {
+      "path": "evidence/baseline/x4b/run06/harness-result.json",
+      "bytes": 16,
+      "sha256": "2618b95f1f6be6bfde8537756f85b83845d039001563135b9d59d817446733eb"
+    },
+    {
+      "path": "evidence/baseline/x4b.json",
+      "bytes": 6127,
+      "sha256": "9f0c2cc5bd58ae496d5a6e52137dfb70bfb18893fe2faabce97f928cc6826dae"
+    },
+    {
+      "path": "evidence/baseline/x4final/run01/frame-watch.json",
+      "bytes": 8025,
+      "sha256": "ada663eac6ba547505454ded2ccd678107ae58ffc9099fbc160c0fb6660b7bd9"
+    },
+    {
+      "path": "evidence/baseline/x4final/run01/harness-error.txt",
+      "bytes": 47,
+      "sha256": "5904d0c1ef31c0a086a120c89981909b10aac07406a42f32620c7bf27f7c68ae"
+    },
+    {
+      "path": "evidence/baseline/x4final/run01/harness-result.json",
+      "bytes": 16,
+      "sha256": "2618b95f1f6be6bfde8537756f85b83845d039001563135b9d59d817446733eb"
+    },
+    {
+      "path": "evidence/baseline/x4final/run01/page-check.json",
+      "bytes": 1475,
+      "sha256": "8f62745816cc7a8184e9ef9d74213721c959da261269f11c73055494d0fc263b"
+    },
+    {
+      "path": "evidence/baseline/x4final/run02/harness-error.txt",
+      "bytes": 53,
+      "sha256": "4c1d95c0cb93d45953dfbe2475cd0410db549a72e4637d2d4f25539c76704d53"
+    },
+    {
+      "path": "evidence/baseline/x4final/run02/harness-result.json",
+      "bytes": 16,
+      "sha256": "2618b95f1f6be6bfde8537756f85b83845d039001563135b9d59d817446733eb"
+    },
+    {
+      "path": "evidence/baseline/x4final/run03/harness-error.txt",
+      "bytes": 53,
+      "sha256": "4c1d95c0cb93d45953dfbe2475cd0410db549a72e4637d2d4f25539c76704d53"
+    },
+    {
+      "path": "evidence/baseline/x4final/run03/harness-result.json",
+      "bytes": 16,
+      "sha256": "2618b95f1f6be6bfde8537756f85b83845d039001563135b9d59d817446733eb"
+    },
+    {
+      "path": "evidence/baseline/x4final/run04/harness-error.txt",
+      "bytes": 53,
+      "sha256": "4c1d95c0cb93d45953dfbe2475cd0410db549a72e4637d2d4f25539c76704d53"
+    },
+    {
+      "path": "evidence/baseline/x4final/run04/harness-result.json",
+      "bytes": 16,
+      "sha256": "2618b95f1f6be6bfde8537756f85b83845d039001563135b9d59d817446733eb"
+    },
+    {
+      "path": "evidence/baseline/x4final/run05/frame-watch.json",
+      "bytes": 8025,
+      "sha256": "96ebbf12047f592abd50d8502e1b7dbe198f7606178eb01874a03ead2d9292eb"
+    },
+    {
+      "path": "evidence/baseline/x4final/run05/harness-error.txt",
+      "bytes": 47,
+      "sha256": "5904d0c1ef31c0a086a120c89981909b10aac07406a42f32620c7bf27f7c68ae"
+    },
+    {
+      "path": "evidence/baseline/x4final/run05/harness-result.json",
+      "bytes": 16,
+      "sha256": "2618b95f1f6be6bfde8537756f85b83845d039001563135b9d59d817446733eb"
+    },
+    {
+      "path": "evidence/baseline/x4final/run05/page-check.json",
+      "bytes": 1476,
+      "sha256": "8641cbeafed6c68f689ee3a72affa77947bd4a34e05fe16a3ba0687f600208dc"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task01/run4-windows/console.log",
+      "bytes": 10750,
+      "sha256": "6ae1e6139713ad3c652da7759c9253efa9c5ca1773bd57e8cae3157a2b0e77c2"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task01/run4-windows/driver.log",
+      "bytes": 28644,
+      "sha256": "1edd2ef3408b3cd6be83e65e1d6322a7b0716e874f70ac5c7c9f1ba27be974dd"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task01/run4-windows/harness-error.txt",
+      "bytes": 60,
+      "sha256": "a82c1d887f2fd5b275cad49bf517b7d0d72111c65d327d93e171a2e8d88c83e9"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task01/run4-windows/qemu-cmd.txt",
+      "bytes": 564,
+      "sha256": "6cc424e790b984b7ffefd1f01db451ecd4f50220b72ddb14ec096da484853157"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task01/run4-windows/qemu-metrics.json",
+      "bytes": 293,
+      "sha256": "e250d16a5333ee4000069558e533a2793ae484ed1e638cf5b166eaa0a86caea1"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task01/run6-windows/console.log",
+      "bytes": 11195,
+      "sha256": "53076da21f77788c76b002f2a1e068ed4f9fa867f4f13c26f71ad728d03c4455"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task01/run6-windows/driver.log",
+      "bytes": 29846,
+      "sha256": "4c4a56532bde36f57717264b7d8096459cb840f40212b9c581c8d1f49f0c7634"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task01/run6-windows/page-check.json",
+      "bytes": 1469,
+      "sha256": "c3da96f01835af57b701df39111e0213bf9e3399c12de256b8698b8c554e814d"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task01/run6-windows/qemu-cmd.txt",
+      "bytes": 564,
+      "sha256": "6522ee2368c1633c20e82e34cb232b775f485fe8f7c240503577851b986f694d"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task01/run6-windows/qemu-metrics.json",
+      "bytes": 293,
+      "sha256": "bf5bb5df1b9ddbcab3aebfd488165810491cb2b6a1ad2682be91cf13b9af076e"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task03/C06/console.log",
+      "bytes": 22131,
+      "sha256": "a96b7e3900e705ae96d2c225b9f4b886a096d1d47429a7e9b8e9e351d5056700"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task03/C06/driver.log",
+      "bytes": 52260,
+      "sha256": "d3696560040c81c3c72f1052a6080b74f11e7b2932a2986da0e8c3bc09705903"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task03/C06/harness-error.txt",
+      "bytes": 47,
+      "sha256": "5904d0c1ef31c0a086a120c89981909b10aac07406a42f32620c7bf27f7c68ae"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task03/C06/page-check.json",
+      "bytes": 168,
+      "sha256": "1e38f4b5917e272eeceae65ba70e95829134f05d37c92a9e18d88447793fa19c"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task03/C06/qemu-cmd.txt",
+      "bytes": 565,
+      "sha256": "147bd719dc2bfcf4f60e3d1953645a42c8bf20bb09468601b4dd73cab37c6943"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task03/C06/qemu-metrics.json",
+      "bytes": 293,
+      "sha256": "8544f28b1aba19643204e5c14cd1469ea6baedb04f1107df27c80dad8bfbc762"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task03/freeze.json",
+      "bytes": 3308,
+      "sha256": "744ddad394ebfe422fc089bec0d1fd02af1c1622d5af5901a80e36b1e3d5bdb6"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task03b/C07/console.log",
+      "bytes": 10375,
+      "sha256": "48bbf5d5bbb88b72b7cb6615ba9c1de247a9a758b7c0c303c6da32487b98fc86"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task03b/C07/driver.log",
+      "bytes": 27634,
+      "sha256": "cc21ab078651d0775591920032973e628372bf89efadd749c97b4a0ae892b720"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task03b/C07/harness-error.txt",
+      "bytes": 60,
+      "sha256": "4a4e0eaa005fde5659851d955fae811f4f82d9761bce0e2dd0907402c38d1526"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task03b/C07/qemu-cmd.txt",
+      "bytes": 565,
+      "sha256": "0c5bc9dc22eddb038c67c63dbf5b470ea5b9f24b80d8b2284caa8257384e720d"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task03b/C07/qemu-metrics.json",
+      "bytes": 293,
+      "sha256": "19e6c8e57e92e22dcff438088dc08ec026a9a8cc8e4a4fa1373795e1cd3f0c5f"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task04/run-single.ps1",
+      "bytes": 2213,
+      "sha256": "caae31bfde601e1bd918678df959350703ba64d53204e71682c61619a3f15812"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task04/single/console.log",
+      "bytes": 32492,
+      "sha256": "24d6ce98d413e331069a9ccfbfd791db1f265b793db2ca3e9df5f3ccad70caf2"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task04/single/driver.log",
+      "bytes": 73422,
+      "sha256": "2f802b0b804d6201733936eb993e4420264601925d6110b4682e8445b3243a0e"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task04/single/harness-error.txt",
+      "bytes": 26,
+      "sha256": "a475dd5176c4eb342597c2cb00bd7c823a2eb2fd8a5174ccd45ab9fc75cab364"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task04/single/qemu-cmd.txt",
+      "bytes": 563,
+      "sha256": "0f2f1604537ee164e71c6a728ddab58bb13b5c3bad28a19f4168c7f5a7363a32"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task04/single/qemu-metrics.json",
+      "bytes": 292,
+      "sha256": "7475f7ecf095d7dc59c7f28abfef052a5e9c0c72e95afceb6cd63425fe860df3"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task04/single2/console.log",
+      "bytes": 4494,
+      "sha256": "d646b983df587a2ec0bd293aa037ee29d17141c1e59d8b6df711435bbdf4490e"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task04/single2/driver.log",
+      "bytes": 11440,
+      "sha256": "d669ad3b31574b63d0147fadecf470c05735ca78da912ff7524ff5871f320a19"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task04/single2/harness-error.txt",
+      "bytes": 53,
+      "sha256": "4c1d95c0cb93d45953dfbe2475cd0410db549a72e4637d2d4f25539c76704d53"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task04/single2/qemu-cmd.txt",
+      "bytes": 563,
+      "sha256": "11f0bfc028d9c3b5048046af94c65e5de0e3e6202b2cb87a6149540e6df4d82a"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task04/single2/qemu-metrics.json",
+      "bytes": 284,
+      "sha256": "4707260c9ec4313d186fdb898494bf4b1dd3f13e8334408086be03ef589b30c7"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task09/crash/console.log",
+      "bytes": 31679,
+      "sha256": "a486ba641d2965092ce8451e7c8bf681ab251bf3f935e4f7c093f8ae22064db1"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task09/crash/driver.log",
+      "bytes": 71752,
+      "sha256": "24f0cf2098fc79ec8fe7c12e1af82e12522cfb533b1a8d437f32da3adda68199"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task09/crash/harness-error.txt",
+      "bytes": 81,
+      "sha256": "adf9fc7c936b91b5c01d55bc6c79cd4d8bbb5722eff11f6a7402a42287a86918"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task09/crash/qemu-cmd.txt",
+      "bytes": 563,
+      "sha256": "d7b8fc18e7b1d9b0fde1d6cce833176e5dcd77ce75c2e65b737517e9fe9920e5"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task09/crash/qemu-metrics.json",
+      "bytes": 292,
+      "sha256": "ef3b5c0d7ea571ab24b2ac6e8a82be8cb598cbc9c2f8f90bfc2fab19b6fcfa0c"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task09/leak/console.log",
+      "bytes": 4490,
+      "sha256": "fecb403b8f1eeb9756b28be95b28ea7a84ee6a0a38d60b11b81eb11ba29912a2"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task09/leak/driver.log",
+      "bytes": 11414,
+      "sha256": "243497bb5c6c26400963bc609d84a3f9fbf14d1d2fea4413cac3838f72017b8c"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task09/leak/harness-error.txt",
+      "bytes": 53,
+      "sha256": "4c1d95c0cb93d45953dfbe2475cd0410db549a72e4637d2d4f25539c76704d53"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task09/leak/qemu-cmd.txt",
+      "bytes": 563,
+      "sha256": "66b31856dbf84dc49281e045e9a5d6d1b4343860266271e927568403780daf1e"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task09/leak/qemu-metrics.json",
+      "bytes": 285,
+      "sha256": "e1fbbcbe24fbd9759fe1fc2f2978760621e2a97b4f35249b962fd139f18144ae"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task09/run-faults.ps1",
+      "bytes": 2300,
+      "sha256": "86a9844bff99c72c1d05d1484d8ec70021a82f516215145fcafae9082faa1512"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task09/stop/console.log",
+      "bytes": 12099,
+      "sha256": "6432ac77586d3a65a54be83fcff61d869db786797352ac221d1e74c64e72535d"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task09/stop/driver.log",
+      "bytes": 33170,
+      "sha256": "5d1e91b1dd5ac38534680c41cb7ba357aaa36e6fd42c6ce3f8df930218798439"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task09/stop/harness-error.txt",
+      "bytes": 80,
+      "sha256": "e4254bdd70b5bb1b961936eba7150d7fe19d2d0e8cea06a051627777eaa0e144"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task09/stop/qemu-cmd.txt",
+      "bytes": 563,
+      "sha256": "4ba131918766191172e103c56b641f592dd1590c216c05a78f7c5aa863cb2f1b"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261030T110856Z/task09/stop/qemu-metrics.json",
+      "bytes": 292,
+      "sha256": "e3881446365ebe9dda0194b1ee2cff4844a9d836bff8293523610319e388665e"
+    },
+    {
+      "path": "guest/fault-growth.sh",
+      "bytes": 271,
+      "sha256": "de811a9e02b48c32d54bff5efd8523d9ee6aca171a2e73749c09eaee24b8b38f"
+    },
+    {
+      "path": "guest/fault-renderer.sh",
+      "bytes": 1114,
+      "sha256": "7abfeb03507a9776dc3a6fd7297f38472484779cb496623888099c113b2c7ec5"
+    },
+    {
+      "path": "host/baseline_x4b.py",
+      "bytes": 7698,
+      "sha256": "0d9fdb10b873e71f2dbc7783b56ff8b334e2db2fb2ad5ec73cc1625fb4f85142"
+    },
+    {
+      "path": "host/command-result.ps1",
+      "bytes": 434,
+      "sha256": "ca863cdf534e7c36f4642190e71251ed2709c608de2e4f458bfdd070a5b545b2"
+    },
+    {
+      "path": "host/xkwin.ps1",
+      "bytes": 103058,
+      "sha256": "cc6d97a8d3e7135cc4f0903ef57d933e9337f8adc486f7a4d6fd3ffb48eb0c66"
+    }
+  ],
+  "new_tasks": 12,
+  "all_new_tasks_status": "PLANNED",
+  "findings_not_claimed_as_new_runtime_pass": true
+}

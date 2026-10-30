@@ -70,6 +70,21 @@ def main() -> int:
     check(clean["leak"]["attribution_limited"] is True,
           "no CMJSON keeps attribution_limited true", clean["leak"])
 
+    control = run("control-error")
+    check(control["summary"] == ["CONTROL_CHANNEL_ERROR"],
+          "harness timeout is not a target CRASH", control["summary"])
+    check(control["crash"]["detected"] is False, "harness error alone is not crash", control["crash"])
+    check(control["diagnosis"]["control_channel_error"] is True,
+          "control channel is called out", control["diagnosis"])
+
+    nohb = run("no-heartbeat-configured", "--expected-minutes", "1")
+    check(nohb["hang"]["detected"] is False,
+          "missing HB in a session that did not configure HB is not HANG", nohb["hang"])
+    check(nohb["diagnosis"]["observer_insufficient"] is True,
+          "missing HB is an observer limitation", nohb["diagnosis"])
+    check(nohb["summary"] == ["OBSERVER_INSUFFICIENT"],
+          "observer limitation has its own summary", nohb["summary"])
+
     print("all observe cases passed" if failures == 0 else f"{failures} failure(s)")
     return 1 if failures else 0
 

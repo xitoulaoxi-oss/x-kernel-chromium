@@ -15,3 +15,6 @@
 *.docx   binary
 
 patches/** diff=patch
+
+# Shell continuation fixtures deliberately retain prompt spaces.
+tests/fixtures/command-protocol/*.txt whitespace=-blank-at-eol

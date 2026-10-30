@@ -6,16 +6,21 @@
 
 | 顺序 | 任务 | 状态 |
 |---|---|---|
-| 01 | [01_capture_startup_failure](01_capture_startup_failure.md) | PARTIAL |
+| 01 | [01_capture_startup_failure](01_capture_startup_failure.md) | PASS |
 | 02 | [02_fix_startup_progress](02_fix_startup_progress.md) | PARTIAL |
-| 03 | [03_verify_twenty_first_starts](03_verify_twenty_first_starts.md) | PENDING |
-| 04 | [04_complete_functional_run](04_complete_functional_run.md) | PARTIAL |
-| 05 | [05_define_and_measure_baseline](05_define_and_measure_baseline.md) | PENDING |
-| 06 | [06_optimize_startup](06_optimize_startup.md) | PENDING |
-| 07 | [07_optimize_page_and_buffers](07_optimize_page_and_buffers.md) | PENDING |
-| 08 | [08_optimize_renderer_path](08_optimize_renderer_path.md) | PENDING |
-| 09 | [09_validate_real_fault_diagnostics](09_validate_real_fault_diagnostics.md) | PENDING |
-| 10 | [10_rehearse_three_scenes](10_rehearse_three_scenes.md) | PENDING |
-| 11 | [11_package_and_sync_evidence](11_package_and_sync_evidence.md) | PENDING |
+| 03 | [03_verify_twenty_first_starts](03_verify_twenty_first_starts.md) | FAIL |
+| 04 | [04_complete_functional_run](04_complete_functional_run.md) | FAIL |
+| 05 | [05_define_and_measure_baseline](05_define_and_measure_baseline.md) | FAIL |
+| 06 | [06_optimize_startup](06_optimize_startup.md) | BLOCKED |
+| 07 | [07_optimize_page_and_buffers](07_optimize_page_and_buffers.md) | BLOCKED |
+| 08 | [08_optimize_renderer_path](08_optimize_renderer_path.md) | BLOCKED |
+| 09 | [09_validate_real_fault_diagnostics](09_validate_real_fault_diagnostics.md) | PARTIAL |
+| 10 | [10_rehearse_three_scenes](10_rehearse_three_scenes.md) | BLOCKED |
+| 11 | [11_package_and_sync_evidence](11_package_and_sync_evidence.md) | PARTIAL |
 
 本阶段：已执行首启诊断、修复本地CRLF上传故障，并完成input子集2/2。详见 [执行记录](../startup-diagnosis.md)。所有虚拟机已由本次harness正常收尾。
+
+
+## 下一阶段计划（2026-10-30日志复核后）
+
+本轮11项执行结果保留不改。新任务与优先级见 [00_next_plan.md](../next_phase/00_next_plan.md)，先修传输/回执和命令解析，再区分真实内核停顿与浏览器导航未提交。新计划尚未执行，不代表新的PASS。

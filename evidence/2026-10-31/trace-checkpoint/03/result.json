@@ -1,0 +1,27 @@
+{
+  "task": "trace-followup/03_build_static_trace_storage",
+  "status": "PASS",
+  "builds": {
+    "open": {"bin": "artifacts/kernel-trace.bin", "bin_sha256": "182e5bbc82ab4dc224da3fb34ce5071c252cf5a5c905a1f4e85fe1e4b3106b96",
+             "elf_sha256": "d2ed55de5c8b1ebd37bb4056910b7359cc056c3e940488014c827e6668de3fec",
+             "config_sha256": "858670175670ad2acf109a6ca8039c9e8c984219046bbc16b63907cc5b9263ba",
+             "feature": "KFEAT_TRACE_RING=y", "exit_code": 0},
+    "closed": {"bin": "artifacts/kernel-notrace.bin", "bin_sha256": "4b63211c1c0942f4171ae1af3c3a4057ec47f55d5b72b54450701c4104d5e4bb",
+               "elf_sha256": "c5dcc8f23c724adac64a74ee82a5b949bdb3081e9dc34da92b6638265fdf6c07",
+               "config_sha256": "38f5fcd9aa78e0bf2bcb0dba4cbf3f87bb6f3b2549a0c6bd0044927cfb081a36",
+               "feature": "not set", "exit_code": 0}
+  },
+  "object": {"symbol": "XK_TRACE_RING", "section": ".bss", "size": 164224, "budget": 196608,
+             "open_symbol": "ffff80000092dd80", "closed_symbol": "absent"},
+  "address_proof": {
+    "kimage_voffset": "0xffff7fffbfe00000", "phys_base": "0x40200000",
+    "symbol_phys": "0x40b2dd80", "chain": "symbol vaddr - kimage_voffset",
+    "read": "QMP xp 4096 bytes, no guest command; header magic XKRING02 schema 2, 4 CPUs, total 164224, nonce 16137862, self-test kind 1 committed; normal == stopped"
+  },
+  "boots": {"open": "artifacts/kernel-trace.bin short boot; header/self-test read", "closed": "artifacts/kernel-notrace.bin short boot to shell, normal"},
+  "default_off": "closed build has no XK_TRACE_RING symbol and no trace_ring feature; no hot-path calls",
+  "format_check": "rustfmt +nightly-2026-03-08 --edition 2024 --check on the three modified Rust files: pass; full tree fmt has pre-existing inotify diffs",
+  "diff": "experiments/FINALS-RUNS/20261031T014800Z/trace-followup/03/code.diff",
+  "limits": ["header + self-test only; no timer/wakeup events yet (04)", "no live concurrent decode", "QMP local debug interface"],
+  "next": "04 connect timer/wakeup events and capture a real chain"
+}

@@ -1,0 +1,31 @@
+{
+  "task": "trace-followup/05_export_frozen_trace",
+  "status": "PASS",
+  "tool": "host/ring_capture.py",
+  "success": {
+    "bytes": 164224,
+    "sha256": "42a607b6d87ba8ec7bf056fde5535a246a2f2f67254d0852fdfdf745f3c472ff",
+    "status_before": "running",
+    "status_stopped": "paused",
+    "events": 4092,
+    "counts": {"idle_enter": 669, "idle_return": 668, "timer_arm": 2313, "timer_irq": 436, "ipi_recv": 6},
+    "resumed": true,
+    "resume_recorded": "timeline cont at 2026-10-30T18:04:50Z"
+  },
+  "failure": {
+    "case": "wrong symbol",
+    "stage": "header",
+    "vm_left_paused": true,
+    "auto_resumed": false,
+    "partial_bytes": 128,
+    "partial_sha256": "be62003ce5a1dcf2ec3dc6ad7685644db60642d61394c73a7f6a2dc9bddc5ca7",
+    "report_saved": true,
+    "manual_resume": "paused -> running at 2026-10-30T18:05:00Z"
+  },
+  "contract": "experiments/FINALS-RUNS/20261031T014800Z/trace-followup/05/capture-contract.json",
+  "cap_bytes": 1048576,
+  "header_gate": "validated before full read/unpack",
+  "address": "symbol ffff80000092ed80 - kimage_voffset ffff7fffbfe00000 = 0x40b2ed80",
+  "limits": ["frozen only", "QMP local", "no concurrent live decode", "0x70000000 not reused"],
+  "next": "06 locate first missing event and test one fix"
+}

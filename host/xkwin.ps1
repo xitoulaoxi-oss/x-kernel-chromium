@@ -125,6 +125,9 @@ param(
     # cannot be paid for (upload + verify) inside the measured window: stage it
     # here, fire it from -FrameWatchCmd below.
     [string]$Upload = '',
+    # Protocol test switch: force the console-heredoc transport even though the
+    # staging HTTP server is running.  Production runs leave this off.
+    [switch]$NoHttpUpload,
     # Frame watch, as 'interval_seconds x duration_seconds' (e.g. '2x100').
     # While it runs a screendump is taken every interval and BOTH the request and
     # the completion instant are recorded, so page-load latency is measured off
@@ -134,6 +137,15 @@ param(
     # Guest command dispatched at t=0 of the frame watch and deliberately NOT
     # awaited: the browser has to be starting while frames are being captured.
     [string]$FrameWatchCmd = '',
+    # QEMU -d mask for interrupt/timer tracing (e.g. 'int').  Diagnostic runs
+    # only: the log is written next to the session and its tail is preserved on
+    # failure.
+    [string]$QemuDebug = '',
+    # Diagnostic memory-export probe: copy a small record to a space-free temp
+    # path and have QEMU's loader place it at an explicit guest physical
+    # address.  Host reads it through QMP, never through the guest shell.
+    [string]$LoadRecordFile = '',
+    [string]$LoadRecordAddr = '',
     # Colour-count sanity floor handed to frame_stats.py.  It is NOT the paint
     # test on its own: a blank white page with a "Loading..." spinner has 264
     # colours from the tab bar and toolbar, while the rendered committee page has
@@ -178,6 +190,9 @@ param(
     # kill: sending quit is what actually stops the guest, so a -Keep that only
     # skipped the kill still closed the window a few minutes into a session.
     [switch]$Keep,
+    # Delivery tests need 0 and non-zero command results in one session.  This
+    # only suppresses the throw for cmd= steps; the rc is still recorded.
+    [switch]$TolerantCommands,
     [string[]]$ExtraArg = @()
 )
 
@@ -185,6 +200,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $script:harnessExitCode = 0
 $script:diagnosticTraceSeq = 0
+$script:uploadedRemotes = @{}
 if ($EnableGuestCdp -and $Writable) { throw 'CDP policy adjustment requires a QEMU snapshot; Writable is not allowed.' }
 if (($LoadSchedule -or $PageProbeMode) -and -not $CdpEndpoint -and -not $EnableGuestCdp) {
     throw 'Semantic verification requires an explicitly configured local -CdpEndpoint; color count cannot prove success.'
@@ -195,6 +211,8 @@ if (-not $scriptDir) { $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.D
 $ws = [System.IO.Path]::GetFullPath((Join-Path $scriptDir '..'))
 . (Join-Path $scriptDir 'ready-gate.ps1')
 . (Join-Path $scriptDir 'command-result.ps1')
+. (Join-Path $scriptDir 'step-spec.ps1')
+. (Join-Path $scriptDir 'guest-paths.ps1')
 . (Join-Path $scriptDir 'staging.ps1')
 
 # All paths below are ASCII on purpose: PowerShell 5.1 encodes a child process
@@ -402,6 +420,15 @@ $consoleLog = Join-Path $OutDir 'console.log'
 $qemuLog    = Join-Path $OutDir 'qemu.stdout.log'
 $qemuErr    = Join-Path $OutDir 'qemu.stderr.log'
 $cmdFile    = Join-Path $OutDir 'qemu-cmd.txt'
+$script:txSeq = 0
+$script:txTracePath = Join-Path $OutDir 'tx-trace.jsonl'
+
+function Write-TxEvent {
+    param($Event)
+    try {
+        ($Event | ConvertTo-Json -Compress -Depth 4) | Add-Content -LiteralPath $script:txTracePath -Encoding utf8
+    } catch { }
+}
 
 function Get-FreePort {
     $l = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
@@ -433,6 +460,21 @@ $argv = @(
     '-display', $Display,
     '-no-reboot'
 )
+if ($LoadRecordFile) {
+    if (-not $LoadRecordAddr) { throw '-LoadRecordFile requires -LoadRecordAddr' }
+    if (-not (Test-Path -LiteralPath $LoadRecordFile)) { throw "record not found: $LoadRecordFile" }
+    $recordTemp = Join-Path $env:TEMP ("xk-record-{0}.bin" -f $Tag)
+    Copy-Item -LiteralPath $LoadRecordFile -Destination $recordTemp -Force
+    $argv += @('-device', ("loader,file=$recordTemp,addr=$LoadRecordAddr,force-raw=on"))
+}
+if ($QemuDebug) {
+    $dbgPath = Join-Path $OutDir 'qemu-debug.log'
+    if (-not [IO.Path]::IsPathRooted($dbgPath)) { $dbgPath = Join-Path (Get-Location).Path $dbgPath }
+    $dbgPath = [IO.Path]::GetFullPath($dbgPath)
+    # Start-Process joins ArgumentList with spaces, so a path containing a space
+    # must carry its own quotes or QEMU sees only the first token.
+    $argv += @('-d', $QemuDebug, '-D', ('"' + $dbgPath + '"'))
+}
 if (-not $Writable) { $argv += '-snapshot' }
 if ($Vnc) { $argv += @('-vnc', $Vnc) }
 $argv += $ExtraArg
@@ -582,11 +624,27 @@ function Invoke-GuestCommand {
     if (-not $Label) { $Label = $Text }
     $nonce = 'XK{0}' -f (Get-Random -Minimum 1000000 -Maximum 9999999)
     if (-not $Quiet) { Write-Host "`n--- guest$ $Label" -ForegroundColor Yellow }
+    # Drain any pending prompt/echo before writing, so the target line starts at
+    # a command boundary.  The 25 ms target/marker gap was too short: a real B3
+    # run received the marker as `eecho`, not because the target command failed.
+    [void](Read-Available -QuietMs 80 -MaxMs 400)
     $before = $script:buf.Length
+    $script:txSeq++
+    $txSeq = $script:txSeq
+    $txStart = [System.Diagnostics.Stopwatch]::StartNew()
+    $marker = "__xk_rc=`$?; echo `$__xk_rc > /tmp/xk-rc-$nonce; echo __${nonce}__rc=`$__xk_rc"
     Send-Guest ("$Text`n")
-    Send-Guest ("echo __${nonce}__rc=`$?`n")
+    Start-Sleep -Milliseconds 100
+    Send-Guest ("$marker`n")
+    Write-TxEvent @{
+        seq = $txSeq; direction = 'tx'; nonce = $nonce; label = $Label
+        text_bytes = $utf8.GetByteCount($Text); marker_bytes = $utf8.GetByteCount($marker)
+        text = $Text; marker = $marker
+        at_utc = (Get-Date).ToUniversalTime().ToString('o')
+    }
     $deadline = (Get-Date).AddSeconds($TimeoutSec)
     $found = $false
+    $detail = $null
     $nextDiagnostic = (Get-Date).AddSeconds($DiagnosticPollSec)
     while ((Get-Date) -lt $deadline) {
         Read-Available -QuietMs 400 -MaxMs 1500
@@ -604,25 +662,31 @@ function Invoke-GuestCommand {
             $nextDiagnostic = (Get-Date).AddSeconds($DiagnosticPollSec)
         }
         $tail = $script:buf.ToString($before, $script:buf.Length - $before)
-        # Require the value, i.e. the marker's own OUTPUT line.  Matching the
-        # bare marker name would also match the echoed command, which the
-        # console shows before the command has even started running.
-        if ($tail -match "__${nonce}__rc=\d") { $found = $true; break }
+        $detail = Get-GuestCommandResultDetail -Transcript $tail -Nonce $nonce
+        if ($detail.status -in @('ok', 'malformed', 'conflict')) { $found = $true; break }
         if ($proc.HasExited) { break }
     }
     $tail = $script:buf.ToString($before, $script:buf.Length - $before)
-    $m = [regex]::Match($tail, "__${nonce}__rc=(\d+)")
-    $commandRc = Get-GuestCommandResult -Transcript $tail -Nonce $nonce
-    if ($null -eq $commandRc) { throw "Guest command did not complete: $Label (timeout ${TimeoutSec}s)" }
+    $detail = Get-GuestCommandResultDetail -Transcript $tail -Nonce $nonce -AtEnd
+    $txStart.Stop()
+    Write-TxEvent @{
+        seq = $txSeq; direction = 'rx'; nonce = $nonce; label = $Label
+        status = $detail.status; rc = $detail.rc; elapsed_ms = [math]::Round($txStart.Elapsed.TotalMilliseconds, 1)
+        raw_line = $detail.line
+    }
+    if ($detail.status -eq 'malformed' -or $detail.status -eq 'conflict') {
+        throw "Guest command completion frame is invalid ($($detail.status)): $Label; raw=$($detail.line)"
+    }
+    if ($detail.status -eq 'pending') {
+        throw "Guest command completion frame did not terminate before timeout (protocol incomplete): $Label"
+    }
+    if ($detail.status -ne 'ok') {
+        throw "Guest command did not complete: $Label (timeout ${TimeoutSec}s)"
+    }
+    $commandRc = $detail.rc
     if ($commandRc -ne 0 -and -not $AllowFailure) { throw "Guest command failed with exit ${commandRc}: $Label" }
     if ($Quiet) { return $tail }
-    if ($m.Success) {
-        Write-Host ("    [rc={0}]" -f $m.Groups[1].Value) -ForegroundColor DarkGray
-    } elseif ($found) {
-        Write-Host '    [marker seen but rc not parsed]' -ForegroundColor DarkYellow
-    } else {
-        Write-Host "    [no marker within ${TimeoutSec}s: command still running, or the console was flooded]" -ForegroundColor DarkYellow
-    }
+    Write-Host ("    [rc={0}]" -f $commandRc) -ForegroundColor DarkGray
     return $tail
 }
 
@@ -871,7 +935,8 @@ function Send-GuestScriptFile {
     $p = [System.IO.Path]::GetFullPath($Path)
     if (-not (Test-Path -LiteralPath $p)) { throw "script not found: $p" }
     $name = Split-Path -Leaf $p
-    $remote = "/tmp/xk-$name"
+    $remote = Get-GuestRemotePath $p
+    $script:uploadedRemotes[$remote] = $true
 
     # The bytes are read (not the text) so the size check is against exactly what
     # the guest should end up holding.
@@ -885,14 +950,24 @@ function Send-GuestScriptFile {
         $sha = (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLowerInvariant()
         Copy-Item -LiteralPath $p -Destination (Join-Path $uploadServer.StageDir $name) -Force
         $url = "$($script:guestHttp)/$name"
-        $probe = "wget -q -O $remote '$url' && sha256sum $remote"
-        $out = Invoke-GuestCommand -Text $probe -Label "fetch $name" -TimeoutSec 120
-        if ($out -match [regex]::Escape($sha)) {
+        for ($httpTry = 1; $httpTry -le 2; $httpTry++) {
+            $probe = "wget -q -O $remote '$url' && sha256sum $remote"
+            $out = Invoke-GuestCommand -Text $probe -Label "fetch $name" -TimeoutSec 120
+            if ($out -notmatch [regex]::Escape($sha)) {
+                Write-Host ("    !! HTTP transfer of {0} did not verify (attempt {1}); falling back to the console heredoc" -f $name, $httpTry) -ForegroundColor DarkYellow
+                break
+            }
             Write-Host ("    {0}: {1} bytes, sha256 verified over HTTP" -f $name, $raw.Length) -ForegroundColor Green
-            Invoke-GuestCommand -Text "chmod +x $remote" -Label "chmod $name" -TimeoutSec 30 -Quiet | Out-Null
-            return $remote
+            # chmod is a separate console command and can fail if the transfer
+            # vanished between the hash check and this line.  Do not continue to
+            # run a script that is not there: retry the transfer once, then fail.
+            $chmod = Invoke-GuestCommand -Text "chmod +x $remote; test -f $remote && echo FILE_OK" -Label "chmod $name" -TimeoutSec 30 -AllowFailure
+            if ($chmod -match 'FILE_OK') {
+                return $remote
+            }
+            Write-Host ("    !! chmod/fingerprint failed for {0} (attempt {1}); retrying transfer" -f $name, $httpTry) -ForegroundColor DarkYellow
         }
-        Write-Host ("    !! HTTP transfer of {0} did not verify; falling back to the console heredoc" -f $name) -ForegroundColor DarkYellow
+        throw "HTTP transfer of $name verified but the file was not usable after chmod; refusing to run it"
     }
     # A single heredoc, sent whole, with the trim joined to it.
     #
@@ -1189,7 +1264,6 @@ function Send-Heredoc {
           [int]$ExpectedBytes = 0, [switch]$Quiet)
     $delim = 'XK_H_EOF_' + ([guid]::NewGuid().ToString('N').Substring(0, 8))
     if ($Body -match "(?m)^$delim$") { throw "payload contains the heredoc delimiter $delim" }
-    $nonce = 'XK{0}' -f (Get-Random -Minimum 1000000 -Maximum 9999999)
     $before = $script:buf.Length
 
     # NOTE: `stty -echo` was tried here to stop the console echoing a whole
@@ -1203,47 +1277,78 @@ function Send-Heredoc {
     # 2,530-byte one turned `chromium` into `chromiu-disable-features=Vulkan: not
     # found`.  The console's input buffer is the limit, not the line discipline,
     # so the payload is written in small blocks with a short pause between them.
-    # The cost is a few seconds per kilobyte, which is irrelevant next to a
-    # silently corrupted script that fails in a way that looks like a bug in it.
     $PaceBlock = 12          # lines per block
     $PaceMs = 60             # pause between blocks
+
+    function Wait-HeredocMarker([string]$nonce, [int]$timeout) {
+        $deadline = (Get-Date).AddSeconds($timeout)
+        while ((Get-Date) -lt $deadline) {
+            Read-Available -QuietMs 300 -MaxMs 1200
+            $tail = $script:buf.ToString($before, $script:buf.Length - $before)
+            $d = Get-GuestCommandResultDetail -Transcript $tail -Nonce $nonce
+            if ($d.status -in @('ok', 'malformed', 'conflict')) { return $d }
+            if ($proc.HasExited) { break }
+        }
+        $tail = $script:buf.ToString($before, $script:buf.Length - $before)
+        return (Get-GuestCommandResultDetail -Transcript $tail -Nonce $nonce -AtEnd)
+    }
 
     if ($PSBoundParameters.ContainsKey('PipedBody')) {
         $delim2 = 'XK_H_EOF_' + ([guid]::NewGuid().ToString('N').Substring(0, 8))
         if ($PipedBody -match "(?m)^$delim2$") { throw "payload contains the heredoc delimiter $delim2" }
-        Send-Guest ("cat > $Remote <<'$delim'`n$Body`n$delim`n")
-        Send-Guest ("sh $Remote <<'$delim2'`n$PipedBody`n$delim2`n")
-    } else {
-        # With -ExpectedBytes the trim is sent as part of the SAME command, joined
-        # with `;`, so no second command boundary exists for the heredoc's tail to
-        # bleed across (the failure mode described in the doc comment above).
-        $tail = if ($ExpectedBytes -gt 0) { "head -c $ExpectedBytes $Remote.xtmp > $Remote; rm -f $Remote.xtmp" } else { "" }
-        $target = if ($ExpectedBytes -gt 0) { "$Remote.xtmp" } else { $Remote }
-        Send-Guest ("cat > $target <<'$delim'`n")
-        $bodyLines = $Body -split "`n"
-        for ($li = 0; $li -lt $bodyLines.Count; $li++) {
-            Send-Guest ($bodyLines[$li] + "`n")
-            if ((($li + 1) % $PaceBlock) -eq 0) { Start-Sleep -Milliseconds $PaceMs }
-        }
-        # Drain the echo before the terminator arrives.  Sent back to back, the
-        # last body line, the delimiter and the trim can splice: a batch run
-        # received ".../tmp/xk-c1-p" + the delimiter and a mangled
-        # "head -c 840 ... > /tmp/xk-c1-perferf-harvest.sh.xtmp", i.e. a file of
-        # the right SIZE holding the wrong bytes.
-        Start-Sleep -Milliseconds 150
+        Send-Guest ("cat > $Remote <<'$delim'`n")
+        foreach ($line in ($Body -split "`n")) { Send-Guest ($line + "`n") }
+        Start-Sleep -Milliseconds 250
         Send-Guest ("$delim`n")
-        Start-Sleep -Milliseconds 80
-        if ($tail) { Send-Guest ("$tail`n") }
+        Start-Sleep -Milliseconds 250
+        $n1 = 'XK{0}' -f (Get-Random -Minimum 1000000 -Maximum 9999999)
+        Send-Guest ("echo __${n1}__rc=`$?`n")
+        $d1 = Wait-HeredocMarker $n1 $TimeoutSec
+        if ($d1.status -ne 'ok' -or $d1.rc -ne 0) { return $false }
+
+        Start-Sleep -Milliseconds 100
+        Send-Guest ("sh $Remote <<'$delim2'`n")
+        foreach ($line in ($PipedBody -split "`n")) { Send-Guest ($line + "`n") }
+        Start-Sleep -Milliseconds 250
+        Send-Guest ("$delim2`n")
+        Start-Sleep -Milliseconds 250
+        $n2 = 'XK{0}' -f (Get-Random -Minimum 1000000 -Maximum 9999999)
+        Send-Guest ("echo __${n2}__rc=`$?`n")
+        $d2 = Wait-HeredocMarker $n2 $TimeoutSec
+        return ($d2.status -eq 'ok' -and $d2.rc -eq 0)
     }
-    Send-Guest ("echo __${nonce}__rc=`$?`n")
-    $deadline = (Get-Date).AddSeconds($TimeoutSec)
-    while ((Get-Date) -lt $deadline) {
-        Read-Available -QuietMs 300 -MaxMs 1200
-        $tail = $script:buf.ToString($before, $script:buf.Length - $before)
-        if ($tail -match "__${nonce}__rc=\d") { return $true }
-        if ($proc.HasExited) { break }
+
+    # Separate commands are mandatory here.  The old code sent the delimiter and
+    # the trim line back to back; a real run lost the delimiter's newline and the
+    # trim's first character was consumed by the prompt (`hkylin-x:~# ead -c ...`),
+    # so the file was never created.  Wait for the heredoc's own marker first.
+    $target = if ($ExpectedBytes -gt 0) { "$Remote.xtmp" } else { $Remote }
+    Send-Guest ("cat > $target <<'$delim'`n")
+    $bodyLines = $Body -split "`n"
+    for ($li = 0; $li -lt $bodyLines.Count; $li++) {
+        Send-Guest ($bodyLines[$li] + "`n")
+        if ((($li + 1) % $PaceBlock) -eq 0) { Start-Sleep -Milliseconds $PaceMs }
     }
-    return $false
+    Start-Sleep -Milliseconds 250
+    Send-Guest ("$delim`n")
+    Start-Sleep -Milliseconds 350
+    $ncat = 'XK{0}' -f (Get-Random -Minimum 1000000 -Maximum 9999999)
+    Send-Guest ("echo __${ncat}__rc=`$?`n")
+    $dcat = Wait-HeredocMarker $ncat $TimeoutSec
+    if ($dcat.status -ne 'ok') { return $false }
+    if ($dcat.rc -ne 0) { return $false }
+
+    if ($ExpectedBytes -gt 0) {
+        Start-Sleep -Milliseconds 120
+        $tail = "head -c $ExpectedBytes $Remote.xtmp > $Remote; rm -f $Remote.xtmp"
+        Send-Guest ("$tail`n")
+        Start-Sleep -Milliseconds 25
+        $ntail = 'XK{0}' -f (Get-Random -Minimum 1000000 -Maximum 9999999)
+        Send-Guest ("echo __${ntail}__rc=`$?`n")
+        $dtail = Wait-HeredocMarker $ntail $TimeoutSec
+        return ($dtail.status -eq 'ok' -and $dtail.rc -eq 0)
+    }
+    return $true
 }
 
 function Send-GuestLocalFile {
@@ -1295,7 +1400,8 @@ function Invoke-GuestScript {
     param([string]$Path, $Server, [string]$Argument = '', [int]$TimeoutSec = 600)
     $p = [System.IO.Path]::GetFullPath($Path)
     $name = Split-Path -Leaf $p
-    $remote = "/tmp/xk-$name"
+    $remote = Get-GuestRemotePath $p
+    $script:uploadedRemotes[$remote] = $true
     Write-Host "`n=== upload+run $name ===" -ForegroundColor Cyan
     Send-GuestLocalFile -Local $p -Remote $remote -Server $Server -TimeoutSec 120 | Out-Null
     Invoke-GuestCommand -Text "chmod +x $remote" -Label "chmod $name" -TimeoutSec 30 | Out-Null
@@ -1530,6 +1636,7 @@ try {
         # Advertise the address to the guest once.  Every later command inherits
         # it through the shell's environment.
         $script:guestHttp = "http://10.0.2.2:$($uploadServer.Port)"
+    if ($NoHttpUpload) { $script:guestHttp = '' }
         Invoke-GuestCommand -Text "export XK_HTTP=$($script:guestHttp); echo XK_HTTP=$($script:guestHttp)" `
             -Label 'export XK_HTTP' -TimeoutSec 40 | Out-Null
     }
@@ -1751,6 +1858,10 @@ try {
         } else {
             throw "bad -FrameWatch spec (want <interval>x<duration>, e.g. 2x100): $FrameWatch"
         }
+        $launchPath = [regex]::Match($FrameWatchCmd, '^\s*sh\s+(/tmp/\S+)')
+        if ($launchPath.Success -and -not $script:uploadedRemotes.ContainsKey($launchPath.Groups[1].Value)) {
+            throw ("-FrameWatchCmd references an unuploaded guest script path: {0}" -f $launchPath.Groups[1].Value)
+        }
         [void](Invoke-FrameWatch -Interval $fwInterval -Duration $fwDuration -LaunchCmd $FrameWatchCmd)
     }
 
@@ -1761,16 +1872,30 @@ try {
     # window switch is only observable if a reading is taken BETWEEN the
     # keystroke and the next one, and a single before/after pair cannot show
     # which window became active.
-    foreach ($k in ($Key -split ';')) {
+    $specs = Split-StepSpec $Key
+    foreach ($k in $specs) {
         $spec = $k.Trim()
         if (-not $spec) { continue }
         $wait = 4
         if ($spec -match '@(\d+)$') { $wait = [int]$Matches[1]; $spec = $spec -replace '@\d+$', '' }
+        Assert-StepSpec $spec
         $i++
+        if ($spec -match '^wait=(\d+(\.\d+)?)$') {
+            $seconds = [double]$Matches[1]
+            Write-Host "`n=== wait $seconds s ===" -ForegroundColor Cyan
+            $end = (Get-Date).AddSeconds($seconds)
+            while ((Get-Date) -lt $end) { Read-Available -QuietMs 500 -MaxMs 2000 }
+            Get-ScreenShot -Name ("{0:d2}-after-wait" -f $i) | Out-Null
+            continue
+        }
         if ($spec.StartsWith('cmd=')) {
             $text = $spec.Substring(4)
+            $pathMatch = [regex]::Match($text, '^\s*(?:sh|exec\s+sh)\s+(/tmp/\S+)')
+            if ($pathMatch.Success -and -not $script:uploadedRemotes.ContainsKey($pathMatch.Groups[1].Value)) {
+                throw ("cmd= references an unuploaded guest script path: {0}; upload it with -Upload or use the mapped /tmp/xk-<name>" -f $pathMatch.Groups[1].Value)
+            }
             Write-Host "`n=== guest cmd: $text ===" -ForegroundColor Cyan
-            Invoke-GuestCommand -Text $text -TimeoutSec $CommandTimeoutSec | Out-Null
+            Invoke-GuestCommand -Text $text -TimeoutSec $CommandTimeoutSec -AllowFailure:$TolerantCommands | Out-Null
             Get-ScreenShot -Name ("{0:d2}-after-step-cmd" -f $i) | Out-Null
             continue
         }
@@ -1850,6 +1975,23 @@ try {
             $diagnosticReply = Invoke-Qmp -Command (@{ execute = $diagnosticName } | ConvertTo-Json -Compress) -TimeoutMs 2000
             Save-Evidence ('failure-' + $diagnosticName + '.json') $diagnosticReply | Out-Null
         } catch { Save-Evidence ('failure-' + $diagnosticName + '.txt') "$_" | Out-Null }
+    }
+    # Interrupt-controller state at the failure instant.  This is read-only and
+    # is what distinguishes "all CPUs idle with IRQs masked" from "timer lost".
+    foreach ($monitorCommand in @('info irq', 'info pic')) {
+        try {
+            $reply = Invoke-Qmp -Command (@{ execute = 'human-monitor-command'; arguments = @{ 'command-line' = $monitorCommand } } | ConvertTo-Json -Compress) -TimeoutMs 3000
+            Save-Evidence ('failure-' + ($monitorCommand -replace ' ', '-') + '.txt') $reply | Out-Null
+        } catch { Save-Evidence ('failure-' + ($monitorCommand -replace ' ', '-') + '-error.txt') "$_" | Out-Null }
+    }
+    if ($QemuDebug) {
+        $dbg = Join-Path $OutDir 'qemu-debug.log'
+        if (Test-Path -LiteralPath $dbg) {
+            try {
+                $lines = Get-Content -LiteralPath $dbg -Tail 300 -ErrorAction Stop
+                Save-Evidence 'failure-qemu-debug-tail.txt' (($lines -join "`n") + "`n") | Out-Null
+            } catch { Save-Evidence 'failure-qemu-debug-tail-error.txt' "$_" | Out-Null }
+        }
     }
     # Preserve the failing snapshot's browser/Xorg logs before QEMU exits.
     # Diagnostic collection is bounded and must not replace the original error.

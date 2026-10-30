@@ -1,0 +1,24 @@
+{
+  "task": "05_define_and_measure_baseline",
+  "status": "FAIL",
+  "definitions_file": "host/baseline_x4b.py (DEFS)",
+  "candidate": {
+    "bin": "artifacts/kernel-final.bin",
+    "bin_sha256": "c50075b653368da9b6b10d951c7e734e47219e02556f08756578d3bac77f0139",
+    "elf_sha256": "1b0c758d92409817041bbbec94b4d64872f6004e4ce3ba2a920759d8035fec0d",
+    "config_sha256": "fbd1615be5712bf51b5a7afc08fcef413e9508848babe771999f9d94a300f02a"
+  },
+  "rounds": 6,
+  "valid_rounds": 4,
+  "failure_rate": 0.333,
+  "metrics": {
+    "startup_first_frame_s": {"n": 4, "median": 60.046, "min": 60.037, "max": 60.05, "spread": 0.013, "resolution_s": 10.0, "type": "sampled upper bound"},
+    "page_load_s": {"n": 4, "median": 51.454, "min": 50.926, "max": 54.7, "spread": 3.774, "resolution_s": 0.001, "type": "browser-clock interval"},
+    "renderer_creation_s": {"n": 0, "reason": "role-confirmed renderer timing absent; monitor-before-launch sessions failed 5/5, so it was not used for the final rounds"},
+    "peak_guest_used_mb": {"n": 0, "reason": "no non-perturbing guest sampler in the final rounds"},
+    "peak_host_qemu_mb": {"n": 6, "median": 2058.45, "min": 146.7, "max": 2137.9, "spread": 1991.2, "note": "host QEMU peak working set; failed early boot included"}
+  },
+  "verdict": "Two metrics reached four valid rounds; the task requires at least five rounds for all four. No qualified four-metric baseline exists.",
+  "raw": "evidence/baseline/x4b.json; evidence/baseline/x4final.json (monitor-perturbed, all failed)",
+  "next": "Stabilise startup first; then collect five valid rounds with a non-perturbing renderer and guest-memory sampler."
+}

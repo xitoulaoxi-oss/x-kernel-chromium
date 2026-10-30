@@ -1,0 +1,27 @@
+{
+  "schema": "xk-symbol-address-proof/1",
+  "object": "XK_TRACE_RING",
+  "elf": "artifacts/kernel-trace.elf",
+  "symbol_vaddr": "0xffff80000092dd80",
+  "symbol_size": 164224,
+  "symbol_section": ".bss",
+  "kimage_voffset": "0xffff7fffbfe00000",
+  "physical_base": "0x40200000",
+  "symbol_phys": "0x40b2dd80",
+  "address_chain": "symbol_vaddr - kimage_voffset from the actual boot console; no 0x10000 file-offset or 0x70000000 channel-test address is reused",
+  "read_back": {
+    "session": "experiments/FINALS-RUNS/20261031T014800Z/trace-followup/03/open",
+    "qmp": "xp chunks of 4096 bytes, no guest shell",
+    "header_ok": true,
+    "magic": "XKRING02",
+    "schema": 2,
+    "total_len": 164224,
+    "cpu_count": 4,
+    "boot_nonce": 16137862,
+    "ticks_per_sec": 62500000,
+    "self_test": {"seq": 0, "kind": 1, "cpu": 0, "committed": true, "arg0": "0x584b52494e473032"},
+    "normal_equals_stopped": true
+  },
+  "closed_build": {"symbol_present": false, "feature": "KFEAT_TRACE_RING is not set"},
+  "limits": ["header + one self-test entry only", "QMP is a local debug interface", "no live concurrent decode"]
+}

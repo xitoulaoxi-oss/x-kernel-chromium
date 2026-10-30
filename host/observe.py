@@ -210,6 +210,8 @@ def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("session", type=pathlib.Path)
     ap.add_argument("--expected-minutes", type=int, default=0)
+    ap.add_argument("--heartbeat-configured", action="store_true",
+                    help="the session was configured to emit HB lines; only then may a missing HB be a hang")
     ap.add_argument("--warmup-minutes", type=float, default=5.0,
                     help="ignore startup growth before this many minutes (default 5)")
     ap.add_argument("--leak-mb", type=float, default=256.0)
@@ -232,7 +234,7 @@ def main(argv: list[str]) -> int:
     chrome_lines = chromium_log_lines(console)
     subjects = crash_subjects(console, chrome_lines)
     crash = {
-        "detected": bool(subjects) or bool(harness_err.strip()),
+        "detected": bool(subjects),
         "subjects": subjects,
         "signals": [{"kind": s["kind"], "pid": s["pid"], "role": s["role"], "text": s["text"]} for s in subjects],
         "harness_error": bool(harness_err.strip()),
@@ -245,9 +247,12 @@ def main(argv: list[str]) -> int:
     final_colors = stats.get("colors") if stats else None
     hang_class = None
     reasons: list[str] = []
+    observer_reasons: list[str] = []
+    heartbeat_configured = bool(args.heartbeat_configured or hb)
     if stats is None:
-        hang_class = "no_evidence"
-        reasons.append("no final screenshot stats")
+        # A missing screenshot is missing evidence, not proof that the target
+        # hung.  Keep it in the observer bucket so summary cannot print HANG.
+        observer_reasons.append("no final screenshot stats")
     elif isinstance(final_colors, (int, float)) and final_colors < 60:
         hang_class = "no_window_desktop_only"
         reasons.append(f"final frame is the desktop only ({final_colors} colours)")
@@ -255,8 +260,11 @@ def main(argv: list[str]) -> int:
         hang_class = "window_shell_without_page"
         reasons.append(f"window shell without page ({final_colors} colours, blank={final_blank})")
     if args.expected_minutes and not hb:
-        hang_class = hang_class or "heartbeat_missing"
-        reasons.append("no heartbeat lines for a timed session")
+        if heartbeat_configured:
+            hang_class = hang_class or "heartbeat_missing"
+            reasons.append("no heartbeat lines for a timed session that configured heartbeats")
+        else:
+            observer_reasons.append("no heartbeat lines and heartbeat was not configured")
     if hb:
         if args.expected_minutes and len(hb) < max(1, args.expected_minutes - 2):
             hang_class = hang_class or "heartbeat_missing"
@@ -272,6 +280,7 @@ def main(argv: list[str]) -> int:
         "class": hang_class,
         "reasons": reasons,
         "heartbeats": len(hb),
+        "heartbeat_configured": heartbeat_configured,
         "last_heartbeat": hb[-1] if hb else None,
         "final_stats": stats_name,
         "final_colors": final_colors,
@@ -293,6 +302,8 @@ def main(argv: list[str]) -> int:
         "note": "host QEMU working set is a lead only; guest per-process RSS is a separate quantity",
     }
 
+    control_channel_error = bool(harness_err.strip() or qemu_err.strip())
+    observer_insufficient = bool(observer_reasons)
     summary = []
     if crash["detected"]:
         summary.append("CRASH")
@@ -300,13 +311,29 @@ def main(argv: list[str]) -> int:
         summary.append("HANG")
     if leak["detected"]:
         summary.append("LEAK")
+    if control_channel_error and not (crash["detected"] or hang["detected"] or leak["detected"]):
+        summary.append("CONTROL_CHANNEL_ERROR")
+    if observer_insufficient and not summary:
+        summary.append("OBSERVER_INSUFFICIENT")
     if not summary:
         summary.append("NO_CRASH_HANG_LEAK")
+
+    diagnosis = {
+        "target_fault": ("crash" if crash["detected"] else
+                         "hang" if hang["detected"] else
+                         "leak" if leak["detected"] else None),
+        "control_channel_error": control_channel_error,
+        "control_channel_detail": (harness_err.strip() or qemu_err.strip())[-500:] if control_channel_error else "",
+        "observer_insufficient": observer_insufficient,
+        "observer_reasons": observer_reasons,
+        "heartbeat_configured": heartbeat_configured,
+    }
 
     report = {
         "schema_version": SCHEMA,
         "session": str(session),
         "summary": summary,
+        "diagnosis": diagnosis,
         "crash": crash,
         "hang": hang,
         "leak": leak,

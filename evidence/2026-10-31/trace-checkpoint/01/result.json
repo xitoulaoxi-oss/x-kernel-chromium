@@ -1,0 +1,29 @@
+{
+  "task": "trace-followup/01_repair_command_delivery",
+  "status": "PASS",
+  "changes": [
+    "host/xkwin.ps1 Invoke-GuestCommand: drain before send (80/400 ms), 100 ms target→marker gap, bounded per-session seq, tx/rx JSONL trace",
+    "marker line saves rc first: __xk_rc=$?; echo $__xk_rc > /tmp/xk-rc-<nonce>; echo __<nonce>__rc=$__xk_rc",
+    "-TolerantCommands for delivery tests; rc still recorded and never guessed",
+    "host/guest-paths.ps1 mapping and unuploaded-path rejection retained"
+  ],
+  "acceptance": {
+    "twenty_command_session": {"requested": 20, "ok": 20, "rc_correct": 20, "statuses": "20/20 ok"},
+    "hash_sessions": 2,
+    "hash_markers": "6/6 and 6/6 ok, upload sha256 dfe2fb57… verified",
+    "all_ab_attempts": 12
+  },
+  "attempt_ledger": {
+    "pre_fix": "6/6 failed at cdp-policy marker channel; 0 browser-stage failures",
+    "post_fix": "A 3/3 success, B 2/3 success; B3 channel timeout; 0 browser-stage failures",
+    "note": "12 attempts are not a same-version browser reliability rate"
+  },
+  "delivery_contract": "experiments/FINALS-RUNS/20261031T014800Z/trace-followup/01/delivery-contract.json",
+  "limits": [
+    "logical UTF-8 bytes, not packet capture",
+    "rc file is saved but automatic recovery after a corrupt frame is not implemented; no target rerun",
+    "terminal input queue is drained, not inspected at kernel level"
+  ],
+  "kernel": "artifacts/kernel-final.bin c50075b6… (unchanged)",
+  "next": "02 ring layout/schema"
+}

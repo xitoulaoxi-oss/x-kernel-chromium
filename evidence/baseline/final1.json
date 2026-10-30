@@ -1,0 +1,168 @@
+{
+  "schema": "xk-baseline/1",
+  "generated_at": "2026-10-30T21:21:01+0800",
+  "kernel": "artifacts\\kernel-final.bin",
+  "repeats": 5,
+  "definitions": {
+    "startup_first_frame_s": {
+      "unit": "s",
+      "origin": "launch line dispatched",
+      "resolution_s": 5.0,
+      "method": "QEMU screendump; first frame with saturation>=0.06, >=300 colours, not blank",
+      "type": "sampled upper bound"
+    },
+    "page_load_s": {
+      "unit": "s",
+      "origin": "launch line dispatched",
+      "resolution_s": 0.001,
+      "method": "CDP DOM: performance.timeOrigin + navigation.loadEventEnd, minus guest launch_epoch",
+      "type": "browser-clock exact (same guest epoch)"
+    },
+    "renderer_creation_s": {
+      "unit": "s",
+      "origin": "X server start (/tmp/perf.t0)",
+      "resolution_s": 1.0,
+      "method": "1 Hz guest monitor first zygote child + Chromium SystemInfo renderer PID confirmation",
+      "type": "sampled, role-confirmed"
+    },
+    "peak_guest_used_mb": {
+      "unit": "MB",
+      "origin": "launch -> harvest",
+      "resolution_s": 1.0,
+      "method": "max(MemTotal-MemFree) over 1 Hz guest samples; whole-guest upper bound",
+      "type": "sampled upper bound (not per-process RSS)"
+    }
+  },
+  "samples": [
+    {
+      "run": 1,
+      "wall_s": 213.7,
+      "harness_rc": 1,
+      "url": null,
+      "title": null,
+      "page_ok": null,
+      "launch_epoch": 1793365044.0,
+      "startup_first_frame_s": null,
+      "page_load_s": null,
+      "renderer_creation_s": null,
+      "renderer_s_raw": 26.0,
+      "renderer_pid": 277,
+      "renderer_role_confirmed": false,
+      "peak_guest_used_mb": 898.6,
+      "peak_host_qemu_mb": 2030.3,
+      "evidence_dir": "D:\\x-kernel-dsh-bridge\\submission\\for github\\evidence\\baseline\\final1\\run01"
+    },
+    {
+      "run": 2,
+      "wall_s": 605.1,
+      "harness_rc": 1,
+      "url": null,
+      "title": null,
+      "page_ok": null,
+      "launch_epoch": 1793365257.0,
+      "startup_first_frame_s": null,
+      "page_load_s": null,
+      "renderer_creation_s": null,
+      "renderer_s_raw": 28.0,
+      "renderer_pid": 281,
+      "renderer_role_confirmed": false,
+      "peak_guest_used_mb": 787.2,
+      "peak_host_qemu_mb": 1848.9,
+      "evidence_dir": "D:\\x-kernel-dsh-bridge\\submission\\for github\\evidence\\baseline\\final1\\run02"
+    },
+    {
+      "run": 3,
+      "wall_s": 214.0,
+      "harness_rc": 1,
+      "url": null,
+      "title": null,
+      "page_ok": null,
+      "launch_epoch": 1793365863.0,
+      "startup_first_frame_s": null,
+      "page_load_s": null,
+      "renderer_creation_s": null,
+      "renderer_s_raw": 23.0,
+      "renderer_pid": 274,
+      "renderer_role_confirmed": false,
+      "peak_guest_used_mb": 599.7,
+      "peak_host_qemu_mb": 1694.1,
+      "evidence_dir": "D:\\x-kernel-dsh-bridge\\submission\\for github\\evidence\\baseline\\final1\\run03"
+    },
+    {
+      "run": 4,
+      "wall_s": 213.5,
+      "harness_rc": 1,
+      "url": null,
+      "title": null,
+      "page_ok": null,
+      "launch_epoch": 1793366076.0,
+      "startup_first_frame_s": null,
+      "page_load_s": null,
+      "renderer_creation_s": null,
+      "renderer_s_raw": 24.0,
+      "renderer_pid": 275,
+      "renderer_role_confirmed": false,
+      "peak_guest_used_mb": 898.5,
+      "peak_host_qemu_mb": 2014.1,
+      "evidence_dir": "D:\\x-kernel-dsh-bridge\\submission\\for github\\evidence\\baseline\\final1\\run04"
+    },
+    {
+      "run": 5,
+      "wall_s": 214.8,
+      "harness_rc": 1,
+      "url": "about:blank",
+      "title": "",
+      "page_ok": false,
+      "launch_epoch": 1793366289.0,
+      "startup_first_frame_s": null,
+      "page_load_s": 45.583,
+      "renderer_creation_s": null,
+      "renderer_s_raw": 24.0,
+      "renderer_pid": 272,
+      "renderer_role_confirmed": false,
+      "peak_guest_used_mb": 899.7,
+      "peak_host_qemu_mb": 2038.1,
+      "evidence_dir": "D:\\x-kernel-dsh-bridge\\submission\\for github\\evidence\\baseline\\final1\\run05"
+    }
+  ],
+  "summary": {
+    "startup_first_frame_s": {
+      "n": 0,
+      "median": null
+    },
+    "page_load_s": {
+      "n": 1,
+      "median": 45.583,
+      "min": 45.583,
+      "max": 45.583,
+      "spread": 0.0,
+      "all": [
+        45.583
+      ]
+    },
+    "renderer_creation_s": {
+      "n": 0,
+      "median": null
+    },
+    "peak_guest_used_mb": {
+      "n": 5,
+      "median": 898.5,
+      "min": 599.7,
+      "max": 899.7,
+      "spread": 300.0,
+      "all": [
+        898.6,
+        787.2,
+        599.7,
+        898.5,
+        899.7
+      ]
+    }
+  },
+  "failure_rate": 1.0,
+  "notes": [
+    "No value is treated as PASS if the session failed or the DOM check failed.",
+    "first_frame and peak memory are sampled upper bounds; page load is a browser-clock interval.",
+    "renderer_s is only reported when Chromium's own process list confirms the PID role."
+  ]
+}

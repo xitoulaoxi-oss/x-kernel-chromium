@@ -1,0 +1,8 @@
+{
+  "task": "06_optimize_startup",
+  "status": "BLOCKED",
+  "blocking_condition": "No qualified four-metric five-round baseline (05 FAIL: 4 valid rounds, renderer/guest-memory absent) and no 20/20 startup (03 FAIL). A before/after claim would not be measurable as the task requires.",
+  "variables_changed": [],
+  "measurements": [],
+  "next": "Requires 03 and 05 to pass first."
+}

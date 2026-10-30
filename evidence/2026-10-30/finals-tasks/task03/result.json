@@ -1,0 +1,33 @@
+{
+  "task": "03_verify_twenty_first_starts",
+  "status": "FAIL",
+  "candidate": "artifacts/kernel-idlefix.bin (same code as kernel-final.bin; metadata-only rebuild)",
+  "frozen": "task03/freeze.json",
+  "attempts": [
+    {
+      "attempt": 1,
+      "kernel": "kernel-idlefix.bin",
+      "launcher": "guest/x4-win1.sh (plain)",
+      "runs": 6,
+      "passed": 5,
+      "failed_run": "C06",
+      "failure": "page check failed: Chromium stalled with 6 processes, no window (CDP relay timeout)",
+      "evidence": "experiments/FINALS-RUNS/20261030T110856Z/task03/"
+    },
+    {
+      "attempt": 2,
+      "kernel": "kernel-idlefix.bin",
+      "launcher": "guest/x4-win1.sh (plain)",
+      "runs": 7,
+      "passed": 6,
+      "failed_run": "C07",
+      "failure": "guest console stopped after W2 t=30; diagnostics could not be served (timeout 220 s)",
+      "evidence": "experiments/FINALS-RUNS/20261030T110856Z/task03b/"
+    }
+  ],
+  "total": { "runs": 13, "passed": 11, "failed": 2, "failure_rate": 0.154 },
+  "twenty_of_twenty": false,
+  "first_attempt_only": true,
+  "note": "No reload/restart was used. Failed sessions are kept; passed sessions are not reused to replace them.",
+  "next": "Root-cause the remaining startup stall; 03 cannot pass until the failure rate is zero over 20 fresh sessions."
+}

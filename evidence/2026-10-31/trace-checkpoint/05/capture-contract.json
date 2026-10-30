@@ -1,0 +1,56 @@
+{
+  "schema": "xk-capture-contract/1",
+  "generated_at": "2026-10-31T02:10:00+08:00",
+  "modes": {
+    "channel_self_test": "host/qmp_memory_export.py (128 B loader record; not used for the ring)",
+    "live_capture": "host/ring_capture.py (symbol/header based, freezes VM)"
+  },
+  "stop_rule": {
+    "default": "send stop, poll query-status until paused, read, leave VM paused; never auto-cont",
+    "explicit_resume": "only --resume sends cont after the report and raw dump are written; --quit requires --resume",
+    "already_paused": "recorded and not resumed",
+    "timeline": ["connect", "stop-sent", "paused", "cont (only with --resume)"]
+  },
+  "read_rule": {
+    "header_gate": "read 128 B first; validate magic/schema/header_len/total_len/cpu_count/entry_size/entries_per_cpu/checksum before any full read or unpack",
+    "cap": 1048576,
+    "chunk_bytes": 4096,
+    "chunk_check": "each xp response must decode to exactly the requested byte count",
+    "artifact": "full raw dump + sha256 + bytes_read",
+    "active_ring": "normal != paused is expected and is not a failure condition"
+  },
+  "success_evidence": {
+    "session": "experiments/FINALS-RUNS/20261031T014800Z/trace-followup/05/capture",
+    "status_before": "running",
+    "status_stopped": "paused",
+    "bytes_read": 164224,
+    "dump_sha256": "42a607b6d87ba8ec7bf056fde5535a246a2f2f67254d0852fdfdf745f3c472ff",
+    "ring_ok": true,
+    "events": 4092,
+    "explicitly_resumed": true,
+    "capture_json": "capture.json"
+  },
+  "failure_evidence": {
+    "case": "wrong symbol 0xffff80000092dd80",
+    "stage": "header",
+    "error": "magic/schema/header_len/total_len/cpu_count/entry_size/entries_per_cpu/checksum rejected",
+    "vm_left": "paused",
+    "resumed": false,
+    "partial_bytes": 128,
+    "partial_sha256": "be62003ce5a1dcf2ec3dc6ad7685644db60642d61394c73a7f6a2dc9bddc5ca7",
+    "report": "failure.json"
+  },
+  "manual_recovery": {
+    "file": "manual-resume.json",
+    "before": "paused",
+    "after": "running",
+    "note": "recovery was a separate explicit action after the failure report was saved"
+  },
+  "address_rule": "symbol_vaddr - kimage_voffset from the 03 boot; the 0x70000000 loader page is never used as the ring address",
+  "limits": [
+    "QMP is a local debug interface",
+    "frozen snapshot only; no live concurrent decode",
+    "full ring cap 1 MiB; current object 164224 B",
+    "no claim that 0x70000000 is reserved by the kernel"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "task": "04_complete_functional_run",
+  "status": "FAIL",
+  "attempts": [
+    {
+      "attempt": 1,
+      "session": "experiments/FINALS-RUNS/20261030T110856Z/task04/single",
+      "startup": "window opened, but first DOM check found about:blank for the expected index target",
+      "failed_at": "step-07-page (check=page)",
+      "stages_reached": "two windows (x4 + x5c) opened; no renderer/page evidence",
+      "harness_error": "Semantic step failed: page"
+    },
+    {
+      "attempt": 2,
+      "session": "experiments/FINALS-RUNS/20261030T110856Z/task04/single2",
+      "startup": "not reached",
+      "failed_at": "guest staging: chmod /tmp/xk-cdp-policy.sh (upload missing)",
+      "classification": "harness infrastructure failure, not a functional result"
+    }
+  ],
+  "full_functional_passed": false,
+  "spliced_from_other_runs": false,
+  "next": "A single session must prove HTML, renderer roles, two-window switch, keyboard echo, mouse navigation, JS and CSS without a startup blank."
+}

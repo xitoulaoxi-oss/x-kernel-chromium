@@ -1,0 +1,13 @@
+{
+  "task": "trace-followup/02_finalize_ring_layout",
+  "status": "PASS",
+  "layout": "experiments/FINALS-RUNS/20261031T014800Z/trace-followup/02/ring-layout.json",
+  "budget": {"total_object_bytes": 164224, "limit_bytes": 196608, "header": 128, "metadata": 256, "entries": 163840},
+  "entry_size": 40,
+  "fields_added_vs_draft": ["ticks u64", "kind u16", "cpu u16", "flags/commit u32"],
+  "decoder": "host/ring_decode.py",
+  "tests": {"file": "tests/ring_layout_test.py", "cases": 12, "passed": 12},
+  "invariants": ["commit flag with release", "half-write rejected", "wrap retained range", "duplicate seq rejected", "cross-CPU ticks not a total order", "no exact unread-loss claim without a consumer cursor"],
+  "not_yet": "no kernel object/writer; 03 owns the build",
+  "next": "03 default-off static storage and diagnostic/closed builds"
+}

@@ -15,6 +15,9 @@ ignored = ["alloc-engine", "entropy", "fbdevice", "inputdev", "kalloc", "kbpf", 
 [features]
 default = []
 
+# Fixed-capacity diagnostic event ring (default off).
+trace_ring = ["ktask?/trace_ring"]
+
 # Multicore
 smp = [
     "ipi",

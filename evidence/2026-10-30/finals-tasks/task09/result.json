@@ -1,0 +1,25 @@
+{
+  "task": "09_validate_real_fault_diagnostics",
+  "status": "PARTIAL",
+  "scenarios": {
+    "crash": {
+      "injected": true, "evidence": "FAULT_CRASH pid=154 in console",
+      "result": "guest command then timed out; observe classified CRASH+HANG from the harness error, not a clean crash report",
+      "session": "experiments/FINALS-RUNS/20261030T110856Z/task09/crash"
+    },
+    "stop": {
+      "injected": true, "evidence": "FAULT_STOP pid=154 in console",
+      "result": "follow-up /proc inspection timed out; no clean stopped-state report",
+      "session": "experiments/FINALS-RUNS/20261030T110856Z/task09/stop"
+    },
+    "leak": {
+      "injected": false,
+      "result": "guest staging failed (cdp-policy upload missing); not a leak result",
+      "session": "experiments/FINALS-RUNS/20261030T110856Z/task09/leak"
+    }
+  },
+  "synthetic_only": false,
+  "clean_diagnostic_report": false,
+  "honesty": "The crash and stop signals are real injections, but the diagnosis is incomplete and the leak scenario never ran. observe.py's CRASH/HANG summary in the crash/stop sessions is driven by the harness error and is not accepted as a clean report.",
+  "next": "Repeat each scenario after startup is stable and keep the injection before the page probe."
+}

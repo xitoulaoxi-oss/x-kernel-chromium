@@ -106,8 +106,11 @@ EXPRESSION = r'''(() => {
    rows[prefix+i]={pass:!!e && e.classList.contains('st-pass'), text:e ? e.textContent : null};
  }
  const v=document.getElementById('verdict');
+ const nav=performance.getEntriesByType('navigation')[0];
  return {url:location.href, title:document.title, ready_state:document.readyState,
    time_origin:performance.timeOrigin, body_text:document.body ? document.body.innerText : '',
+   page_load_end_ms: nav ? performance.timeOrigin + nav.loadEventEnd : null,
+   dom_content_loaded_ms: nav ? performance.timeOrigin + nav.domContentLoadedEventEnd : null,
    keyboard_value:document.getElementById('kb') ? document.getElementById('kb').value : null,
    keyboard_echo:document.getElementById('kb-echo') ? document.getElementById('kb-echo').textContent : null,
    rows, verdict_pass:!!v && v.classList.contains('v-pass')};

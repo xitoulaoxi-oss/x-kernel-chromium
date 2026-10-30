@@ -1,5 +1,14 @@
 menu "Task Diagnostics"
 
+config KFEAT_TRACE_RING
+    bool "Fixed-capacity diagnostic event ring"
+    default n
+    help
+      Compile the 164224-byte per-CPU diagnostic event ring and its boot
+      self-test record into ktask. Production builds keep this off; the
+      trace-followup diagnostic build enables it and reads the static object
+      through QMP. It has no allocation or global lock on the write path.
+
 config KFEAT_SNAPSHOT
     bool "Task snapshot support"
     default y if BUILD_TYPE_DEBUG

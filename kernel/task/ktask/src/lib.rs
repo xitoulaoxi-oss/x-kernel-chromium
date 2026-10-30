@@ -57,6 +57,8 @@ mod task;
 #[cfg(feature = "snapshot")]
 mod task_registry;
 mod timers;
+#[cfg(feature = "trace_ring")]
+pub mod trace_ring;
 mod tracing_hooks;
 mod wait_queue;
 

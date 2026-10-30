@@ -5,10 +5,18 @@
 set -u
 M=/tmp/perf.marks
 T0=$(cat /tmp/perf.t0 2>/dev/null || date +%s)
-cs=0; rs=0; k=0; z=
+cs=0; rs=0; k=0; z=; memmax=0
 while [ "$k" -lt 110 ]; do
   k=$((k+1)); sleep 1
   s=$(( $(date +%s) - T0 ))
+  if [ -r /proc/meminfo ]; then
+    mt=$(awk '/^MemTotal:/{print $2}' /proc/meminfo 2>/dev/null)
+    mf=$(awk '/^MemFree:/{print $2}' /proc/meminfo 2>/dev/null)
+    if [ -n "$mt" ] && [ -n "$mf" ]; then
+      used=$((mt - mf))
+      [ "$used" -gt "$memmax" ] && memmax=$used
+    fi
+  fi
   if [ "$cs" -eq 0 ]; then
     n=$(ps w 2>/dev/null | grep -c 'chromium --ozone')
     [ "$n" -gt 0 ] && { cs=$s; echo "chrome_s=$s" >> "$M"; }
@@ -43,8 +51,8 @@ while [ "$k" -lt 110 ]; do
       done
     fi
   fi
-  [ "$cs" -ne 0 ] && [ "$rs" -ne 0 ] && break
   [ "$k" -ge 90 ] && break
 done
 echo "marks_loops=$k" >> "$M"
+echo "mem_max_used_kb=$memmax" >> "$M"
 echo "done=1" >> "$M"
