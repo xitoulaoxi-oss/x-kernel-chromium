@@ -1,0 +1,35 @@
+{
+    "schedule":  "2x5@5",
+    "count":  2,
+    "interval_s":  5,
+    "start_s":  5,
+    "hold_s":  0,
+    "completed":  2,
+    "total_s":  13.7,
+    "rows":  [
+                 {
+                     "round":  1,
+                     "planned_s":  5,
+                     "sent_s":  5,
+                     "drift_s":  0,
+                     "completed_s":  8.67,
+                     "navigation_id":  "6CD02ACB342AD6BCC290CE9376F8ECD6:1793343062796.8",
+                     "before_navigation_id":  "6CD02ACB342AD6BCC290CE9376F8ECD6:1793343021283.1",
+                     "semantic_ok":  true,
+                     "colors":  886,
+                     "ok":  true
+                 },
+                 {
+                     "round":  2,
+                     "planned_s":  10,
+                     "sent_s":  10.02,
+                     "drift_s":  0.02,
+                     "completed_s":  13.69,
+                     "navigation_id":  "6CD02ACB342AD6BCC290CE9376F8ECD6:1793343067570.1",
+                     "before_navigation_id":  "6CD02ACB342AD6BCC290CE9376F8ECD6:1793343062796.8",
+                     "semantic_ok":  true,
+                     "colors":  886,
+                     "ok":  true
+                 }
+             ]
+}

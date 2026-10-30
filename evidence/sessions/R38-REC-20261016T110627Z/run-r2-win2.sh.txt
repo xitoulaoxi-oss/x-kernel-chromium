@@ -1,5 +1,0 @@
-sh /tmp/xk-r2-win2.sh 2>&1
-R2 idle (pass 'go' to open the window)
-kylin-x:~# echo __XK5930127__rc=$?
-__XK5930127__rc=0
-kylin-x:~# [6n

@@ -1,0 +1,364 @@
+[boot] entered primary switched cpu=0 mpidr=0x0 dtb=0x48000000 kimage_voffset=0xffff7fffbfe00000
+[boot] boot linear RAM map extended from DT
+[boot] handoff to kruntime boot_info=0xffff800000824988
+[boot] kruntime primary start cpu=0 boot_info=0xffff800000824988
+[boot] firmware: DTB at 0x48000000
+[boot] firmware: chosen stdout-path=/pl011@9000000
+[boot] firmware: chosen bootargs=<none>
+[boot] firmware: hwdesc source=device tree
+[boot] firmware: memory source=device tree
+[boot] firmware: no cmdline
+[boot] kruntime memory regions ready
+[boot] kruntime allocator ready
+[boot] memory space map ready
+[boot] NMI mode: pseudo-NMI requires GICv3+ PMR, found GICv2; NMI disabled
+
+                 ++
+             *  ***
+           *******
+         *******++
+      ********+===
+    ******#*+======
+   *******#***++===
+   *********+**===
+  ##*********##==                  ====+
+%##****++==+****#                ***+=**
+#****++=====++****##            ********
+####*+=======+******===-     ***#*##****
+ #%#******+**+==++**=======+*+*#%
+ %#****+******=====+====+++==**
+  #*********##***###********##%
+   ***##%#%%%%*****#*###*****#%
+   *#%%%#%%%%%****   %%*******#%
+   #%%%%%%          %%%##***###%%
+    **#%           %%%%#% **#**##
+   ###%%         %%%%%   %%%***
+ %%%%%%        %%%%%%%  %%%%#*
+ %%%%%%                %%%%%%+=
+
+Boot at 2026-10-30 09:11:20.021389104 UTC
+
+[  0.309472 watchdog::init:57] [watchdog] NMI mechanism unavailable; hard lockup detection disabled
+[  0.313294 watchdog::init:57] [watchdog] NMI mechanism unavailable; hard lockup detection disabled
+[  0.315776 watchdog::init:57] [watchdog] NMI mechanism unavailable; hard lockup detection disabled
+[  0.313388 watchdog::init:57] [watchdog] NMI mechanism unavailable; hard lockup detection disabled
+[  0.685270 0:18446462599824926736 knet:203]   No vsock device found!
+arch = aarch64
+platform = kplat-aarch64
+target = aarch64-unknown-none-softfloat
+build_mode = release
+build_machine = xitoulaoxi@xitoulaoxi-desktop
+build_time = 2026-10-28T16:36:05.25611673Z
+log_level = warn
+backtrace = false
+nr_cpus_max = 4
+vmm = off
+config_sha256 = c27d8b2b3414d219359808f56611284945306fd50a28dbed81a9b252807d955c
+git_commit = 5081473a2562e0fbea1aef63f445c9ce50721032
+git_dirty = true
+build_id = f8beec3c87c2f1fbf8d84f947705c77e7efd8c7e4c8cac789a238b6be59b5976
+smp = 4
+Welcome to Kylin X!
+SHLVL=1
+HOME=/root
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PWD=/
+
+Use apt to install packages.
+
+init: handing off to /sbin/init (inittab present, /dev/console present)
+init: must be run as PID 1
+init: /sbin/init exited immediately; falling back to an interactive shell
+kylin-x:~# 
+kylin-x:~# cat > /tmp/xk-cdp-policy.sh.xtmp <<'XK_H_EOF_444746a9'
+> #!/bin/sh
+> # Diagnostic-only: xkwin permits this script only with a QEMU snapshot.
+> set -eu
+> f=/etc/chromium/policies/managed/kiosk.json
+> if [ ! -r "$f" ]; then
+>   echo CDP_POLICY_ABSENT
+>   exit 0
+> fi
+> cp "$f" /tmp/xk-cdp-policy-original.json
+> echo CDP_POLICY_BEFORE
+> sha256sum "$f"
+> grep 'DeveloperToolsAvailability' "$f" || true
+> sed -i 's/"DeveloperToolsAvailability"[[:space:]]*:[[:space:]]*2\([[:space:]]*[,}]\)/"DeveloperToolsAvailabi
+
+lity": 1\1/' "$f"
+> echo CDP_POLICY_AFTER
+> sha256sum "$f"
+> grep 'DeveloperToolsAvailability' "$f" || true
+> echo CDP_POLICY_SCOPE=QEMU_SNAPSHOT
+> 
+> XK_H_EOF_444746a9
+kylin-x:~# head -c 566 /tmp/xk-cdp-policy.sh.xtmp > /tmp/xk-cdp-policy.sh; rm -f /tmp/xk-cdp-policy.sh.xtmp
+kylin-x:~# echo __XK7129367__rc=$?
+__XK7129367__rc=0
+kylin-x:~# chmod +x /tmp/xk-cdp-policy.sh; wc -l < /tmp/xk-cdp-policy.sh
+17
+kylin-x:~# echo __XK9291262__rc=$?
+__XK9291262__rc=0
+kylin-x:~# echo FPSTART
+FPSTART
+kylin-x:~# wc -c "/tmp/xk-cdp-policy.sh" 2>/dev/null
+566 /tmp/xk-cdp-policy.sh
+kylin-x:~# cksum "/tmp/xk-cdp-policy.sh" 2>/dev/null
+3241026274 566 /tmp/xk-cdp-policy.sh
+kylin-x:~# echo FPEND
+FPEND
+kylin-x:~# echo __XK2650219__rc=$?
+__XK2650219__rc=0
+kylin-x:~# echo FPSTART
+FPSTART
+kylin-x:~# wc -c "/tmp/xk-cdp-policy.sh" 2>/dev/null
+566 /tmp/xk-cdp-policy.sh
+kylin-x:~# cksum "/tmp/xk-cdp-policy.sh" 2>/dev/null
+3241026274 566 /tmp/xk-cdp-policy.sh
+kylin-x:~# echo FPEND
+FPEND
+kylin-x:~# echo __XK8197712__rc=$?
+__XK8197712__rc=0
+kylin-x:~# sh /tmp/xk-cdp-policy.sh 2>&1
+CDP_POLICY_BEFORE
+c6fce0100aba36d1df873cefaad33972dfbb4cc6bd9d245661a7fb552c1e241e  /etc/chromium/policies/managed/kiosk.json
+  "DeveloperToolsAvailability": 2,
+CDP_POLICY_AFTER
+763e24a9f374c788e5fb3463cdf42f70fb4866fe869de8a04342e0be770347bd  /etc/chromium/policies/managed/kiosk.json
+  "DeveloperToolsAvailability": 1,
+CDP_POLICY_SCOPE=QEMU_SNAPSHOT
+kylin-x:~# echo __XK6180724__rc=$?
+__XK6180724__rc=0
+kylin-x:~# printf '#!/bin/sh\nexec nc -w 10 127.0.0.1 9222\n' > /tmp/xk-cdp-forward.sh; chmod +x /tmp/xk-cdp-f
+
+orward.sh; setsid nc -lk -p 9223 -e /tmp/xk-cdp-forward.sh </dev/null >/tmp/xk-cdp-relay.log 2>&1 &
+kylin-x:~# echo __XK9580189__rc=$?
+__XK9580189__rc=0
+kylin-x:~# export XK_CDP_ARGS='--remote-debugging-port=9222'; echo CDP_ENABLED
+CDP_ENABLED
+[1]+  Done                       setsid nc -lk -p 9223 -e /tmp/xk-cdp-forward.sh 0</dev/null 1>/tmp/xk-cdp-relay.log 2>&1
+kylin-x:~# echo __XK3660040__rc=$?
+__XK3660040__rc=0
+kylin-x:~# export XK_HTTP=http://10.0.2.2:64676; echo XK_HTTP=http://10.0.2.2:64676
+XK_HTTP=http://10.0.2.2:64676
+kylin-x:~# echo __XK2451340__rc=$?
+__XK2451340__rc=0
+kylin-x:~# wget -q -O /tmp/xk-y6-evidence.sh 'http://10.0.2.2:64676/y6-evidence.sh' && sha256sum /tmp/xk-y6-ev
+
+idence.sh
+27bdf9e77361ba1159393dea60bb11c17787b796b7cb1d0a8114a6a8edc021d6  /tmp/xk-y6-evidence.sh
+kylin-x:~# echo __XK2749069__rc=$?
+__XK2749069__rc=0
+kylin-x:~# chmod +x /tmp/xk-y6-evidence.sh
+kylin-x:~# echo __XK9998431__rc=$?
+__XK9998431__rc=0
+kylin-x:~# wget -q -O /tmp/xk-06-fetch-pages.sh 'http://10.0.2.2:64676/06-fetch-pages.sh' && sha256sum /tmp/xk
+
+-06-fetch-pages.sh
+907d8ac4f5c6ab32f70cf181cec3287a46d4d8e099977c954a31bceb7cdfc016  /tmp/xk-06-fetch-pages.sh
+kylin-x:~# echo __XK5849264__rc=$?
+__XK5849264__rc=0
+kylin-x:~# chmod +x /tmp/xk-06-fetch-pages.sh
+kylin-x:~# echo __XK3302355__rc=$?
+__XK3302355__rc=0
+kylin-x:~# sh /tmp/xk-06-fetch-pages.sh 2>&1
+P index bytes=5730 sha=831cf28f3748940b
+P interaction bytes=10991 sha=58130daa4a2f426f
+P layout bytes=11444 sha=a1b04f9aba81b4b7
+P1 ok=3 bad=0
+P2 url=file:///usr/share/kiosk/official/index.html
+total 0
+-rw-r--r--    1 root     root          5730 Oct 30 09:11 index.html
+-rw-r--r--    1 root     root         10991 Oct 30 09:11 interaction.html
+-rw-r--r--    1 root     root         11444 Oct 30 09:11 layout.html
+P3
+kylin-x:~# echo __XK5950931__rc=$?
+__XK5950931__rc=0
+kylin-x:~# wget -q -O /tmp/xk-x1-input.sh 'http://10.0.2.2:64676/x1-input.sh' && sha256sum /tmp/xk-x1-input.sh
+
+1bb6bde826f83faf804e0bd40abf49892f8fbb9a8a1ac23583a39c714014e2ab  /tmp/xk-x1-input.sh
+kylin-x:~# echo __XK3083873__rc=$?
+__XK3083873__rc=0
+kylin-x:~# chmod +x /tmp/xk-x1-input.sh
+kylin-x:~# echo __XK3228862__rc=$?
+__XK3228862__rc=0
+kylin-x:~# sh /tmp/xk-x1-input.sh 2>&1
+X1
+X2 /sys/class/input/event0 c13:64 [QEMU Virtio Keyboard]
+X2 /sys/class/input/event1 c13:65 [QEMU Virtio Mouse]
+X3 events=2 udevdb=c13:64 c13:65 
+X4
+kylin-x:~# echo __XK9511364__rc=$?
+__XK9511364__rc=0
+kylin-x:~# wget -q -O /tmp/xk-x2-xorg.sh 'http://10.0.2.2:64676/x2-xorg.sh' && sha256sum /tmp/xk-x2-xorg.sh
+ea28c07cbf039945199ab703e2af2794aa7877467d4b32e3f56612440e6f5545  /tmp/xk-x2-xorg.sh
+kylin-x:~# echo __XK2015455__rc=$?
+__XK2015455__rc=0
+kylin-x:~# chmod +x /tmp/xk-x2-xorg.sh
+kylin-x:~# echo __XK2590972__rc=$?
+__XK2590972__rc=0
+kylin-x:~# sh /tmp/xk-x2-xorg.sh 2>&1
+X5 xsock=yes
+X6 xolog=2764 libinput=0
+X7
+kylin-x:~# echo __XK2863735__rc=$?
+__XK2863735__rc=0
+kylin-x:~# wget -q -O /tmp/xk-y3-jwm-stock.sh 'http://10.0.2.2:64676/y3-jwm-stock.sh' && sha256sum /tmp/xk-y3-
+
+jwm-stock.sh
+88d322b3099146a286a3fb2c1e6789366ae6172fcaf7a1dddba7c08ffad4608e  /tmp/xk-y3-jwm-stock.sh
+kylin-x:~# echo __XK2028343__rc=$?
+__XK2028343__rc=0
+kylin-x:~# chmod +x /tmp/xk-y3-jwm-stock.sh
+kylin-x:~# echo __XK3377429__rc=$?
+__XK3377429__rc=0
+kylin-x:~# sh /tmp/xk-y3-jwm-stock.sh 2>&1
+Y1
+187:    <Key mask="A" key="Tab">nextstacked</Key>
+188:    <Key mask="A" key="F4">close</Key>
+189:    <Key mask="A" key="#">desktop#</Key>
+190:    <Key mask="A" key="F1">root:1</Key>
+191:    <Key mask="A" key="F2">window</Key>
+192:    <Key mask="A" key="F10">maximize</Key>
+193:    <Key mask="A" key="Right">rdesktop</Key>
+194:    <Key mask="A" key="Left">ldesktop</Key>
+195:    <Key mask="A" key="Up">udesktop</Key>
+196:    <Key mask="A" key="Down">ddesktop</Key>
+[ 34.753921 1:74 devfs::nodes::event:403] unknown ioctl for evdev: 21523 140733193384696
+[ 34.756059 1:74 devfs::nodes::event:403] unknown ioctl for evdev: 21515 0
+[ 34.805607 1:74 devfs::nodes::event:403] unknown ioctl for evdev: 21523 140733193383944
+[ 34.808860 1:74 devfs::nodes::event:403] unknown ioctl for evdev: 21515 0
+[ 34.833768 1:74 devfs::nodes::event:403] unknown ioctl for evdev: 21523 140733193384696
+[ 34.835783 1:74 devfs::nodes::event:403] unknown ioctl for evdev: 21515 0
+[ 34.863105 1:74 devfs::nodes::event:403] unknown ioctl for evdev: 21523 140733193383944
+[ 34.865035 1:74 devfs::nodes::event:403] unknown ioctl for evdev: 21515 0
+Y2 jwm=3 jwlog=27
+Y3 wm=_NET_SUPPORTING_WM_CHECK(WINDOW): window id # 0x200001
+/bin/sh: xclock: not found
+Y4
+kylin-x:~# echo __XK2797290__rc=$?
+__XK2797290__rc=0
+kylin-x:~# wget -q -O /tmp/xk-x4-win1.sh 'http://10.0.2.2:64676/x4-win1.sh' && sha256sum /tmp/xk-x4-win1.sh
+1b29a871175dbf01c0347b91479cf8b3408dcd3a4b414185b6c934a3baaa7422  /tmp/xk-x4-win1.sh
+kylin-x:~# echo __XK8625258__rc=$?
+__XK8625258__rc=0
+kylin-x:~# chmod +x /tmp/xk-x4-win1.sh
+kylin-x:~# echo __XK5873756__rc=$?
+__XK5873756__rc=0
+kylin-x:~# sh /tmp/xk-x4-win1.sh 2>&1
+W1 started
+[ 49.149166 3:109 ksyscall::dispatch:885] Unimplemented syscall: landlock_create_ruleset (tid=109)
+W2 t=15 procs=5 log=776 wins=0
+W2 t=30 procs=8 log=1702 wins=0
+W2 t=45 procs=9 log=7256 wins=1
+W2 t=60 procs=11 log=9830 wins=1
+W3 _NET_CLIENT_LIST(WINDOW): window id # 0x400003
+W4 active=_NET_ACTIVE_WINDOW(WINDOW): window id # 0x400003
+W5
+kylin-x:~# echo __XK1651804__rc=$?
+__XK1651804__rc=0
+kylin-x:~# wget -q -O /tmp/xk-x5c-win2.sh 'http://10.0.2.2:64676/x5c-win2.sh' && sha256sum /tmp/xk-x5c-win2.sh
+
+dda9210756c2a5d53a37831696b2eca1338c0c7b7191f109fb8b1c8c087c91a4  /tmp/xk-x5c-win2.sh
+kylin-x:~# echo __XK8124314__rc=$?
+__XK8124314__rc=0
+kylin-x:~# chmod +x /tmp/xk-x5c-win2.sh
+kylin-x:~# echo __XK2646284__rc=$?
+__XK2646284__rc=0
+kylin-x:~# sh /tmp/xk-x5c-win2.sh 2>&1
+N1 before=_NET_CLIENT_LIST(WINDOW): window id # 0x400003 wins=1
+[110.237851 3:284 ksyscall::dispatch:885] Unimplemented syscall: landlock_create_ruleset (tid=284)
+N2 t=10 wins=2 log2=517
+N6 _NET_CLIENT_LIST(WINDOW): window id # 0x400008, 0x400003
+N7 active=_NET_ACTIVE_WINDOW(WINDOW): window id # 0x400008 wins=2 log1=9830
+N8
+kylin-x:~# echo __XK8625225__rc=$?
+__XK8625225__rc=0
+kylin-x:~# sh /tmp/xk-y6-evidence.sh
+E1
+_NET_CLIENT_LIST(WINDOW): window id # 0x400008, 0x400003
+_NET_ACTIVE_WINDOW(WINDOW): window id # 0x400008
+_NET_CLIENT_LIST_STACKING(WINDOW): window id # 0x400008, 0x400003
+E2 win1=0x400008
+WM_NAME(UTF8_STRING) = "JavaScript 交互测试页 · x-kernel + Chromium - Chromium"
+_NET_WM_PID(CARDINAL) = 109
+WM_CLASS(STRING) = "chromium (/tmp/pr)", "Chromium"
+E2 win2=0x400003
+WM_NAME(UTF8_STRING) = "Untitled - Chromium"
+_NET_WM_PID(CARDINAL) = 109
+WM_CLASS(STRING) = "chromium (/tmp/pr)", "Chromium"
+/tmp/xk-y6-evidence.sh: line 22: can't open /tmp/w3.log: no such file
+E3 chrome=15 log1=9830 log2=517 log3=
+E4 devinput=event0 event1  xolog=10193
+[    33.483] (==) modeset(0): Silken mouse enabled
+[    33.546] (II) Initializing extension XKEYBOARD
+[    34.565] (II) config/udev: Adding input device QEMU Virtio Keyboard (/dev/input/event0)
+[    34.567] (**) QEMU Virtio Keyboard: Applying InputClass "libinput keyboard catchall"
+[    34.568] (II) LoadModule: "libinput"
+[    34.571] (II) Loading /usr/lib/xorg/modules/input/libinput_drv.so
+[    34.615] (II) Module libinput: vendor="X.Org Foundation"
+[    34.617] (II) Using input driver 'libinput' for 'QEMU Virtio Keyboard'
+[    34.617] (**) QEMU Virtio Keyboard: always reports core events
+[    34.619] (**) Option "Device" "/dev/input/event0"
+E5
+kylin-x:~# echo __XK8857687__rc=$?
+__XK8857687__rc=0
+kylin-x:~# sh /tmp/xk-y6-evidence.sh
+E1
+_NET_CLIENT_LIST(WINDOW): window id # 0x400008, 0x400003
+_NET_ACTIVE_WINDOW(WINDOW): window id # 0x400003
+_NET_CLIENT_LIST_STACKING(WINDOW): window id # 0x400003, 0x400008
+E2 win1=0x400008
+WM_NAME(UTF8_STRING) = "JavaScript 交互测试页 · x-kernel + Chromium - Chromium"
+_NET_WM_PID(CARDINAL) = 109
+WM_CLASS(STRING) = "chromium (/tmp/pr)", "Chromium"
+E2 win2=0x400003
+WM_NAME(UTF8_STRING) = "Untitled - Chromium"
+_NET_WM_PID(CARDINAL) = 109
+WM_CLASS(STRING) = "chromium (/tmp/pr)", "Chromium"
+/tmp/xk-y6-evidence.sh: line 22: can't open /tmp/w3.log: no such file
+E3 chrome=15 log1=9830 log2=517 log3=
+E4 devinput=event0 event1  xolog=10193
+[    33.483] (==) modeset(0): Silken mouse enabled
+[    33.546] (II) Initializing extension XKEYBOARD
+[    34.565] (II) config/udev: Adding input device QEMU Virtio Keyboard (/dev/input/event0)
+[    34.567] (**) QEMU Virtio Keyboard: Applying InputClass "libinput keyboard catchall"
+[    34.568] (II) LoadModule: "libinput"
+[    34.571] (II) Loading /usr/lib/xorg/modules/input/libinput_drv.so
+[    34.615] (II) Module libinput: vendor="X.Org Foundation"
+[    34.617] (II) Using input driver 'libinput' for 'QEMU Virtio Keyboard'
+[    34.617] (**) QEMU Virtio Keyboard: always reports core events
+[    34.619] (**) Option "Device" "/dev/input/event0"
+E5
+kylin-x:~# echo __XK4564477__rc=$?
+__XK4564477__rc=0
+kylin-x:~# sh /tmp/xk-y6-evidence.sh
+E1
+_NET_CLIENT_LIST(WINDOW): window id # 0x400008, 0x400003
+_NET_ACTIVE_WINDOW(WINDOW): window id # 0x400008
+_NET_CLIENT_LIST_STACKING(WINDOW): window id # 0x400008, 0x400003
+E2 win1=0x400008
+WM_NAME(UTF8_STRING) = "JavaScript 交互测试页 · x-kernel + Chromium - Chromium"
+_NET_WM_PID(CARDINAL) = 109
+WM_CLASS(STRING) = "chromium (/tmp/pr)", "Chromium"
+E2 win2=0x400003
+WM_NAME(UTF8_STRING) = "Untitled - Chromium"
+_NET_WM_PID(CARDINAL) = 109
+WM_CLASS(STRING) = "chromium (/tmp/pr)", "Chromium"
+/tmp/xk-y6-evidence.sh: line 22: can't open /tmp/w3.log: no such file
+E3 chrome=15 log1=9830 log2=517 log3=
+E4 devinput=event0 event1  xolog=10193
+[    33.483] (==) modeset(0): Silken mouse enabled
+[    33.546] (II) Initializing extension XKEYBOARD
+[    34.565] (II) config/udev: Adding input device QEMU Virtio Keyboard (/dev/input/event0)
+[    34.567] (**) QEMU Virtio Keyboard: Applying InputClass "libinput keyboard catchall"
+[    34.568] (II) LoadModule: "libinput"
+[    34.571] (II) Loading /usr/lib/xorg/modules/input/libinput_drv.so
+[    34.615] (II) Module libinput: vendor="X.Org Foundation"
+[    34.617] (II) Using input driver 'libinput' for 'QEMU Virtio Keyboard'
+[    34.617] (**) QEMU Virtio Keyboard: always reports core events
+[    34.619] (**) Option "Device" "/dev/input/event0"
+E5
+kylin-x:~# echo __XK2387662__rc=$?
+__XK2387662__rc=0
+kylin-x:~# 

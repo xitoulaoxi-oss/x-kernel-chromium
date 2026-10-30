@@ -1,6 +1,0 @@
-sh /tmp/xk-c2-perf-prep.sh 2>&1
-prep_dir=/tmp/pr
-PREP-END
-kylin-x:~# echo __XK3733081__rc=$?
-__XK3733081__rc=0
-kylin-x:~# [6n

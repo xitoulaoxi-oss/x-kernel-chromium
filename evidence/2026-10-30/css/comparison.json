@@ -1,0 +1,200 @@
+{
+  "ok": true,
+  "reasons": [],
+  "tolerance_px": 1.0,
+  "deltas": [
+    {
+      "box": "flex",
+      "index": 0,
+      "field": "x",
+      "absolute_px": 0.0
+    },
+    {
+      "box": "flex",
+      "index": 0,
+      "field": "y",
+      "absolute_px": 0
+    },
+    {
+      "box": "flex",
+      "index": 0,
+      "field": "width",
+      "absolute_px": 0
+    },
+    {
+      "box": "flex",
+      "index": 0,
+      "field": "height",
+      "absolute_px": 0
+    },
+    {
+      "box": "flex",
+      "index": 1,
+      "field": "x",
+      "absolute_px": 0.0
+    },
+    {
+      "box": "flex",
+      "index": 1,
+      "field": "y",
+      "absolute_px": 0
+    },
+    {
+      "box": "flex",
+      "index": 1,
+      "field": "width",
+      "absolute_px": 0
+    },
+    {
+      "box": "flex",
+      "index": 1,
+      "field": "height",
+      "absolute_px": 0
+    },
+    {
+      "box": "flex",
+      "index": 2,
+      "field": "x",
+      "absolute_px": 0.0
+    },
+    {
+      "box": "flex",
+      "index": 2,
+      "field": "y",
+      "absolute_px": 0
+    },
+    {
+      "box": "flex",
+      "index": 2,
+      "field": "width",
+      "absolute_px": 0
+    },
+    {
+      "box": "flex",
+      "index": 2,
+      "field": "height",
+      "absolute_px": 0
+    },
+    {
+      "box": "grid",
+      "index": 0,
+      "field": "x",
+      "absolute_px": 0.0
+    },
+    {
+      "box": "grid",
+      "index": 0,
+      "field": "y",
+      "absolute_px": 0
+    },
+    {
+      "box": "grid",
+      "index": 0,
+      "field": "width",
+      "absolute_px": 0
+    },
+    {
+      "box": "grid",
+      "index": 0,
+      "field": "height",
+      "absolute_px": 0
+    },
+    {
+      "box": "grid",
+      "index": 1,
+      "field": "x",
+      "absolute_px": 0.0
+    },
+    {
+      "box": "grid",
+      "index": 1,
+      "field": "y",
+      "absolute_px": 0
+    },
+    {
+      "box": "grid",
+      "index": 1,
+      "field": "width",
+      "absolute_px": 0
+    },
+    {
+      "box": "grid",
+      "index": 1,
+      "field": "height",
+      "absolute_px": 0
+    },
+    {
+      "box": "grid",
+      "index": 2,
+      "field": "x",
+      "absolute_px": 0.0
+    },
+    {
+      "box": "grid",
+      "index": 2,
+      "field": "y",
+      "absolute_px": 0
+    },
+    {
+      "box": "grid",
+      "index": 2,
+      "field": "width",
+      "absolute_px": 0
+    },
+    {
+      "box": "grid",
+      "index": 2,
+      "field": "height",
+      "absolute_px": 0
+    },
+    {
+      "box": "grid",
+      "index": 3,
+      "field": "x",
+      "absolute_px": 0.0
+    },
+    {
+      "box": "grid",
+      "index": 3,
+      "field": "y",
+      "absolute_px": 0
+    },
+    {
+      "box": "grid",
+      "index": 3,
+      "field": "width",
+      "absolute_px": 0
+    },
+    {
+      "box": "grid",
+      "index": 3,
+      "field": "height",
+      "absolute_px": 0
+    },
+    {
+      "box": "border_box",
+      "index": 0,
+      "field": "x",
+      "absolute_px": 0.0
+    },
+    {
+      "box": "border_box",
+      "index": 0,
+      "field": "y",
+      "absolute_px": 0
+    },
+    {
+      "box": "border_box",
+      "index": 0,
+      "field": "width",
+      "absolute_px": 0
+    },
+    {
+      "box": "border_box",
+      "index": 0,
+      "field": "height",
+      "absolute_px": 0
+    }
+  ],
+  "scope": "Same-version Linux x86_64 headless CSS reference against x-kernel AArch64 X11; not official-platform or pixel-equivalence certification."
+}

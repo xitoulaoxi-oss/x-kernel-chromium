@@ -100,6 +100,7 @@ param(
     [int]$BootTimeoutSec = 240,
     [int]$CommandTimeoutSec = 120,
     [int]$AfterScriptWait = 20,
+    [string]$SessionStopFile = '',
     [int]$TransferAttempts = 6,
     # Steps sent to the guest AFTER the scripts have finished, one screenshot
     # each, in the order given.  A ';'-joined SCALAR for the same reason -Script
@@ -139,6 +140,34 @@ param(
     # 835.  The paint test is the saturation floor inside frame_stats.py; this is
     # the second, weaker condition.
     [int]$FrameThreshold = 300,
+    # Startup readiness gate (off by default: -StartupReadyColors 300 turns it on).
+    # After the scripts, poll the framebuffer; if it has no content, send a real
+    # Ctrl+R and poll again, up to -StartupReadyMax navigation attempts.  Every
+    # attempt, the FIRST failure and the total wait go to startup-ready.json, so
+    # the retry is visible instead of hidden.  The predicate lives in
+    # host/ready-gate.ps1 and has its own regression test.
+    [int]$StartupReadyColors = 0,
+    [int]$StartupReadyMax = 3,
+    [int]$StartupReadyWaitSec = 20,
+    [int]$StartupReadyPollSec = 5,
+    # Guest launcher re-run when the restart retry fires (no window at all).
+    [string]$StartupReadyLauncher = '/tmp/xk-x4-win1.sh',
+    # Absolute-schedule load loop: "<count>x<interval>@<start>" in seconds, e.g.
+    # "10x120@60".  Each trigger is a real Ctrl+R at its planned monotonic time;
+    # the frame is then polled until it is ready again, so "the reload happened"
+    # is not confused with "the page came back".  Writes load-schedule.json.
+    [switch]$EnableGuestCdp,
+    [switch]$CdpTrace,
+    [string]$CdpEndpoint = '',
+    [string]$ExpectedPageUrl = 'file:///usr/share/kiosk/official/index.html',
+    [ValidateSet('', 'page', 'js', 'css', 'input')][string]$PageProbeMode = '',
+    [string]$ExpectedInputText = 'hello x-kernel',
+    [switch]$CollectBrowserProcesses,
+    [string]$LoadSchedule = '',
+    # Keep the session alive until this many seconds from the schedule start
+    # (used by the 30-minute run after the last load).
+    [int]$LoadHoldSec = 0,
+    [int]$LoadReadyColors = 300,
     [string]$Tag = 'xkwin',
     [string]$OutDir,
     [switch]$Writable,
@@ -152,10 +181,18 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$script:harnessExitCode = 0
+if ($EnableGuestCdp -and $Writable) { throw 'CDP policy adjustment requires a QEMU snapshot; Writable is not allowed.' }
+if (($LoadSchedule -or $PageProbeMode) -and -not $CdpEndpoint -and -not $EnableGuestCdp) {
+    throw 'Semantic verification requires an explicitly configured local -CdpEndpoint; color count cannot prove success.'
+}
 
 $scriptDir = $PSScriptRoot
 if (-not $scriptDir) { $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition }
 $ws = [System.IO.Path]::GetFullPath((Join-Path $scriptDir '..'))
+. (Join-Path $scriptDir 'ready-gate.ps1')
+. (Join-Path $scriptDir 'command-result.ps1')
+. (Join-Path $scriptDir 'staging.ps1')
 
 # All paths below are ASCII on purpose: PowerShell 5.1 encodes a child process
 # command line with the system ANSI code page, so a non-ASCII path would reach
@@ -372,6 +409,12 @@ function Get-FreePort {
 $serialPort = Get-FreePort
 $qmpPort    = Get-FreePort
 
+$netConfig = 'user,id=net0'
+if ($EnableGuestCdp) {
+    $cdpPort = Get-FreePort
+    $netConfig += ',hostfwd=tcp:127.0.0.1:' + $cdpPort + '-:9223'
+    $CdpEndpoint = 'http://127.0.0.1:' + $cdpPort
+}
 $accel = if ($TbSize) { "tcg,tb-size=$TbSize" } else { 'tcg' }
 $argv = @(
     '-M', 'virt', '-cpu', 'cortex-a72', '-m', $Mem, '-smp', "$Smp", '-accel', $accel,
@@ -380,7 +423,7 @@ $argv = @(
     '-device', 'virtio-blk-pci,drive=disk0',
     '-device', 'virtio-gpu-pci', '-vga', 'none',
     '-device', 'virtio-keyboard-pci', '-device', 'virtio-mouse-pci',
-    '-netdev', 'user,id=net0', '-device', 'virtio-net-pci,netdev=net0',
+    '-netdev', $netConfig, '-device', 'virtio-net-pci,netdev=net0',
     '-serial', "tcp:127.0.0.1:$serialPort,server=on,wait=off",
     '-qmp', "tcp:127.0.0.1:$qmpPort,server=on,wait=off",
     '-monitor', 'none',
@@ -409,6 +452,12 @@ $proc = Start-Process -FilePath $Qemu -ArgumentList $argv -PassThru -NoNewWindow
     -RedirectStandardOutput $qemuLog -RedirectStandardError $qemuErr
 
 $utf8 = [System.Text.UTF8Encoding]::new($false)
+$owner = [pscustomobject]@{
+    pid = $proc.Id
+    started_utc = $proc.StartTime.ToUniversalTime().ToString('o')
+    executable = $Qemu
+}
+[System.IO.File]::WriteAllText((Join-Path $OutDir 'qemu-owner.json'), ($owner | ConvertTo-Json), $utf8)
 $script:buf = [System.Text.StringBuilder]::new()
 # The log is a byte stream, not a text stream: the guest's raw bytes are kept
 # exactly as received, including anything that is not valid UTF-8.
@@ -526,7 +575,7 @@ function Invoke-GuestCommand {
 
         So: keep reading until the marker line appears, and only then return.
         The overall timeout is the backstop, not the primary condition. #>
-    param([string]$Text, [int]$TimeoutSec = 120, [string]$Label, [switch]$Quiet)
+    param([string]$Text, [int]$TimeoutSec = 120, [string]$Label, [switch]$Quiet, [switch]$AllowFailure)
     if (-not $Label) { $Label = $Text }
     $nonce = 'XK{0}' -f (Get-Random -Minimum 1000000 -Maximum 9999999)
     if (-not $Quiet) { Write-Host "`n--- guest$ $Label" -ForegroundColor Yellow }
@@ -546,6 +595,9 @@ function Invoke-GuestCommand {
     }
     $tail = $script:buf.ToString($before, $script:buf.Length - $before)
     $m = [regex]::Match($tail, "__${nonce}__rc=(\d+)")
+    $commandRc = Get-GuestCommandResult -Transcript $tail -Nonce $nonce
+    if ($null -eq $commandRc) { throw "Guest command did not complete: $Label (timeout ${TimeoutSec}s)" }
+    if ($commandRc -ne 0 -and -not $AllowFailure) { throw "Guest command failed with exit ${commandRc}: $Label" }
     if ($Quiet) { return $tail }
     if ($m.Success) {
         Write-Host ("    [rc={0}]" -f $m.Groups[1].Value) -ForegroundColor DarkGray
@@ -624,6 +676,75 @@ function Send-QmpKey {
     $json = '{"execute":"send-key","arguments":{"keys":[' + ($keys -join ',') +
             '],"hold-time":' + $HoldMs + '}}'
     return Invoke-Qmp -Command $json
+}
+
+function Read-PageEvidence([string]$Name, [string]$Mode = 'page') {
+    $out = Join-Path $OutDir ($Name + '.json')
+    & $py (Join-Path $scriptDir 'page_probe.py') --endpoint $CdpEndpoint --expected-url $ExpectedPageUrl --mode $Mode --expected-text $ExpectedInputText --out $out | Out-Null
+    if (-not (Test-Path -LiteralPath $out)) { return $null }
+    return Get-Content -LiteralPath $out -Raw -Encoding UTF8 | ConvertFrom-Json
+}
+
+function Send-QmpMouseRel {
+    <#  Move the RELATIVE pointer by (Dx,Dy) in guest pixels.
+
+        The guest only has virtio-mouse-pci (the x-kernel virtio-input driver has
+        no EV_ABS support, so a tablet would be ignored).  Absolute screen
+        positions are therefore built by clamping the pointer at the top-left
+        with a large negative move and then walking to the target in small
+        steps -- a large single jump would be scaled by libinput's pointer
+        acceleration and miss the target. #>
+    param([int]$Dx, [int]$Dy)
+    $events = @()
+    if ($Dx -ne 0) { $events += ('{"type":"rel","data":{"axis":"x","value":' + $Dx + '}}') }
+    if ($Dy -ne 0) { $events += ('{"type":"rel","data":{"axis":"y","value":' + $Dy + '}}') }
+    if ($events.Count -eq 0) { return $null }
+    return Invoke-Qmp -Command ('{"execute":"input-send-event","arguments":{"events":[' + ($events -join ',') + ']}}')
+}
+
+function Send-QmpMouseButton {
+    param([bool]$Down)
+    $d = if ($Down) { 'true' } else { 'false' }
+    return Invoke-Qmp -Command ('{"execute":"input-send-event","arguments":{"events":[{"type":"btn","data":{"down":' + $d + ',"button":"left"}}]}}')
+}
+
+function Send-QmpMouseClick {
+    param([int]$X, [int]$Y, [int]$Step = 4, [int]$StepMs = 12)
+    [void](Send-QmpMouseRel -Dx -4000 -Dy -4000)
+    Start-Sleep -Milliseconds 150
+    $left = [Math]::Max(0, $X)
+    $top = [Math]::Max(0, $Y)
+    while ($left -gt 0 -or $top -gt 0) {
+        $sx = [Math]::Min($Step, $left)
+        $sy = [Math]::Min($Step, $top)
+        [void](Send-QmpMouseRel -Dx $sx -Dy $sy)
+        $left -= $sx
+        $top -= $sy
+        Start-Sleep -Milliseconds $StepMs
+    }
+    Start-Sleep -Milliseconds 120
+    [void](Send-QmpMouseButton -Down $true)
+    Start-Sleep -Milliseconds 90
+    [void](Send-QmpMouseButton -Down $false)
+}
+
+function Send-QmpText {
+    <#  Type printable ASCII through the virtio keyboard, one real key at a time. #>
+    param([string]$Text, [int]$HoldMs = 40)
+    $map = @{
+        ' ' = 'spc'; '-' = 'minus'; '.' = 'dot'; ',' = 'comma'; '/' = 'slash';
+        '_' = 'shift+minus'; ':' = 'shift+semicolon'; '=' = 'equal';
+        '!' = 'shift+1'; '?' = 'shift+slash'; '@' = 'shift+2'
+    }
+    foreach ($ch in $Text.ToCharArray()) {
+        $s = [string]$ch
+        if ($s -cmatch '^[a-z0-9]$') { $spec = $s }
+        elseif ($s -cmatch '^[A-Z]$') { $spec = 'shift+' + $s.ToLowerInvariant() }
+        elseif ($map.ContainsKey($s)) { $spec = $map[$s] }
+        else { continue }
+        [void](Send-QmpKey -Spec $spec -HoldMs $HoldMs)
+        Start-Sleep -Milliseconds 40
+    }
 }
 
 function Start-UploadServer {
@@ -1342,6 +1463,17 @@ try {
     Write-Host '  guest shell prompt reached.' -ForegroundColor Green
     Send-Guest "`n"; Read-Available -QuietMs 400 -MaxMs 1200 | Out-Null
 
+    if ($EnableGuestCdp) {
+        Send-GuestScriptInline -Path (Join-Path $ws 'guest/cdp-policy.sh') -TimeoutSec 30 | Out-Null
+        # Chrome binds its debug listener to guest loopback. BusyBox nc -lk/-e
+        # bridges it to 9223; the host forward is bound only to 127.0.0.1.
+        $relay = "printf '#!/bin/sh\nexec nc -w 10 127.0.0.1 9222\n' > /tmp/xk-cdp-forward.sh; chmod +x /tmp/xk-cdp-forward.sh; setsid nc -lk -p 9223 -e /tmp/xk-cdp-forward.sh </dev/null >/tmp/xk-cdp-relay.log 2>&1 &"
+        if ($CdpTrace) { $relay = $relay.Replace('exec nc -w 10', 'exec nc -o /tmp/xk-cdp-wire.log -w 10') }
+        Invoke-GuestCommand -Text $relay -TimeoutSec 30 | Out-Null
+        Invoke-GuestCommand -Text "export XK_CDP_ARGS='--remote-debugging-port=9222'; echo CDP_ENABLED" -TimeoutSec 30 | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $OutDir 'cdp-endpoint.txt'), $CdpEndpoint, $utf8)
+    }
+
     # Baseline capture before anything is started: this is the "before" half of
     # every later claim, and it costs one screendump to be honest about it.
     Get-ScreenShot -Name '00-before' | Out-Null
@@ -1357,11 +1489,12 @@ try {
             ForEach-Object { $_.Trim() } |
             Where-Object { $_ -and -not $_.StartsWith('#') }
     }
+    $serveList = @(Resolve-StagingInputs -Root $ws -ManifestPaths $serveList -Scripts $Script -Uploads $Upload)
     if (@($serveList).Count -gt 0 -or $Script) {
         $stage = Join-Path $OutDir 'stage'
         New-Item -ItemType Directory -Force -Path $stage | Out-Null
         foreach ($s in $serveList) {
-            $sp = [System.IO.Path]::GetFullPath((Join-Path $ws $s))
+            $sp = if ([System.IO.Path]::IsPathRooted($s)) { [System.IO.Path]::GetFullPath($s) } else { [System.IO.Path]::GetFullPath((Join-Path $ws $s)) }
             if (-not (Test-Path -LiteralPath $sp)) {
                 # Also try it as an absolute/relative path from here, so a
                 # manifest can name either form.
@@ -1423,6 +1556,171 @@ try {
         }
     }
 
+    # Startup readiness gate.  The failure this exists for: the first file://
+    # navigation is sometimes lost (network-service restart), leaving a window
+    # titled "Untitled - Chromium" at 262-267 colours forever.  A real Ctrl+R
+    # commits the page (D3, 2026-10-29: 267 -> 808 colours).  Retrying a
+    # NAVIGATION is bounded and recorded; the alternative -- a fixed sleep -- has
+    # no evidence and hides the first failure.
+    if ($StartupReadyColors -gt 0) {
+        $readyFile = Join-Path $OutDir 'startup-ready.json'
+        $attempts = @()
+        $actions = @()
+        $readyAt = $null
+        $firstFailure = $null
+        $lastColors = 0
+        $gateStart = Get-Date
+        $max = [Math]::Max(1, $StartupReadyMax)
+        $isReady = $false
+        $pollIndex = 0
+        for ($attempt = 1; $attempt -le $max; $attempt++) {
+            $deadline = (Get-Date).AddSeconds([Math]::Max(1, $StartupReadyWaitSec))
+            do {
+                $pollIndex++
+                $stats = Get-ScreenShot -Name ("ready-{0:d2}-p{1}" -f $attempt, $pollIndex)
+                $colors = 0
+                if ($stats -and $null -ne $stats.PSObject.Properties['colors']) { $colors = [int]$stats.colors }
+                if ($colors -gt 0) { $lastColors = $colors }
+                $ok = Test-StartupReady -Stats $stats -MinColors $StartupReadyColors
+                $entry = [pscustomobject]@{
+                    attempt = $attempt
+                    at = (Get-Date).ToString('o')
+                    colors = $colors
+                    ok = $ok
+                }
+                $attempts += $entry
+                if ($null -eq $firstFailure -and -not $ok) { $firstFailure = $entry }
+                if ($ok) { $isReady = $true; $readyAt = (Get-Date).ToString('o'); break }
+                if ((Get-Date) -lt $deadline) { Start-Sleep -Seconds ([Math]::Max(1, $StartupReadyPollSec)) }
+            } while ((Get-Date) -lt $deadline)
+            if ($isReady) { break }
+            if ($attempt -lt $max) {
+                # Two different failures need two different retries.  A desktop
+                # with no Chromium window cannot be reloaded (Ctrl+R would go to
+                # the JWM root), so the browser is killed and relaunched.  A
+                # window shell at 262-270 colours is a lost navigation, so a real
+                # Ctrl+R is enough.
+                if ($lastColors -lt 60) {
+                    Write-Host ("    startup gate: no window (colors={0}); restarting the browser" -f $lastColors) -ForegroundColor Yellow
+                    Invoke-GuestCommand -Text 'killall -9 chromium 2>/dev/null || true' -TimeoutSec 60 | Out-Null
+                    Start-Sleep -Seconds 2
+                    $launcher = $StartupReadyLauncher
+                    Invoke-GuestCommand -Text ("sh " + $launcher) -TimeoutSec 300 | Out-Null
+                    $action = 'restart'
+                } else {
+                    Write-Host ("    startup gate: blank shell (colors={0}); sending Ctrl+R" -f $lastColors) -ForegroundColor Yellow
+                    [void](Send-QmpKey -Spec 'ctrl+r')
+                    $action = 'reload'
+                }
+                $actions += [pscustomobject]@{
+                    before_attempt = $attempt + 1
+                    action = $action
+                    colors = $lastColors
+                    at = (Get-Date).ToString('o')
+                }
+            }
+        }
+        $total = [math]::Round(((Get-Date) - $gateStart).TotalSeconds, 1)
+        $doc = [pscustomobject]@{
+            enabled = $true
+            min_colors = $StartupReadyColors
+            max_attempts = $max
+            wait_sec = $StartupReadyWaitSec
+            poll_sec = $StartupReadyPollSec
+            ready = $isReady
+            ready_at = $readyAt
+            first_failure = $firstFailure
+            total_s = $total
+            attempts = $attempts
+            actions = $actions
+        }
+        [System.IO.File]::WriteAllText($readyFile, ($doc | ConvertTo-Json -Depth 5), $utf8)
+        if ($isReady) {
+            Write-Host ("    startup gate: READY after {0} attempt(s), {1}s total" -f $attempts.Count, $total) -ForegroundColor Green
+        } else {
+            $script:harnessExitCode = 1
+            Write-Host ("    startup gate: NOT READY after {0} attempt(s), {1}s total" -f $attempts.Count, $total) -ForegroundColor Red
+        }
+    }
+
+    # Absolute-schedule load loop (task 21/22).
+    if ($LoadSchedule) {
+        if ($LoadSchedule -notmatch '^\s*(\d+)\s*x\s*(\d+)\s*@\s*(\d+)\s*$') {
+            throw "bad -LoadSchedule (want <count>x<interval>@<start>, e.g. 10x120@60): $LoadSchedule"
+        }
+        $loadCount = [int]$Matches[1]
+        $loadInterval = [int]$Matches[2]
+        $loadStart = [int]$Matches[3]
+        if ($loadCount -lt 1 -or $loadInterval -lt 1) { throw 'Load count/interval must be positive' }
+        $loadRows = @()
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        for ($n = 0; $n -lt $loadCount; $n++) {
+            $planned = $loadStart + $n * $loadInterval
+            # Read the old document before its planned trigger, so diagnostic
+            # HTTP/WebSocket latency does not become deliberate trigger drift.
+            while ($sw.Elapsed.TotalSeconds -lt ($planned - 2)) { Start-Sleep -Milliseconds 100 }
+            $before = Read-PageEvidence ('load-{0:d2}-before' -f ($n + 1))
+            while ($sw.Elapsed.TotalSeconds -lt $planned) { Start-Sleep -Milliseconds 100 }
+            # Capture the actual trigger time after the pre-navigation probe.
+            $sent = [math]::Round($sw.Elapsed.TotalSeconds, 2)
+            [void](Send-QmpKey -Spec 'ctrl+r')
+            $done = $null
+            $colors = 0
+            $ok = $false
+            $deadline = (Get-Date).AddSeconds(20)
+            $probe = $null
+            $loadPoll = 0
+            do {
+                Start-Sleep -Seconds 3
+                $loadPoll++
+                $stats = Get-ScreenShot -Name ("load-{0:d2}-p{1}" -f ($n + 1), $loadPoll)
+                if ($stats -and $null -ne $stats.PSObject.Properties['colors']) { $colors = [int]$stats.colors }
+                $probe = Read-PageEvidence ('load-{0:d2}-after-p{1}' -f ($n + 1), $loadPoll)
+                $ok = $false
+                if ($before -and $probe -and $before.ok -and $probe.ok) {
+                    $ok = (Test-StartupReady -Stats $stats -MinColors $LoadReadyColors) -and
+                        ($before.target_id -eq $probe.target_id) -and
+                        ($before.navigation_id -ne $probe.navigation_id)
+                }
+                if ($ok) { $done = [math]::Round($sw.Elapsed.TotalSeconds, 2); break }
+            } while ((Get-Date) -lt $deadline)
+            $loadRows += [pscustomobject]@{
+                round = $n + 1
+                planned_s = $planned
+                sent_s = $sent
+                drift_s = [math]::Round($sent - $planned, 2)
+                completed_s = $done
+                navigation_id = $(if ($probe -and $probe.ok) { $probe.navigation_id } else { $null })
+                before_navigation_id = $(if ($before -and $before.ok) { $before.navigation_id } else { $null })
+                semantic_ok = [bool]$ok
+                colors = $colors
+                ok = $ok
+            }
+            Write-Host ("    load {0}/{1}: planned {2}s sent {3}s drift {4}s ok={5} colors={6}" -f `
+                ($n + 1), $loadCount, $planned, $sent, [math]::Round($sent - $planned, 2), $ok, $colors) `
+                -ForegroundColor $(if ($ok) { 'Green' } else { 'Red' })
+        }
+        if ($LoadHoldSec -gt 0) {
+            Write-Host ("    holding session until {0}s from schedule start" -f $LoadHoldSec) -ForegroundColor DarkGray
+            while ($sw.Elapsed.TotalSeconds -lt $LoadHoldSec) { Start-Sleep -Seconds 1 }
+        }
+        $loadDoc = [pscustomobject]@{
+            schedule = $LoadSchedule
+            count = $loadCount
+            interval_s = $loadInterval
+            start_s = $loadStart
+            hold_s = $LoadHoldSec
+            completed = @($loadRows | Where-Object { $_.ok }).Count
+            total_s = [math]::Round($sw.Elapsed.TotalSeconds, 2)
+            rows = $loadRows
+        }
+        [System.IO.File]::WriteAllText((Join-Path $OutDir 'load-schedule.json'),
+            ($loadDoc | ConvertTo-Json -Depth 5), $utf8)
+        if ($loadDoc.completed -ne $loadCount) { $script:harnessExitCode = 1 }
+        Write-Host ("    load schedule: {0}/{1} completed" -f $loadDoc.completed, $loadCount) `
+            -ForegroundColor $(if ($loadDoc.completed -eq $loadCount) { 'Green' } else { 'Red' })
+    }
+
     # Frame watch: the one measurement that reads the page off the framebuffer.
     # It sits after the setup scripts and before the -Key steps on purpose --
     # the launch has to happen inside the capture window, and the harvesting
@@ -1459,6 +1757,37 @@ try {
             Get-ScreenShot -Name ("{0:d2}-after-step-cmd" -f $i) | Out-Null
             continue
         }
+        if ($spec.StartsWith('expect-url=')) {
+            $ExpectedPageUrl = $spec.Substring(11)
+            if (-not $ExpectedPageUrl) { throw 'Expected page URL must not be empty' }
+            continue
+        }
+        if ($spec.StartsWith('check=')) {
+            $mode = $spec.Substring(6)
+            if ($mode -notin @('page', 'js', 'css', 'input')) { throw 'Unknown semantic check mode' }
+            $evidence = Read-PageEvidence ('step-{0:d2}-{1}' -f $i, $mode) $mode
+            if (-not $evidence -or -not $evidence.ok) { throw ('Semantic step failed: ' + $mode) }
+            continue
+        }
+        if ($spec.StartsWith('click=')) {
+            $coord = $spec.Substring(6) -split ','
+            if ($coord.Count -ne 2) { Write-Host "  !! bad click spec (want click=x,y): $spec" -ForegroundColor Red; continue }
+            $cx = [int]$coord[0]
+            $cy = [int]$coord[1]
+            Write-Host "`n=== click $cx,$cy (then ${wait}s) ===" -ForegroundColor Cyan
+            Send-QmpMouseClick -X $cx -Y $cy
+            Start-Sleep -Seconds $wait
+            Get-ScreenShot -Name ("{0:d2}-after-click-{1}x{2}" -f $i, $cx, $cy) | Out-Null
+            continue
+        }
+        if ($spec.StartsWith('type=')) {
+            $text = $spec.Substring(5)
+            Write-Host "`n=== type '$text' ===" -ForegroundColor Cyan
+            Send-QmpText -Text $text
+            Start-Sleep -Seconds $wait
+            Get-ScreenShot -Name ("{0:d2}-after-type" -f $i) | Out-Null
+            continue
+        }
         $tag = $spec -replace '[^A-Za-z0-9]', ''
         Write-Host "`n=== key: $spec  (then ${wait}s) ===" -ForegroundColor Cyan
         $reply = Send-QmpKey -Spec $spec
@@ -1477,12 +1806,42 @@ try {
     if ($AfterScriptWait -gt 0) {
         Write-Host "`n--- reading the console for ${AfterScriptWait}s more (async guest output) ---" -ForegroundColor DarkGray
         $end = (Get-Date).AddSeconds($AfterScriptWait)
-        while ((Get-Date) -lt $end) { Read-Available -QuietMs 500 -MaxMs 2000 }
+        while ((Get-Date) -lt $end) {
+            if ($SessionStopFile -and (Test-Path -LiteralPath $SessionStopFile)) { break }
+            Read-Available -QuietMs 500 -MaxMs 2000
+        }
         Get-ScreenShot -Name 'zz-final' | Out-Null
     }
+    if ($CollectBrowserProcesses) {
+        & $py (Join-Path $scriptDir 'browser_probe.py') --endpoint $CdpEndpoint --out (Join-Path $OutDir 'browser-processes.json') | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Browser process-role collection failed' }
+    }
+    if ($PageProbeMode) {
+        $pageCheck = Read-PageEvidence 'page-check' $PageProbeMode
+        if (-not $pageCheck -or -not $pageCheck.ok) { throw 'Semantic page check failed; see page-check.json' }
+        if ($PageProbeMode -eq 'css') {
+            & $py (Join-Path $scriptDir 'css_layout_probe.py') --endpoint $CdpEndpoint --expected-url $ExpectedPageUrl --page-file (Join-Path $ws 'pages\layout.html') --out (Join-Path $OutDir 'css-layout.json') | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'CSS geometry collection failed; see css-layout.json' }
+        }
+    }
 } catch {
+    $script:harnessExitCode = 1
     Write-Host "`n!! $_" -ForegroundColor Red
     Save-Evidence 'harness-error.txt' "$_" | Out-Null
+    foreach ($diagnosticName in @('query-status', 'query-cpus-fast')) {
+        try {
+            $diagnosticReply = Invoke-Qmp -Command (@{ execute = $diagnosticName } | ConvertTo-Json -Compress) -TimeoutMs 2000
+            Save-Evidence ('failure-' + $diagnosticName + '.json') $diagnosticReply | Out-Null
+        } catch { Save-Evidence ('failure-' + $diagnosticName + '.txt') "$_" | Out-Null }
+    }
+    # Preserve the failing snapshot's browser/Xorg logs before QEMU exits.
+    # Diagnostic collection is bounded and must not replace the original error.
+    try {
+        $failureDetail = Invoke-GuestCommand -Text 'echo FAILURE_DIAGNOSTICS_BEGIN; ps w; for f in /tmp/w.log /tmp/w2.log /tmp/w3.log /tmp/int.log /tmp/lay.log /tmp/xo3.log /tmp/xk-cdp-relay.log; do if [ -r "$f" ]; then echo "LOG_FILE=$f"; tail -n 120 "$f"; fi; done; echo FAILURE_DIAGNOSTICS_END' -TimeoutSec 10 -AllowFailure
+        Save-Evidence 'failure-diagnostics.txt' ($failureDetail | Out-String) | Out-Null
+    } catch {
+        Save-Evidence 'failure-diagnostics-error.txt' "$_" | Out-Null
+    }
 } finally {
     Write-Host "`n== shutting down ==" -ForegroundColor Cyan
     if ($uploadServer) { Stop-UploadServer -Server $uploadServer }
@@ -1596,3 +1955,5 @@ try {
         if ($errText) { Write-Host "  qemu stderr       : $qemuErr" }
     }
 }
+
+exit $script:harnessExitCode

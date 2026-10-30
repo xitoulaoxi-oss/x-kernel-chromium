@@ -1,8 +1,0 @@
-sh /tmp/xk-x1-input.sh 2>&1
-X1
-X2 /sys/class/input/event0 c13:64 [QEMU Virtio Keyboard]
-X2 /sys/class/input/event1 c13:65 [QEMU Virtio Mouse]
-/tmp/xk-x1-input.sh: line 27: syntax error: unexpected end of file (expecting ")")
-kylin-x:~# echo __XK5029499__rc=$?
-__XK5029499__rc=2
-kylin-x:~# [6n

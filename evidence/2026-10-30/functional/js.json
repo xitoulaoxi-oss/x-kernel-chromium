@@ -1,0 +1,68 @@
+{
+  "url": "file:///usr/share/kiosk/official/interaction.html",
+  "title": "JavaScript 交互测试页 · x-kernel + Chromium",
+  "ready_state": "complete",
+  "time_origin": 1793352266466.8,
+  "keyboard_value": "",
+  "keyboard_echo": "回显区（等待输入）",
+  "rows": {
+    "T1": {
+      "pass": true,
+      "text": "通过"
+    },
+    "T2": {
+      "pass": true,
+      "text": "通过（3/3）"
+    },
+    "T3": {
+      "pass": true,
+      "text": "通过（得 2550）"
+    },
+    "T4": {
+      "pass": true,
+      "text": "通过（832ms）"
+    },
+    "T5": {
+      "pass": true,
+      "text": "通过"
+    },
+    "T6": {
+      "pass": true,
+      "text": "通过"
+    },
+    "C1": {
+      "pass": false,
+      "text": null
+    },
+    "C2": {
+      "pass": false,
+      "text": null
+    },
+    "C3": {
+      "pass": false,
+      "text": null
+    },
+    "C4": {
+      "pass": false,
+      "text": null
+    },
+    "C5": {
+      "pass": false,
+      "text": null
+    },
+    "C6": {
+      "pass": false,
+      "text": null
+    }
+  },
+  "verdict_pass": true,
+  "body_sha256": "1ebd74420883e925be8b98e40e4cef4dd529615b42f33dcd2dcd10817db567ae",
+  "body_length": 588,
+  "navigation_id": "F3D6770AADFDC47D192A6AEB955F4FD6:1793352266466.8",
+  "target_id": "F3D6770AADFDC47D192A6AEB955F4FD6",
+  "expected_url": "file:///usr/share/kiosk/official/interaction.html",
+  "mode": "js",
+  "ok": true,
+  "probe_id": "7e378a26-7781-438d-8c5c-bb741f82bfa3",
+  "observed_at_unix": 1793352301.044498
+}

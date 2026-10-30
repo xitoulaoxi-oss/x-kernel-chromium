@@ -65,3 +65,13 @@ kernel/target/
 /evidence/perf/e003g*/
 
 /evidence/reports/perf-report-e003e.json
+
+# Local experiments and publication caches
+/experiments/
+/DeepSeek_harness_*/
+/.local/
+*.elf
+*.debug
+*.zip
+/evidence/perf/
+/evidence/sessions/

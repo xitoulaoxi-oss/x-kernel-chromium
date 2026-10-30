@@ -18,7 +18,17 @@ jobs:
           python-version: "3.11"
 
       - name: Python syntax
-        run: python -m compileall -q host
+        run: python -m compileall -q host tests
+
+      - name: Acceptance regression checks
+        run: |
+          python tests/review_regressions.py
+          python tests/cdp_transport_test.py
+          python tests/browser_probe_test.py
+          python tests/process_identity_test.py
+          python tests/css_layout_test.py
+          python tests/perf_assessment_test.py
+          python tests/observe_cases.py
 
       - name: Kernel tree present
         run: test -f kernel/Cargo.toml && test -f kernel/Makefile
@@ -37,7 +47,7 @@ jobs:
         run: |
           python - <<'PY'
           import json, pathlib
-          for path in pathlib.Path("evidence/reports").rglob("*.json"):
+          for path in pathlib.Path("evidence").rglob("*.json"):
               json.loads(path.read_text(encoding="utf-8"))
           PY
 

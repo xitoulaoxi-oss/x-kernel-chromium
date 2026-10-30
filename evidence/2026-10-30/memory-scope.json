@@ -1,0 +1,10 @@
+{
+  "confirmed_by_user": true,
+  "confirmed_at": "2026-10-30T09:13:28.326684+00:00",
+  "limit_text": "1.5G",
+  "scope": "Chromium memory inside the guest, covering its browser/renderer/utility process set",
+  "measurement_status": "BLOCKED: reliable guest per-process resident accounting and peak sampling remain unavailable",
+  "host_qemu_working_set_qualifies": false,
+  "guest_free_used_qualifies": false,
+  "rss_sum_note": "Shared pages can be counted more than once. PSS and the exact decimal/binary threshold are not supplied; no passing verdict is emitted."
+}

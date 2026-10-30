@@ -1,0 +1,299 @@
+{
+  "baseline_commit": "9612b12aa5935dafa0c6898ffe8735859e1034e9",
+  "files": [
+    {
+      "path": "2026-10-30/stability/stability-load.json",
+      "source": "stability-load-attempt04/stability-load.json",
+      "source_sha256": "ff4ec7cf4ddf810c3473128f24d3e66aa8cbbc43d8cff97a49f07e6459d846ae",
+      "published_sha256": "94526d473d2ea902a441f9b892ce810e5229a24c548601afa63a0583a6618317",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/stability/load-schedule.json",
+      "source": "stability-load-attempt04/load-schedule.json",
+      "source_sha256": "8603fd37395f98eee1f55abd8d2d665a028680f750c38e5d414f7ceb069c6a0b",
+      "published_sha256": "e02af6d190c0d6e4e891ad927c3b45d2337842853058ff04327e613504e81ae2",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/stability/console.log",
+      "source": "stability-load-attempt04/console.log",
+      "source_sha256": "c2ee8183a64a12dd06f4218aa63710eadff24adfda1f28e2ccce2907c2076c1c",
+      "published_sha256": "e97de3e03402161d83998befd2ceb0c52e394d355b7ef6ddb9c220b620074ffa",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/stability/zz-final.stats.json",
+      "source": "stability-load-attempt04/zz-final.stats.json",
+      "source_sha256": "0a03ee4fd9683c2d8147d501a7279339a63e8da7a70814417bc69e55def2e526",
+      "published_sha256": "b5c558e7a4455746a0f778ffe264ea48dfaa9c7ac80eba32f4f5100fb14af8aa",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/stability/source-manifest.json",
+      "source": "stability-load-attempt04/source-manifest.json",
+      "source_sha256": "be0cea81f7364f2d93d247d892c12c0bab1fa89dcd3a7c29aef757bcbd87e252",
+      "published_sha256": "a7f5062c10c670711c35e01de70aa505807fa758c00ed14837003fbe9f0880ed",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/stability/invocation.json",
+      "source": "stability-load-attempt04/invocation.json",
+      "source_sha256": "d82339baa0542ddd5445e2513d313da45ace00cce7af2bd36a5f400ef624a6ae",
+      "published_sha256": "ebf53505f15ab221593b3667242e863ec01bb20b5f8dc72413118a7070f0c5c4",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/functional/browser-processes.json",
+      "source": "input-reload-smoke/browser-processes.json",
+      "source_sha256": "a12246ce7f1187920de12444bcb26650e60fc61aaaafb6da724333659309989f",
+      "published_sha256": "16d5c9e91d5968e8ceda35fc00054394d8cc1fcfcf2b8fd270d7c5d3da091a6a",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/functional/process-identity.json",
+      "source": "input-reload-smoke/process-identity.json",
+      "source_sha256": "ce3e82f1f824486e410846e5c4ba49903892d3787ae12a06b1190464bfb46a94",
+      "published_sha256": "5d9b87681a4897cc4040b444ab525c0753e4b9d13c002b35c2566f962d7921df",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/functional/load-schedule.json",
+      "source": "input-reload-smoke/load-schedule.json",
+      "source_sha256": "0b3cface7f09d044535a821085a18d7c37a0a7ecf8facdf368e0e76f14dc2b68",
+      "published_sha256": "bd7b36662e43e6b2417ffa7632649fa1e51f1aece95fc7c096993be16dbb460e",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/functional/input.json",
+      "source": "input-reload-smoke/step-10-input.json",
+      "source_sha256": "fd3dbaf12f267726d45c68a32b50bcce3730ee5869648863f3b4bee42fde846f",
+      "published_sha256": "58a1e9a0bc48f8d79e4b4219b808dd8373c59ce85d19110c8a3dcc0969d28833",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/functional/js.json",
+      "source": "functional-remainder/js/page-check.json",
+      "source_sha256": "a6a5928e055535733f89a9c0ecc0822d17ca77ecfa6ecffaa10512f68eb741f0",
+      "published_sha256": "4129a7dd9e90f81c9dd5833bde1e64f76e30de0807e6be307546af6d587480ea",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/functional/css.json",
+      "source": "functional-remainder/css/page-check.json",
+      "source_sha256": "2ca8b18539de2f40a2984c341f7829d92276509c42df82b9c085c51a02be7a05",
+      "published_sha256": "ed7e2838f8b53542967c1a52675bed3be06477ba507a8d98ea74797aa9ff8094",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/css/guest-layout.json",
+      "source": "functional-remainder/css/css-layout.json",
+      "source_sha256": "2b89716237468d0e39541a1641b6c9bab4225499ef983bb7914030503124daf1",
+      "published_sha256": "01576d53e685c91ddcb110db99713d80b259c8166ac6f7b444b9227ad26225f7",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/css/linux-layout.json",
+      "source": "linux-reference/run02/css-layout.json",
+      "source_sha256": "d72cb64528c8b546937c6a6744e9b11c993ee8537797fc9985d02967dfcbadfb",
+      "published_sha256": "d72cb64528c8b546937c6a6744e9b11c993ee8537797fc9985d02967dfcbadfb",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/css/reference-download.json",
+      "source": "linux-reference/download-manifest.json",
+      "source_sha256": "7358219adb775efde2bfb4d15b69d69236577d452f93a6cecd52cc75a568cb11",
+      "published_sha256": "2d95739bac29c787b29ad46a079b3a7666d517afcd42d72b3762cb019c23e1b3",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/css/reference-fonts.json",
+      "source": "linux-reference/font-manifest.json",
+      "source_sha256": "78592d2e0197d49d6418a0d645ac536ad27b6601ea7486c6d0c2a41eeb0e7fa8",
+      "published_sha256": "de531123bc36ec59c4aaf50bae2625c883008abddedfa67ce63c1bb150af7b3c",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/css/comparison.json",
+      "source": "css-comparison.json",
+      "source_sha256": "de27708c421e1a4e83ca44334506a041880804670175f9019216830f8a407022",
+      "published_sha256": "7c7b00efb35175431e2d1291993e5f1ef82b1c42a144a234c2e72ba03e102bbb",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/failures/windows/page-check.json",
+      "source": "functional-final/windows/page-check.json",
+      "source_sha256": "641b01e21c7c046ce03219b63d22114d7600f786e82c24a779498a9e0d96351e",
+      "published_sha256": "6030a873a23dd94cb943c86f57c1f3a324213d1d6a592600c7943819dae687d8",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/failures/windows/console.log",
+      "source": "functional-final/windows/console.log",
+      "source_sha256": "8dc5fef46d83e58e3ad009dd197cf51dab8fbcb36f97a150d8ab7f72329a4ed0",
+      "published_sha256": "c9dd7b41afdc54dc25dab2befa73137f5b299033239f56ae7c562371f6bf9894",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/failures/windows/harness-error.txt",
+      "source": "functional-final/windows/harness-error.txt",
+      "source_sha256": "5904d0c1ef31c0a086a120c89981909b10aac07406a42f32620c7bf27f7c68ae",
+      "published_sha256": "5904d0c1ef31c0a086a120c89981909b10aac07406a42f32620c7bf27f7c68ae",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/failures/input/console.log",
+      "source": "functional-final/input/console.log",
+      "source_sha256": "36aad50df33b4a408805ffdb08fb0ac36eebed33511dbcef1c307a033ae2f171",
+      "published_sha256": "cd35fc6005105a8af5ee1b92818043d3aa4b5e0e221513c46e4ff86c5b455d49",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/failures/input/harness-error.txt",
+      "source": "functional-final/input/harness-error.txt",
+      "source_sha256": "79ad677002eee5090b6b2fb985d30e3d8248d062ac078dd9b13f569e6e4516d0",
+      "published_sha256": "79ad677002eee5090b6b2fb985d30e3d8248d062ac078dd9b13f569e6e4516d0",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/failures/input/browser-midrun.json",
+      "source": "functional-final/input/browser-midrun.json",
+      "source_sha256": "0cc1d670e60bab5e47a027e5413a4f9100584cbbdc8a41ab753d7486daf8b4b6",
+      "published_sha256": "219bc978bdd97bf5ea2885b1a802b390e94aae736d882f1eaa19a8aac7cdfb1e",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/memory-scope.json",
+      "source": "memory-scope.json",
+      "source_sha256": "267378eed4e738e9dc2544b65814dd979da081bb5e3b57a64d1e497393a6ede4",
+      "published_sha256": "a6f2b7a666dff608f994a5cb4e77773070db4ec7c7abaabc669d8d807d49e484",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/original-integrity.json",
+      "source": "original-integrity.json",
+      "source_sha256": "e1644c58ad138cf2210dc9c56a3f87343d290d7d467f12505c582bd94b05fdd4",
+      "published_sha256": "cd4970923bf51b73b20e8e8adba137c25a05599727448e9e3c17f2f40d6ee24e",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/task-status.json",
+      "source": "task-status.json",
+      "source_sha256": "a1534851ff9e669bb33f04358d2559bbaa049c376917fab506633b8903460c3b",
+      "published_sha256": "91d64ea1690a8c484e59a238cf0ff7f43b5bd80fb644846f8ee741f0fcdcc824",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/python-verification-final.json",
+      "source": "python-verification-final.json",
+      "source_sha256": "3c94835009ec23ef87f848e4f6ec42435f251364e59c147898d5be0833ba593e",
+      "published_sha256": "1ad4763975ff9d78c19768a43b8134a0478b3ad39ac776d293e378e2435870f4",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/powershell-verification-final.json",
+      "source": "powershell-verification-final.json",
+      "source_sha256": "8a3f24b0bca1f938b38bf2dab3295a23ce41da80c5ce6c4c43eb1f4eb55cf079",
+      "published_sha256": "2509abcf86268f58223e50a184f13f197249fbab381a6f96b7e99979659c347f",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/diagnostic-syntax.json",
+      "source": "diagnostic-syntax.json",
+      "source_sha256": "1b0ecfc42f7f9db71bb153e35a0519744ac638815b0ba74068537be1b7c5e54c",
+      "published_sha256": "4243d515bc68fd93bba20458433b5a3595a42c0b2f6780b84563131da55723d7",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/checks/browser_probe_test-final.log",
+      "source": "browser_probe_test-final.log",
+      "source_sha256": "05afbb4df5b9e629c80d59a5ec4f2ef470748278485639aa88fedbfdd04cb9a8",
+      "published_sha256": "fb54f44c8c718bea38c501f9ccf5012ba72352c34e1b9256e6d538e9bec727f8",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/checks/cdp_transport_test-final.log",
+      "source": "cdp_transport_test-final.log",
+      "source_sha256": "2218646d63d1bc483e9846d42ce950a67c302550b4202a14bb574bbd0cc03497",
+      "published_sha256": "4aa14722e46f93c2185a8c0a50a0742e9e755177faedfabf5a5919098cc9f929",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/checks/command-result-test-final.log",
+      "source": "command-result-test-final.log",
+      "source_sha256": "c8e8239536ae9be54a6f57704c4aaa6c532aa17d44979b4852d4b0e44f71623c",
+      "published_sha256": "c16dce5ee164d214e5f5f065cf3f4872242dfc8ecd658fc68454db139fca9a98",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/checks/css_layout_test-final.log",
+      "source": "css_layout_test-final.log",
+      "source_sha256": "c1250211b015435b6d41b3a262664ef5acb0ee576bffe8058edac9e11c85769d",
+      "published_sha256": "ac2c953c2177199211a91369444ebc9c33cbb53c765715b1cca91febcb69b1fd",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/checks/entry-arguments-test-final.log",
+      "source": "entry-arguments-test-final.log",
+      "source_sha256": "7baca2264b6a7f8ff5bfe894b20cfba039d6d895df8c6a4a318aff81c65c23a0",
+      "published_sha256": "75aa8d94acb404b73a2a385c4d20aacf56e065049428dd5fac00c3dd7a07ad3c",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/checks/observe_cases-final.log",
+      "source": "observe_cases-final.log",
+      "source_sha256": "a825b1c29ef01b85279276c3b7534c4f1a71e4142d1b8dbcfa84b600a5b4f8da",
+      "published_sha256": "413aefb7515bebe36fe29ca8d94da639c0610a643a171e3b789c2c9a79d3bea8",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/checks/perf_assessment_test-final.log",
+      "source": "perf_assessment_test-final.log",
+      "source_sha256": "3da7af2c4016929fd2ce3ae7b13e847d03df6f7ac757cacde28111437f28de74",
+      "published_sha256": "f1638e047236dc19b45a757ab151d96573eed15e97d8618320fa148f14908ec3",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/checks/process_identity_test-final.log",
+      "source": "process_identity_test-final.log",
+      "source_sha256": "9c6e6b00daed6590166ea8d6ea9257146662fd4e9dc52102aff8a085a7cf0827",
+      "published_sha256": "9331e4772b03ecaa0b00f60efda4cb8ec9dbc920dfd4de47835257effcb51cb8",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/checks/ready-gate-test-final.log",
+      "source": "ready-gate-test-final.log",
+      "source_sha256": "db652670c4399f7be68b46a40a9ad05ca06e5a4cccbb7b24878bb7653e5f7e4d",
+      "published_sha256": "bdfd987b9e573b3fcec0d25413eacef493008c652a1ead95901f56031b5128cc",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/checks/review_regressions-final.log",
+      "source": "review_regressions-final.log",
+      "source_sha256": "a33c212901f5d3198ce0cbaefd73b26a479f398e1a63bad9d2cfc651e842e711",
+      "published_sha256": "85e98ff83421fcf087452ce9b96fa738869b57956d8a642953d7d68da4732ada",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/checks/staging-test-final.log",
+      "source": "staging-test-final.log",
+      "source_sha256": "3d64d4dfe389f650d05fb242d4d0bdeeb091871aed2804f4259103c37ba8be5c",
+      "published_sha256": "7dbf41879a25d6b6dfd6ed55e1617ec3e2cf33cd576d33005c9e0e0be78db093",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/checks/process-identity-latest.log",
+      "source": "process-identity-test-03.log",
+      "source_sha256": "a13f02539055c772eb12ab3120b4bc4d0ed7f7957d4531b353c9b1be69d7046d",
+      "published_sha256": "40fa7b3605cdd97fea2b7470046df72694769a5c1b30c1999ea36cede8dd7e57",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    },
+    {
+      "path": "2026-10-30/functional/combined-attempts.json",
+      "source": "functional-final/functional.json",
+      "source_sha256": "5350cbb5072d1c5c81f8c1e14a01c571241958d9e059bede905cbb1bd2fc22d5",
+      "published_sha256": "1a1876b59b7ad44b5390ab857701f064b0e8b7e93dafc6a667ac3e46cfed1105",
+      "normalization": "UTF-8 LF, ANSI removal and host-path redaction only; measurements unchanged"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+W1 started
+W2 t=15 procs=5 log=766 wins=0
+W2 t=30 procs=8 log=1590 wins=0
+W2 t=45 procs=9 log=5659 wins=1
+E2 win1=0x400003
+WM_NAME(UTF8_STRING) = "Untitled - Chromium"
+_NET_WM_PID(CARDINAL) = 87

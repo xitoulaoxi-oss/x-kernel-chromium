@@ -1,0 +1,46 @@
+{
+  "ok": true,
+  "browser_pids": [
+    110
+  ],
+  "renderer_pids": [
+    207,
+    190
+  ],
+  "processes": [
+    {
+      "type": "browser",
+      "id": 110,
+      "cpuTime": 0
+    },
+    {
+      "type": "renderer",
+      "id": 207,
+      "cpuTime": 0
+    },
+    {
+      "type": "renderer",
+      "id": 190,
+      "cpuTime": 0
+    },
+    {
+      "type": "GPU",
+      "id": 149,
+      "cpuTime": 0
+    },
+    {
+      "type": "network.mojom.NetworkService",
+      "id": 154,
+      "cpuTime": 0
+    },
+    {
+      "type": "storage.mojom.StorageService",
+      "id": 157,
+      "cpuTime": 0
+    }
+  ],
+  "role_source": "Chromium SystemInfo.getProcessInfo",
+  "cpu_time_note": "Raw API values only; guest CPU accounting is not validated.",
+  "browser_product": "Chrome/142.0.7444.59",
+  "observed_at_unix": 1793343128.0634465
+}

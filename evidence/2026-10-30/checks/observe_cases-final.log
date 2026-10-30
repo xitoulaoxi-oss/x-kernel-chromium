@@ -1,0 +1,13 @@
+PASS crash session detected as CRASH
+PASS crash subject keeps child PID 105
+PASS crash subject names the browser PID 87
+PASS 262-colour window is window_shell_without_page
+PASS shell session summarised as HANG
+PASS 28-colour frame is no_window_desktop_only
+PASS rising host WS is flagged LEAK
+PASS CMJSON per-process sample is available
+PASS per-process RSS growth is 40000 kB
+PASS measured CMJSON lifts attribution_limited
+PASS flat host WS is not flagged
+PASS no CMJSON keeps attribution_limited true
+all observe cases passed

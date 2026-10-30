@@ -1,0 +1,30 @@
+test_20_first_attempts_pass (__main__.AcceptanceTests.test_20_first_attempts_pass) ... ok
+test_29_minutes_fails (__main__.AcceptanceTests.test_29_minutes_fails) ... ok
+test_browser_disappeared_midrun_fails (__main__.AcceptanceTests.test_browser_disappeared_midrun_fails) ... ok
+test_color_only_legacy_evidence_fails (__main__.AcceptanceTests.test_color_only_legacy_evidence_fails) ... ok
+test_complete_30min_navigation_evidence_passes (__main__.AcceptanceTests.test_complete_30min_navigation_evidence_passes) ... ok
+test_diagnostic_policy_cannot_modify_original_disk (__main__.AcceptanceTests.test_diagnostic_policy_cannot_modify_original_disk) ... ok
+test_duplicate_heartbeats_fail (__main__.AcceptanceTests.test_duplicate_heartbeats_fail) ... ok
+test_incomplete_rehearsals_fail (__main__.AcceptanceTests.test_incomplete_rehearsals_fail) ... ok
+test_js_not_run_fails (__main__.AcceptanceTests.test_js_not_run_fails) ... ok
+test_keyboard_requires_value_and_echo (__main__.AcceptanceTests.test_keyboard_requires_value_and_echo) ... ok
+test_missing_crash_marker_but_harness_error_fails (__main__.AcceptanceTests.test_missing_crash_marker_but_harness_error_fails) ... ok
+test_old_frame_fails_even_if_colorful (__main__.AcceptanceTests.test_old_frame_fails_even_if_colorful) ... ok
+test_one_css_failure_fails (__main__.AcceptanceTests.test_one_css_failure_fails) ... ok
+test_only_19_runs_fail (__main__.AcceptanceTests.test_only_19_runs_fail) ... ok
+test_probe_transport_failure_has_nonzero_and_evidence (__main__.AcceptanceTests.test_probe_transport_failure_has_nonzero_and_evidence) ... ok
+test_real_js_and_css_rows_pass (__main__.AcceptanceTests.test_real_js_and_css_rows_pass) ... ok
+test_repeated_directory_cannot_make_20 (__main__.AcceptanceTests.test_repeated_directory_cannot_make_20) ... ok
+test_restart_is_not_first_attempt_success (__main__.AcceptanceTests.test_restart_is_not_first_attempt_success) ... ok
+test_shortened_expectation_cannot_pass (__main__.AcceptanceTests.test_shortened_expectation_cannot_pass) ... ok
+test_stale_echo_without_typed_value_fails (__main__.AcceptanceTests.test_stale_echo_without_typed_value_fails) ... ok
+test_websocket_disconnect_is_failure (__main__.AcceptanceTests.test_websocket_disconnect_is_failure) ... ok
+test_websocket_fragmentation_and_ping (__main__.AcceptanceTests.test_websocket_fragmentation_and_ping) ... ok
+test_websocket_masks_client_frames (__main__.AcceptanceTests.test_websocket_masks_client_frames) ... ok
+test_websocket_upgrade_validates_accept (__main__.AcceptanceTests.test_websocket_upgrade_validates_accept) ... ok
+test_wrong_url_fails (__main__.AcceptanceTests.test_wrong_url_fails) ... ok
+
+----------------------------------------------------------------------
+Ran 25 tests in 2.336s
+
+OK

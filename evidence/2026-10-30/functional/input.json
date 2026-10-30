@@ -1,0 +1,69 @@
+{
+  "url": "file:///usr/share/kiosk/official/interaction.html",
+  "title": "JavaScript 交互测试页 · x-kernel + Chromium",
+  "ready_state": "complete",
+  "time_origin": 1793343067570.1,
+  "keyboard_value": "hello x-kernel",
+  "keyboard_echo": "回显区：hello x-kernel",
+  "rows": {
+    "T1": {
+      "pass": false,
+      "text": "待检测"
+    },
+    "T2": {
+      "pass": false,
+      "text": "待检测"
+    },
+    "T3": {
+      "pass": false,
+      "text": "待检测"
+    },
+    "T4": {
+      "pass": false,
+      "text": "待检测"
+    },
+    "T5": {
+      "pass": false,
+      "text": "待检测"
+    },
+    "T6": {
+      "pass": false,
+      "text": "待检测"
+    },
+    "C1": {
+      "pass": false,
+      "text": null
+    },
+    "C2": {
+      "pass": false,
+      "text": null
+    },
+    "C3": {
+      "pass": false,
+      "text": null
+    },
+    "C4": {
+      "pass": false,
+      "text": null
+    },
+    "C5": {
+      "pass": false,
+      "text": null
+    },
+    "C6": {
+      "pass": false,
+      "text": null
+    }
+  },
+  "verdict_pass": false,
+  "body_sha256": "d0c352319b22728d16ffed084d1d2ae371aee5309fe3fcdb6ed5fbb685cdf95f",
+  "body_length": 577,
+  "navigation_id": "6CD02ACB342AD6BCC290CE9376F8ECD6:1793343067570.1",
+  "target_id": "6CD02ACB342AD6BCC290CE9376F8ECD6",
+  "expected_url": "file:///usr/share/kiosk/official/interaction.html",
+  "mode": "input",
+  "ok": true,
+  "expected_text": "hello x-kernel",
+  "probe_id": "2af12c33-8d80-4ab7-b98e-3cdd52c4f239",
+  "observed_at_unix": 1793343094.443674
+}

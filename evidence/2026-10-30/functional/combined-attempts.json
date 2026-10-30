@@ -1,0 +1,43 @@
+{
+  "checks": [
+    {
+      "check": "two windows + official HTML",
+      "pass": false,
+      "dir": "functional-final/windows",
+      "evidence": "page-check.json reports about:blank"
+    },
+    {
+      "check": "input and navigation",
+      "pass": false,
+      "dir": "functional-final/input",
+      "evidence": "harness-error.txt: guest command timeout 400s"
+    },
+    {
+      "check": "renderer identity in this failed attempt",
+      "pass": false,
+      "dir": "functional-final/input",
+      "evidence": "browser-process evidence absent after guest stall"
+    },
+    {
+      "check": "JS page + self-check click",
+      "pass": true,
+      "dir": "experiments\\REVIEW-FIX\\followup-20261030T060643Z\\functional-remainder\\js",
+      "colors": 941,
+      "title": "JavaScript 浜や簰娴嬭瘯椤?路 x-kernel + Chromium - Chromium",
+      "rc": 0
+    },
+    {
+      "check": "CSS layout page + conclusion",
+      "pass": true,
+      "dir": "experiments\\REVIEW-FIX\\followup-20261030T060643Z\\functional-remainder\\css",
+      "colors": 913,
+      "title": "CSS 甯冨眬娴嬭瘯椤?路 x-kernel + Chromium - Chromium",
+      "rc": 0
+    }
+  ],
+  "passed": 2,
+  "total": 5,
+  "full_acceptance": false,
+  "full_functional": false,
+  "note": "Cross-attempt evidence summary reconstructed from saved failures and the separate remaining-case controller; not a single passing integrated run."
+}

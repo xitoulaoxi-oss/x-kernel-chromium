@@ -1,5 +1,0 @@
-sh /tmp/xk-v1-verify-procfs.sh 2>&1
-V1 idle (pass 'go' to probe)
-kylin-x:~# echo __XK5493960__rc=$?
-__XK5493960__rc=0
-kylin-x:~# [6n

@@ -1,0 +1,7 @@
+test_http_and_websocket_semantic_roundtrip (__main__.TransportTests.test_http_and_websocket_semantic_roundtrip) ... ok
+test_wrong_target_url_is_rejected (__main__.TransportTests.test_wrong_target_url_is_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 1.032s
+
+OK

@@ -1,0 +1,9 @@
+test_echoed_script_is_not_a_snapshot (__main__.IdentityTests.test_echoed_script_is_not_a_snapshot) ... ok
+test_renderer_joins_through_zygote (__main__.IdentityTests.test_renderer_joins_through_zygote) ... ok
+test_unknown_child_is_not_role_proof (__main__.IdentityTests.test_unknown_child_is_not_role_proof) ... ok
+test_unrelated_renderer_is_rejected (__main__.IdentityTests.test_unrelated_renderer_is_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.000s
+
+OK

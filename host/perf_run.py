@@ -1,39 +1,14 @@
 #!/usr/bin/env python3
-"""Run the guest performance session N times and report median + spread per metric.
+"""Collect legacy performance observations with median and spread.
 
-Why this exists: the task book's "performance observation and quantification"
-item requires each metric to be repeated at least 5 times and reported as a
-median with its fluctuation range, together with the host CPU model, memory,
-QEMU version and OS.  A single run cannot satisfy that, so the repetition and
-the statistics are scripted here rather than done by hand.
+The framebuffer detector is heuristic, the guest renderer marker infers a
+zygote child, and memory is the host QEMU working set. These observations do
+not certify the four finals metrics. Raw samples remain available for diagnosis.
+Default exit is nonzero until a qualified collector replaces these methods.
+Use --collect-only for diagnostic collection; failed/unknown child runs still fail.
 
-What changed after the first submission, and why:
-
-  * page-load latency is no longer "the browser log crossed 10 KB".  That was a
-    PROXY, and a bad one: it moves when the kernel log gets chatty, and it says
-    nothing about pixels.  The measurement now comes from the framebuffer --
-    xkwin.ps1 -FrameWatch captures a screendump on a fixed cadence from the
-    moment the launch line is dispatched, and host/frame_stats.py decides the
-    first frame that carries the page.  The committee's own evidence channel is
-    the QEMU monitor screendump, so the number is measured the way it will be
-    reviewed.
-  * renderer creation is no longer polled every 5 s.  The guest monitor now
-    samples once a second and records the renderer's pid and thread count, so
-    the value is not quantised to a 5 s grid.
-  * two resource RATES were added, because they are named separately in the task
-    book and both need a denominator: CPU usage (cpu seconds / wall seconds) and
-    QEMU memory occupancy (peak working set / host physical memory).  Both
-    denominators are captured by the harness during the run, not assumed here.
-  * every metric now carries the sampling resolution it was measured at, so a
-    reader can see that "1 s" is the floor for guest-side milestones.
-
-Usage:
-    python host/perf_run.py --repeats 5
-    python host/perf_run.py --repeats 5 --kernel artifacts/kernel-procfs.bin
-    python host/perf_run.py --reparse --tag pf3      # rebuild from evidence on disk
-
-Paths are resolved against the repository root (the parent of host/), so the
-defaults work from inside the checkout with no extra arguments.
+    python host/perf_run.py --collect-only --repeats 5
+    python host/perf_run.py --reparse --tag pf3
 """
 
 from __future__ import annotations
@@ -92,16 +67,16 @@ METRIC_DEFS = {
         "method": "QEMU screendump series; first frame whose page area carries content "
                   "(saturation>=0.06 AND >=300 colours AND not blank).  Colour count alone "
                   "was NOT enough: an empty browser window with a spinner measures 264 colours",
-        "source": "host framebuffer (frame-watch.json)", "resolution_s": 2.0,
+        "source": "host framebuffer (frame-watch.json)", "resolution_s": 10.0,
         "direction": "lower-is-better",
     },
     "renderer_s": {
-        "class": "renderer-creation", "unit": "s", "origin": "X server start",
+        "class": "counter", "unit": "s", "origin": "X server start",
         "method": "guest monitor at 1 Hz: first process whose PPid is a --type=zygote process",
         "source": "guest console", "resolution_s": 1.0, "direction": "lower-is-better",
     },
     "peak_mem_mb": {
-        "class": "peak-memory", "unit": "MB", "origin": "whole QEMU process lifetime",
+        "class": "host-qemu-memory", "unit": "MB", "origin": "whole QEMU process lifetime",
         "method": "Process.PeakWorkingSet64 of qemu-system-aarch64 (OS high-water mark)",
         "source": "host process metrics", "resolution_s": None, "direction": "lower-is-better",
     },
@@ -115,7 +90,7 @@ METRIC_DEFS = {
         "origin": "launch dispatch -> first painted frame",
         "method": "QEMU CPU seconds consumed between the first and the first-frame capture, "
                   "divided by that interval (both sampled with the frames)",
-        "source": "host framebuffer (frame-watch.json)", "resolution_s": 2.0,
+        "source": "host framebuffer (frame-watch.json)", "resolution_s": 10.0,
         "direction": "lower-is-better",
     },
     "qemu_mem_pct": {
@@ -175,7 +150,7 @@ def find_qemu() -> str:
     return ""
 
 
-POWERSHELL = find_powershell()
+POWERSHELL = find_powershell() if platform.system() == 'Windows' else 'powershell'
 
 
 def host_memory_mb() -> "float | None":
@@ -418,9 +393,30 @@ def scoring(n_classes: int) -> int:
     return 0
 
 
+def assess_collection(samples: list) -> dict:
+    """No number of repeats can validate the wrong measurement definition."""
+    failed = [s.get('run') for s in samples if s.get('harness_rc') != 0]
+    return {
+        'collected_runs': len(samples),
+        'failed_or_unknown_runs': failed,
+        'collection_ok': bool(samples) and not failed,
+        'finals_four_metric_gate': 'BLOCKED',
+        'qualified': False,
+        'reasons': [
+            'First-frame detection is a framebuffer heuristic without per-frame DOM corroboration.',
+            'Independent page-load latency is not measured by this collector.',
+            'renderer_s uses a zygote-child heuristic, not a timed browser-confirmed renderer identity.',
+            'The user defines the 1.5G limit as guest Chromium memory. peak_mem_mb is host QEMU working set; reliable guest Chromium peak RSS is not collected.',
+        ],
+        'note': 'Raw observations and historical data are retained. This collector cannot certify the four official metrics.',
+    }
+
+
 def main(argv: list) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--repeats", type=int, default=5)
+    ap.add_argument('--collect-only', action='store_true',
+                    help='collect diagnostic observations only; this does not pass the finals performance gate')
     ap.add_argument("--kernel", default=r"artifacts\kernel-procfs.bin")
     ap.add_argument("--disk", default=None, help="delivered agentos-disk.img (default: ../delivered/agentos-disk.img if present)")
     ap.add_argument("--tb-size", default="", help="QEMU TCG tb-size MiB; empty string for QEMU default")
@@ -460,6 +456,12 @@ def main(argv: list) -> int:
         vals.update(read_frame_watch(run_dir))
         vals["run"] = run_idx
         vals["evidence_dir"] = run_dir.name
+        result_file = run_dir / 'harness-result.json'
+        if result_file.is_file():
+            try:
+                vals['harness_rc'] = json.loads(result_file.read_text(encoding='utf-8-sig'))['exit_code']
+            except (ValueError, KeyError):
+                vals['harness_rc'] = None
         return vals
 
     samples = []
@@ -525,11 +527,14 @@ def main(argv: list) -> int:
         # produced nothing".
         try:
             (session_dir / "harness.out.txt").write_text(proc.stdout or "", encoding="utf-8")
+            (session_dir / 'harness.err.txt').write_text(proc.stderr or '', encoding='utf-8')
+            (session_dir / 'harness-result.json').write_text(json.dumps({'exit_code': proc.returncode}), encoding='utf-8')
         except Exception:  # noqa: BLE001 - evidence sidecar is best-effort
             pass
         wall_s = round(time.time() - started, 1)
         text = read_transcript(session_dir)
         vals = sample_from(session_dir, i)
+        vals['harness_rc'] = proc.returncode
         vals["harness_wall_s"] = wall_s
         samples.append(vals)
         print(f"    {vals}", flush=True)
@@ -585,9 +590,11 @@ def main(argv: list) -> int:
         "samples": samples,
         "summary": summary,
         "class_coverage": coverage,
+        'assessment': assess_collection(samples),
         "coverage_scoring": {
             "classes_with_5_or_more_samples": len(scored_classes),
-            "points_per_task_book": scoring(len(scored_classes)),
+            "points_per_task_book": None,
+            "observational_coverage_only": True,
             "rule": "2 classes = 1 point, 3 classes = 2 points, >= 4 classes = 4 points",
         },
     }
@@ -604,10 +611,11 @@ def main(argv: list) -> int:
     for c in coverage:
         mark = "OK " if c["meets_5_repeats"] else "LOW"
         print(f"  [{mark}] {c['class']:<18} n={c['complete_samples']:<3} metrics={', '.join(c['metrics'])}")
-    print(f"\nclasses with >=5 samples: {len(scored_classes)} -> "
-          f"{len(scored_classes)} class coverage = {report['coverage_scoring']['points_per_task_book']} point(s)")
+    print(f"\nobservational classes with >=5 samples: {len(scored_classes)} (no score certified)")
+    print(json.dumps(report['assessment'], ensure_ascii=False, indent=2))
     print(f"wrote {out_path}")
-    return 0
+    assessment = report['assessment']
+    return 0 if args.collect_only and assessment['collection_ok'] else 1
 
 
 if __name__ == "__main__":

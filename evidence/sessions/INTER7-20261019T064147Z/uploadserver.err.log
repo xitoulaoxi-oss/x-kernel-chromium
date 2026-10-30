@@ -1,9 +1,0 @@
-127.0.0.1 - - [19/Oct/2026 14:41:57] "GET /_server-canary.txt HTTP/1.1" 200 -
-127.0.0.1 - - [19/Oct/2026 14:41:58] "GET /06-fetch-pages.sh HTTP/1.1" 200 -
-127.0.0.1 - - [19/Oct/2026 14:41:59] "GET /index.html HTTP/1.1" 200 -
-127.0.0.1 - - [19/Oct/2026 14:41:59] "GET /interaction.html HTTP/1.1" 200 -
-127.0.0.1 - - [19/Oct/2026 14:41:59] "GET /layout.html HTTP/1.1" 200 -
-127.0.0.1 - - [19/Oct/2026 14:42:00] "GET /x1-input.sh HTTP/1.1" 200 -
-127.0.0.1 - - [19/Oct/2026 14:42:05] "GET /x2-xorg.sh HTTP/1.1" 200 -
-127.0.0.1 - - [19/Oct/2026 14:42:11] "GET /y3-jwm-stock.sh HTTP/1.1" 200 -
-127.0.0.1 - - [19/Oct/2026 14:42:19] "GET /x7-interaction.sh HTTP/1.1" 200 -

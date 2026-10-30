@@ -1,0 +1,10 @@
+[  0.500000 0:1 knet:203]  No vsock device found!
+W1 started
+[87:105:1029/153020.278308:ERROR:dbus/bus.cc:408] Failed to connect to the bus
+[87:87:1029/153245.567637:ERROR:dbus/object_proxy.cc:573] Failed to call method
+[87:87:1029/153246.000000:FATAL:content/browser/browser_main.cc:100] SIGABRT in browser process
+[105:105:1029/153246.100000:FATAL:base/process/process_util.cc:100] SIGSEGV in renderer child
+E2 win1=0x400003
+WM_NAME(UTF8_STRING) = "Untitled - Chromium"
+_NET_WM_PID(CARDINAL) = 87
+E3 chrome=11

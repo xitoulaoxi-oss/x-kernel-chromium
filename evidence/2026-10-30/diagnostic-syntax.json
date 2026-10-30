@@ -1,0 +1,4 @@
+{
+  "errors": 0,
+  "note": "Bounded failure QMP and guest diagnostics added after the prior full regression pass."
+}

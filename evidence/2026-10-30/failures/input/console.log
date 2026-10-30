@@ -1,0 +1,212 @@
+[  0.620919 0:18446462599824926736 knet:203]   No vsock device found!
+arch = aarch64
+platform = kplat-aarch64
+target = aarch64-unknown-none-softfloat
+build_mode = release
+build_machine = xitoulaoxi@xitoulaoxi-desktop
+build_time = 2026-10-28T16:36:05.25611673Z
+log_level = warn
+backtrace = false
+nr_cpus_max = 4
+vmm = off
+config_sha256 = c27d8b2b3414d219359808f56611284945306fd50a28dbed81a9b252807d955c
+git_commit = 5081473a2562e0fbea1aef63f445c9ce50721032
+git_dirty = true
+build_id = f8beec3c87c2f1fbf8d84f947705c77e7efd8c7e4c8cac789a238b6be59b5976
+smp = 4
+Welcome to Kylin X!
+SHLVL=1
+HOME=/root
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PWD=/
+
+Use apt to install packages.
+
+init: handing off to /sbin/init (inittab present, /dev/console present)
+init: must be run as PID 1
+init: /sbin/init exited immediately; falling back to an interactive shell
+kylin-x:~# 
+kylin-x:~# cat > /tmp/xk-cdp-policy.sh.xtmp <<'XK_H_EOF_80008733'
+> #!/bin/sh
+> # Diagnostic-only: xkwin permits this script only with a QEMU snapshot.
+> set -eu
+> f=/etc/chromium/policies/managed/kiosk.json
+> if [ ! -r "$f" ]; then
+>   echo CDP_POLICY_ABSENT
+>   exit 0
+> fi
+> cp "$f" /tmp/xk-cdp-policy-original.json
+> echo CDP_POLICY_BEFORE
+> sha256sum "$f"
+> grep 'DeveloperToolsAvailability' "$f" || true
+> sed -i 's/"DeveloperToolsAvailability"[[:space:]]*:[[:space:]]*2\([[:space:]]*[,}]\)/"DeveloperToolsAvailabi
+
+lity": 1\1/' "$f"
+> echo CDP_POLICY_AFTER
+> sha256sum "$f"
+> grep 'DeveloperToolsAvailability' "$f" || true
+> echo CDP_POLICY_SCOPE=QEMU_SNAPSHOT
+> 
+> XK_H_EOF_80008733
+head -c 566 /tmp/xk-cdp-policy.sh.xtmp > /tmp/xk-cdp-policy.sh; rm -f /tmp/xk-cdp-policy.sh.xtmp
+kylin-x:~# head -c 566 /tmp/xk-cdp-policy.sh.xtmp > /tmp/xk-cdp-policy.sh; rm -f /tmp/xk-cdp-policy.sh.xtmp
+kylin-x:~# echo __XK5074040__rc=$?
+__XK5074040__rc=0
+kylin-x:~# chmod +x /tmp/xk-cdp-policy.sh; wc -l < /tmp/xk-cdp-policy.sh
+17
+kylin-x:~# echo __XK6465981__rc=$?
+__XK6465981__rc=0
+kylin-x:~# echo FPSTART
+FPSTART
+kylin-x:~# wc -c "/tmp/xk-cdp-policy.sh" 2>/dev/null
+566 /tmp/xk-cdp-policy.sh
+kylin-x:~# cksum "/tmp/xk-cdp-policy.sh" 2>/dev/null
+3241026274 566 /tmp/xk-cdp-policy.sh
+kylin-x:~# echo FPEND
+FPEND
+kylin-x:~# echo __XK1880944__rc=$?
+__XK1880944__rc=0
+kylin-x:~# echo FPSTART
+FPSTART
+kylin-x:~# wc -c "/tmp/xk-cdp-policy.sh" 2>/dev/null
+566 /tmp/xk-cdp-policy.sh
+kylin-x:~# cksum "/tmp/xk-cdp-policy.sh" 2>/dev/null
+3241026274 566 /tmp/xk-cdp-policy.sh
+kylin-x:~# echo FPEND
+FPEND
+kylin-x:~# echo __XK9118771__rc=$?
+__XK9118771__rc=0
+kylin-x:~# sh /tmp/xk-cdp-policy.sh 2>&1
+CDP_POLICY_BEFORE
+c6fce0100aba36d1df873cefaad33972dfbb4cc6bd9d245661a7fb552c1e241e  /etc/chromium/policies/managed/kiosk.json
+  "DeveloperToolsAvailability": 2,
+CDP_POLICY_AFTER
+763e24a9f374c788e5fb3463cdf42f70fb4866fe869de8a04342e0be770347bd  /etc/chromium/policies/managed/kiosk.json
+  "DeveloperToolsAvailability": 1,
+CDP_POLICY_SCOPE=QEMU_SNAPSHOT
+kylin-x:~# echo __XK3651135__rc=$?
+__XK3651135__rc=0
+kylin-x:~# printf '#!/bin/sh\nexec nc -w 10 127.0.0.1 9222\n' > /tmp/xk-cdp-forward.sh; chmod +x /tmp/xk-cdp-f
+
+orward.sh; setsid nc -lk -p 9223 -e /tmp/xk-cdp-forward.sh </dev/null >/tmp/xk-cdp-relay.log 2>&1 &
+kylin-x:~# echo __XK2527676__rc=$?
+__XK2527676__rc=0
+kylin-x:~# export XK_CDP_ARGS='--remote-debugging-port=9222'; echo CDP_ENABLED
+CDP_ENABLED
+[1]+  Done                       setsid nc -lk -p 9223 -e /tmp/xk-cdp-forward.sh 0</dev/null 1>/tmp/xk-cdp-relay.log 2>&1
+kylin-x:~# echo __XK7801061__rc=$?
+__XK7801061__rc=0
+kylin-x:~# export XK_HTTP=http://10.0.2.2:49336; echo XK_HTTP=http://10.0.2.2:49336
+XK_HTTP=http://10.0.2.2:49336
+kylin-x:~# echo __XK8289494__rc=$?
+__XK8289494__rc=0
+kylin-x:~# wget -q -O /tmp/xk-process-identity.sh 'http://10.0.2.2:49336/process-identity.sh' && sha256sum /tm
+
+p/xk-process-identity.sh
+090ac4b4ee27e74d2a45e363b058e8040d625d5d8eb89279d659b183faa804a2  /tmp/xk-process-identity.sh
+kylin-x:~# echo __XK5806594__rc=$?
+__XK5806594__rc=0
+kylin-x:~# chmod +x /tmp/xk-process-identity.sh
+kylin-x:~# echo __XK6438964__rc=$?
+__XK6438964__rc=0
+kylin-x:~# wget -q -O /tmp/xk-06-fetch-pages.sh 'http://10.0.2.2:49336/06-fetch-pages.sh' && sha256sum /tmp/xk
+
+-06-fetch-pages.sh
+907d8ac4f5c6ab32f70cf181cec3287a46d4d8e099977c954a31bceb7cdfc016  /tmp/xk-06-fetch-pages.sh
+kylin-x:~# echo __XK6315151__rc=$?
+__XK6315151__rc=0
+kylin-x:~# chmod +x /tmp/xk-06-fetch-pages.sh
+kylin-x:~# echo __XK9241743__rc=$?
+__XK9241743__rc=0
+kylin-x:~# sh /tmp/xk-06-fetch-pages.sh 2>&1
+P index bytes=5730 sha=831cf28f3748940b
+P interaction bytes=10991 sha=58130daa4a2f426f
+P layout bytes=11444 sha=a1b04f9aba81b4b7
+P1 ok=3 bad=0
+P2 url=file:///usr/share/kiosk/official/index.html
+total 0
+-rw-r--r--    1 root     root          5730 Oct 30 09:14 index.html
+-rw-r--r--    1 root     root         10991 Oct 30 09:14 interaction.html
+-rw-r--r--    1 root     root         11444 Oct 30 09:14 layout.html
+P3
+kylin-x:~# echo __XK2575551__rc=$?
+__XK2575551__rc=0
+kylin-x:~# wget -q -O /tmp/xk-x1-input.sh 'http://10.0.2.2:49336/x1-input.sh' && sha256sum /tmp/xk-x1-input.sh
+
+1bb6bde826f83faf804e0bd40abf49892f8fbb9a8a1ac23583a39c714014e2ab  /tmp/xk-x1-input.sh
+kylin-x:~# echo __XK5493290__rc=$?
+__XK5493290__rc=0
+kylin-x:~# chmod +x /tmp/xk-x1-input.sh
+kylin-x:~# echo __XK1590003__rc=$?
+__XK1590003__rc=0
+kylin-x:~# sh /tmp/xk-x1-input.sh 2>&1
+X1
+X2 /sys/class/input/event0 c13:64 [QEMU Virtio Keyboard]
+X2 /sys/class/input/event1 c13:65 [QEMU Virtio Mouse]
+X3 events=2 udevdb=c13:64 c13:65 
+X4
+kylin-x:~# echo __XK7111573__rc=$?
+__XK7111573__rc=0
+kylin-x:~# wget -q -O /tmp/xk-x2-xorg.sh 'http://10.0.2.2:49336/x2-xorg.sh' && sha256sum /tmp/xk-x2-xorg.sh
+ea28c07cbf039945199ab703e2af2794aa7877467d4b32e3f56612440e6f5545  /tmp/xk-x2-xorg.sh
+kylin-x:~# echo __XK7961145__rc=$?
+__XK7961145__rc=0
+kylin-x:~# chmod +x /tmp/xk-x2-xorg.sh
+kylin-x:~# echo __XK2644477__rc=$?
+__XK2644477__rc=0
+kylin-x:~# sh /tmp/xk-x2-xorg.sh 2>&1
+X5 xsock=yes
+X6 xolog=2764 libinput=0
+X7
+kylin-x:~# echo __XK3983764__rc=$?
+__XK3983764__rc=0
+kylin-x:~# wget -q -O /tmp/xk-y3-jwm-stock.sh 'http://10.0.2.2:49336/y3-jwm-stock.sh' && sha256sum /tmp/xk-y3-
+
+jwm-stock.sh
+88d322b3099146a286a3fb2c1e6789366ae6172fcaf7a1dddba7c08ffad4608e  /tmp/xk-y3-jwm-stock.sh
+kylin-x:~# echo __XK1941885__rc=$?
+__XK1941885__rc=0
+kylin-x:~# chmod +x /tmp/xk-y3-jwm-stock.sh
+kylin-x:~# echo __XK4306918__rc=$?
+__XK4306918__rc=0
+kylin-x:~# sh /tmp/xk-y3-jwm-stock.sh 2>&1
+Y1
+187:    <Key mask="A" key="Tab">nextstacked</Key>
+188:    <Key mask="A" key="F4">close</Key>
+189:    <Key mask="A" key="#">desktop#</Key>
+190:    <Key mask="A" key="F1">root:1</Key>
+191:    <Key mask="A" key="F2">window</Key>
+192:    <Key mask="A" key="F10">maximize</Key>
+193:    <Key mask="A" key="Right">rdesktop</Key>
+194:    <Key mask="A" key="Left">ldesktop</Key>
+195:    <Key mask="A" key="Up">udesktop</Key>
+196:    <Key mask="A" key="Down">ddesktop</Key>
+[ 33.981542 1:74 devfs::nodes::event:403] unknown ioctl for evdev: 21523 140733193384696
+[ 33.983499 1:74 devfs::nodes::event:403] unknown ioctl for evdev: 21515 0
+[ 34.028839 1:74 devfs::nodes::event:403] unknown ioctl for evdev: 21523 140733193383944
+[ 34.031570 1:74 devfs::nodes::event:403] unknown ioctl for evdev: 21515 0
+[ 34.057019 1:74 devfs::nodes::event:403] unknown ioctl for evdev: 21523 140733193384696
+[ 34.058954 1:74 devfs::nodes::event:403] unknown ioctl for evdev: 21515 0
+[ 34.087161 1:74 devfs::nodes::event:403] unknown ioctl for evdev: 21523 140733193383944
+[ 34.089013 1:74 devfs::nodes::event:403] unknown ioctl for evdev: 21515 0
+Y2 jwm=3 jwlog=27
+Y3 wm=_NET_SUPPORTING_WM_CHECK(WINDOW): window id # 0x200001
+/bin/sh: xclock: not found
+Y4
+kylin-x:~# echo __XK8860679__rc=$?
+__XK8860679__rc=0
+kylin-x:~# wget -q -O /tmp/xk-x7-interaction.sh 'http://10.0.2.2:49336/x7-interaction.sh' && sha256sum /tmp/xk
+
+-x7-interaction.sh
+a5e69faedd0010bfc30c81a6742cf5e99ad5787593abee231d6ced3d7f76553f  /tmp/xk-x7-interaction.sh
+kylin-x:~# echo __XK6745654__rc=$?
+__XK6745654__rc=0
+kylin-x:~# chmod +x /tmp/xk-x7-interaction.sh
+kylin-x:~# echo __XK5237137__rc=$?
+__XK5237137__rc=0
+kylin-x:~# sh /tmp/xk-x7-interaction.sh 2>&1
+I0 -rw-r--r--    1 root     root         10991 Oct 30 09:14 /usr/share/kiosk/official/interaction.html
+I1 started
+[ 48.698418 0:110 ksyscall::dispatch:885] Unimplemented syscall: landlock_create_ruleset (tid=110)
+I2 t=15 procs=5 log=776 wins=0
+I2 t=30 procs=8 log=1702 wins=0

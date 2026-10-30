@@ -1,0 +1,6 @@
+PASS: success
+PASS: failure
+PASS: echo only
+PASS: no completion
+PASS: wrong session
+PASS: ansi

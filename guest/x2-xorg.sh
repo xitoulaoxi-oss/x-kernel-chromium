@@ -5,7 +5,7 @@
 set -u
 A=/run/x11/auth
 mkdir -p /etc/X11/xorg.conf.d
-printf 'Section "Device"\n Identifier "x"\n Driver "modesetting"\n Option "AccelMethod" "none"\n Option "ShadowFB" "true"\n Option "SWcursor" "true"\nEndSection\n' > /etc/X11/xorg.conf.d/10-xk.conf
+printf 'Section "Device"\n Identifier "x"\n Driver "modesetting"\n Option "AccelMethod" "none"\n Option "ShadowFB" "true"\n Option "SWcursor" "true"\nEndSection\nSection "InputClass"\n Identifier "xk-pointer"\n MatchIsPointer "on"\n Driver "libinput"\n Option "AccelProfile" "flat"\n Option "AccelSpeed" "0"\nEndSection\n' > /etc/X11/xorg.conf.d/10-xk.conf
 C=$(hexdump -n 16 -v -e '4/4 "%08x" 1 ""' /dev/urandom)
 xauth -q -f $A add :0 . $C 2>/dev/null; chmod 644 $A
 Xorg :0 vt1 -nolisten tcp -auth $A -logfile /tmp/xo3.log >/tmp/xo.out 2>&1 &

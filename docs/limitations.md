@@ -14,7 +14,7 @@
 | 5 | `landlock_create_ruleset` 未实现 | 仅定义 syscall 号 `api/linux_sysno/src/arch/aarch64.rs` | 每次 Chromium 启动必现 `Unimplemented syscall: landlock_create_ruleset` | `attr=NULL,size=0,flags=VERSION` 时返回 ABI 版本号（探测用，零成本） | ❌ 待实现 |
 | 6 | `prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, …)` → `ENOSYS` | `core/ksyscall/src/task/ctl.rs`；`docs/security.md` 把它写成"有意契约" | 安装 BPF 过滤器返回 `ENOSYS` | 返回 0、过滤器生效；与 `PR_SET_NO_NEW_PRIVS`（本内核**已实现**）配套 | ⚠️ 契约是否成立需重新论证 |
 | 7 | `ptrace` 未实现 | 无实现 | gdb / crashpad 无法附加；客机日志 `ptrace` `ENOSYS` | `PTRACE_ATTACH`/`SEIZE` 可用 | ❌ 待实现 |
-| 8 | `AF_INET6` 不支持 | 无 `/proc/net/if_inet6`；交付内核 `posix/net/src/socket.rs` 无 `AF_INET6` 分支 | `ping -6 ::1` → `Address family not supported by protocol`；`ping 127.0.0.1` 正常 | 正常 | ❌ 仅影响 IPv6（证据 [`AF6B`](../evidence/sessions/AF6B-20261019T054919Z/)） |
+| 8 | `AF_INET6` 不支持 | 无 `/proc/net/if_inet6`；交付内核 `posix/net/src/socket.rs` 无 `AF_INET6` 分支 | `ping -6 ::1` → `Address family not supported by protocol`；`ping 127.0.0.1` 正常 | 正常 | ❌ 仅影响 IPv6（证据 [`AF6B`](../evidence/README.md)） |
 
 > 第 5–8 条都不阻塞当前目标（图形会话 + 页面渲染 + 多窗口），但会持续产生日志噪音或限制工具链。
 > `PR_SET_NO_NEW_PRIVS` 曾被列为缺口，实测**已实现**，已从清单撤回。
@@ -64,5 +64,5 @@ powershell -NoProfile -ExecutionPolicy Bypass -File host\xkwin.ps1 `
   -Tag AF6B -CommandTimeoutSec 300
 ```
 
-对应原始会话：[`PROC-CHECK`](../evidence/sessions/PROC-CHECK-20261019T052522Z/)、
-[`AF6B`](../evidence/sessions/AF6B-20261019T054919Z/)。
+对应原始会话：[`PROC-CHECK`](../evidence/README.md)、
+[`AF6B`](../evidence/README.md)。

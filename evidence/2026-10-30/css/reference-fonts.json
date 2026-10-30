@@ -1,0 +1,12 @@
+[
+  {
+    "source": "/usr/share/fonts/noto/NotoSansCJK-Regular.ttc",
+    "bytes": 19484784,
+    "sha256": "b76b0433203017ca80401b2ee0dd69350349871c4b19d504c34dbdd80541690a"
+  },
+  {
+    "source": "/usr/share/fonts/noto/NotoSansCJK-Bold.ttc",
+    "bytes": 20050760,
+    "sha256": "faa5f3656a78b2e2d450d27fe8382c778bc2b6bb5ea29c986664a6a435056ceb"
+  }
+]

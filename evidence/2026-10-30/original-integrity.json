@@ -1,0 +1,6 @@
+{
+  "original_policy_sha256": "c6fce0100aba36d1df873cefaad33972dfbb4cc6bd9d245661a7fb552c1e241e",
+  "original_policy_developer_tools": 2,
+  "kernel_sha256": "c915565ac145f95335088296edd93b7a9a7c097188781611eb48ba9d1e067785",
+  "image_mode": "QEMU snapshot in all new runs"
+}

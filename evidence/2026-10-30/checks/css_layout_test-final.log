@@ -1,0 +1,11 @@
+test_equal_geometry_passes (__main__.CssComparisonTests.test_equal_geometry_passes) ... ok
+test_missing_boxes_fail (__main__.CssComparisonTests.test_missing_boxes_fail) ... ok
+test_nan_does_not_hide_difference (__main__.CssComparisonTests.test_nan_does_not_hide_difference) ... ok
+test_one_failed_css_probe_fails (__main__.CssComparisonTests.test_one_failed_css_probe_fails) ... ok
+test_two_pixel_displacement_fails (__main__.CssComparisonTests.test_two_pixel_displacement_fails) ... ok
+test_viewport_mismatch_is_not_accepted (__main__.CssComparisonTests.test_viewport_mismatch_is_not_accepted) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.000s
+
+OK

@@ -29,10 +29,10 @@
 
 | 要求 | 状态 | 证据 |
 |---|---|---|
-| 图形会话 | ✅ Xorg 1280×800 + JWM | [`STAB10P`](../evidence/sessions/STAB10P-20261019T062937Z/) |
-| 三页渲染 | ✅ `835/847/892`、`886`、`691` | [`RENDER`](../evidence/sessions/RENDER-20261015T141742Z/)、[`INTER7`](../evidence/sessions/INTER7-20261019T064147Z/)、[`LAYOUT`](../evidence/sessions/LAYOUT-20261019T021243Z/) |
-| 多窗口 + 切换 | ✅ 两个窗口，Alt+Tab 双向翻转 | [`R37-MW4`](../evidence/sessions/R37-MW4-20261016T101127Z/) |
-| 10 分钟稳定 | ✅ 600 s × 10 次采样 | [`STAB10P`](../evidence/sessions/STAB10P-20261019T062937Z/) |
+| 图形会话 | ✅ Xorg 1280×800 + JWM | [`STAB10P`](../evidence/README.md) |
+| 三页渲染 | ✅ `835/847/892`、`886`、`691` | [`RENDER`](../evidence/README.md)、[`INTER7`](../evidence/README.md)、[`LAYOUT`](../evidence/README.md) |
+| 多窗口 + 切换 | ✅ 两个窗口，Alt+Tab 双向翻转 | [`R37-MW4`](../evidence/README.md) |
+| 10 分钟稳定 | ✅ 600 s × 10 次采样 | [`STAB10P`](../evidence/README.md) |
 | 缺口清单 | ✅ 8 条，含复现与 Linux 对照 | [limitations.md](limitations.md) |
 | 性能 6 类指标 | ✅ 8 次运行 | [performance.md](performance.md) |
 | 上游 PR | ✅ 3 个合入 `main` | [upstream.md](upstream.md) |

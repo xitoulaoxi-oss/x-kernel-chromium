@@ -1,0 +1,39 @@
+{
+  "ok": true,
+  "browser_matches": [
+    110
+  ],
+  "renderer_matches": [
+    {
+      "pid": 207,
+      "ancestry": [
+        207,
+        122,
+        110
+      ],
+      "procfs": {
+        "Name": "chromium",
+        "State": "S (sleeping)",
+        "Pid": 207,
+        "PPid": 122,
+        "Threads": 9
+      }
+    },
+    {
+      "pid": 190,
+      "ancestry": [
+        190,
+        122,
+        110
+      ],
+      "procfs": {
+        "Name": "chromium",
+        "State": "S (sleeping)",
+        "Pid": 190,
+        "PPid": 122,
+        "Threads": 10
+      }
+    }
+  ],
+  "note": "Role is from Chromium; PID, threads and parent chain are independently read from guest procfs."
+}

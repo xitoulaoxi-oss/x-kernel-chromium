@@ -1,0 +1,47 @@
+[
+  {
+    "task": "01_verify_applied_patch",
+    "status": "PASS",
+    "note": "Source and original policy/kernel checked; auxiliary regression logs recorded."
+  },
+  {
+    "task": "02_validate_runtime_probes",
+    "status": "PASS",
+    "note": "Real policy root cause confirmed; automatic DOM CDP restored; TCP epoll and transport controls passed."
+  },
+  {
+    "task": "03_complete_functional_checks",
+    "status": "PARTIAL",
+    "note": "Integrated windows case found about:blank, input case timed out; separately completed JS/CSS 2/2 and Linux CSS geometry comparison PASS. Cross-attempt summary remains 2/5; full functional acceptance is false."
+  },
+  {
+    "task": "04_reproduce_startup_failure",
+    "status": "PARTIAL",
+    "note": "New reproducible evidence is functional-final/windows/page-check.json; no first-attempt reliability claim."
+  },
+  {
+    "task": "05_validate_stability_and_load",
+    "status": "PASS",
+    "note": "1800.43 s; ten new navigations; 30 heartbeats; maximum drift 0.10 s."
+  },
+  {
+    "task": "06_resolve_memory_and_renderer",
+    "status": "PARTIAL",
+    "note": "Renderer role/ancestry confirmed. User says memory is guest Chromium; per-process peak remains unavailable."
+  },
+  {
+    "task": "07_establish_performance_baseline",
+    "status": "BLOCKED",
+    "note": "Four official metric definitions/collectors are not yet complete; no five-repeat qualified baseline."
+  },
+  {
+    "task": "08_measure_cross_layer_changes",
+    "status": "BLOCKED",
+    "note": "Needs valid before/after baseline; no improvement percentage claimed."
+  },
+  {
+    "task": "09_rehearse_and_package",
+    "status": "PARTIAL",
+    "note": "Current code and success/failure evidence archived with hashes. Full three-scene rehearsal remains blocked by startup and performance gates."
+  }
+]

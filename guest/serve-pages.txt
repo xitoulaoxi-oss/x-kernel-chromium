@@ -15,4 +15,7 @@ guest/x1-input.sh
 guest/x2-xorg.sh
 guest/y3-jwm-stock.sh
 guest/x4-win1.sh
+guest/x4-win1-diag.sh
+guest/y6-evidence.sh
 guest/x5c-win2.sh
+guest/x4-win1-nsip.sh

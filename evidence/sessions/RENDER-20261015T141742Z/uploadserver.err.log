@@ -1,4 +1,0 @@
-127.0.0.1 - - [15/Oct/2026 22:17:51] "GET /_server-canary.txt HTTP/1.1" 200 -
-127.0.0.1 - - [15/Oct/2026 22:17:55] "GET /index.html HTTP/1.1" 200 -
-127.0.0.1 - - [15/Oct/2026 22:17:55] "GET /interaction.html HTTP/1.1" 200 -
-127.0.0.1 - - [15/Oct/2026 22:17:55] "GET /layout.html HTTP/1.1" 200 -

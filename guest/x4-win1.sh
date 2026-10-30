@@ -8,7 +8,7 @@ U=/usr/share/kiosk/official/index.html
 rm -rf $P; mkdir -p $P
 rm -f /home/kiosk/.config/chromium/Singleton* 2>/dev/null
 export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe DISPLAY=:0 XAUTHORITY=$A
-setsid chromium --ozone-platform=x11 --no-sandbox --use-gl=angle --use-angle=gl --disable-vulkan --disable-features=Vulkan --user-data-dir=$P --enable-logging=stderr file://$U >/tmp/w.log 2>&1 &
+setsid chromium ${XK_CDP_ARGS:-} --ozone-platform=x11 --no-sandbox --use-gl=angle --use-angle=gl --disable-vulkan --disable-features=Vulkan --user-data-dir=$P --enable-logging=stderr file://$U >/tmp/w.log 2>&1 &
 echo W1 started
 t=0
 while [ $t -lt 150 ]; do

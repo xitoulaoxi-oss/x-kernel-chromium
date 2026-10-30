@@ -1,7 +1,0 @@
-sh /tmp/xk-x2-xorg.sh 2>&1
-X5 xsock=yes
-X6 xolog=2764 libinput=0
-X7
-kylin-x:~# echo __XK5482807__rc=$?
-__XK5482807__rc=0
-kylin-x:~# [6n

@@ -1,0 +1,51 @@
+{
+  "captured_at": "2026-10-30T06:59:13.9829446Z",
+  "files": [
+    {
+      "sha256": "b00a4eaf56ed265d8e3fa68d9e626db111f04e9ad45e0297aea3e7f93be30978",
+      "path": "host\\xkwin.ps1",
+      "bytes": 99832
+    },
+    {
+      "sha256": "7f3ae516534411e1b4f626cc3cbd885e6c9cc327d7b1b787194abe34ce318d44",
+      "path": "host\\page_probe.py",
+      "bytes": 8602
+    },
+    {
+      "sha256": "687eb02d4bedfc69e30cc4f32d2713862016a4df36105075d165180a2c6a5fbe",
+      "path": "guest\\cdp-policy.sh",
+      "bytes": 566
+    },
+    {
+      "sha256": "ba4592f092f8505cd61716340ad699897d1e3ff5e5ec73823403a795f3be1ecc",
+      "path": "guest\\hb.sh",
+      "bytes": 261
+    },
+    {
+      "sha256": "82905bddf73a3c5bb32d1df91d8910a3f291bf81745f22128604241a34779301",
+      "path": "guest\\hb-start.sh",
+      "bytes": 172
+    },
+    {
+      "sha256": "c915565ac145f95335088296edd93b7a9a7c097188781611eb48ba9d1e067785",
+      "path": "artifacts\\kernel-procfs.bin",
+      "bytes": 8544026
+    },
+    {
+      "sha256": "831cf28f3748940b450d1da325aa39a2dcaea2fee15b0532bf4111144d176b38",
+      "path": "pages\\index.html",
+      "bytes": 5730
+    },
+    {
+      "sha256": "58130daa4a2f426fd16b8bde93d964713f20e147da8af1537ab2d8b506d2fd58",
+      "path": "pages\\interaction.html",
+      "bytes": 10991
+    },
+    {
+      "sha256": "a1b04f9aba81b4b7818be2e7a858d482d471bd0d625dee257f605b2129b8fc4c",
+      "path": "pages\\layout.html",
+      "bytes": 11444
+    }
+  ],
+  "note": "Active long run uses xkwin directly; load-loop wrapper was not used. See invocation.json for exact command."
+}

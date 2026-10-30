@@ -8,15 +8,25 @@ Usage:
 
 The tool reads only files the harness already writes:
   console.log, *.stats.json, qemu-metrics.json, harness-error.txt,
-  qemu.stderr.log, and optionally observe.jsonl from host/monitor-qemu.ps1.
+  qemu.stderr.log, observe.jsonl (host monitor), and CMJSON lines written by
+  guest/chrome-mem.sh.
 
 It does not run QEMU and does not modify the session.
+
+Task 36-38 additions:
+  * crash subjects: Chromium log lines carry "[pid:tid:time:LEVEL:file]"; the
+    report now names the PID and whether it is the browser (from _NET_WM_PID)
+    instead of printing a bare string hit;
+  * hang classification: desktop-only / window-shell-without-page / heartbeat
+    loss / browser gone are separate states, not one "colors < 300" rule;
+  * leak attribution: per-process Chromium RSS samples (CMJSON) are reported
+    separately from the host QEMU working set, and "unavailable" stays
+    unavailable instead of becoming zero.
 """
 from __future__ import annotations
 
 import argparse
 import json
-import math
 import pathlib
 import re
 import sys
@@ -24,6 +34,11 @@ from typing import Any
 
 ANSI = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]")
 HB = re.compile(r"\bHB\s+t=(\d+).*?chrome=(\d+).*?mem_mb=(\d+)")
+CHROME_LINE = re.compile(
+    r"^\[(\d+):(\d+):\d+/\d+\.\d+:(INFO|WARNING|ERROR|FATAL):([^\]]*)\]\s*(.*)$"
+)
+WM_PID = re.compile(r"_NET_WM_PID\(CARDINAL\)\s*=\s*(\d+)")
+CMJSON = re.compile(r"^CMJSON\s+(\{.*\})\s*$", re.M)
 CRASH_PATTERNS = [
     ("kernel panic", re.compile(r"kernel panic|panic:", re.I)),
     ("SIGSEGV", re.compile(r"SIGSEGV|segmentation fault|segfault", re.I)),
@@ -33,6 +48,8 @@ CRASH_PATTERNS = [
     ("OOM", re.compile(r"out of memory|oom-kill|killed process|Cannot allocate memory", re.I)),
     ("QEMU fatal", re.compile(r"qemu: fatal|qemu-system.*fatal", re.I)),
 ]
+
+SCHEMA = 2
 
 
 def read_text(path: pathlib.Path) -> str:
@@ -65,6 +82,59 @@ def heartbeat_lines(console: str) -> list[dict[str, int]]:
     for m in HB.finditer(console):
         rows.append({"t": int(m.group(1)), "chrome": int(m.group(2)), "mem_mb": int(m.group(3))})
     return rows
+
+
+def chromium_log_lines(console: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for n, line in enumerate(console.splitlines(), 1):
+        m = CHROME_LINE.match(line.strip())
+        if not m:
+            continue
+        rows.append({
+            "line": n,
+            "pid": int(m.group(1)),
+            "tid": int(m.group(2)),
+            "level": m.group(3),
+            "source": m.group(4).split(":")[0],
+            "text": m.group(5)[:200],
+        })
+    return rows
+
+
+def crash_subjects(console: str, chrome_lines: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    browser_pid = None
+    m = WM_PID.search(console)
+    if m:
+        browser_pid = int(m.group(1))
+    by_line = {row["line"]: row for row in chrome_lines}
+    subjects: list[dict[str, Any]] = []
+    seen: set[tuple[str, int | None]] = set()
+    for name, pat in CRASH_PATTERNS:
+        for match in pat.finditer(console):
+            line_no = console.count("\n", 0, match.start()) + 1
+            subject = by_line.get(line_no)
+            pid = subject["pid"] if subject else None
+            key = (name, pid)
+            if key in seen:
+                break
+            seen.add(key)
+            if pid is None:
+                role = "kernel-or-session"
+            elif browser_pid is not None and pid == browser_pid:
+                role = "browser"
+            else:
+                role = "chromium-child(role-from-argv-unavailable)"
+            subjects.append({
+                "kind": name,
+                "line": line_no,
+                "pid": pid,
+                "role": role,
+                "log_level": subject["level"] if subject else None,
+                "log_source": subject["source"] if subject else None,
+                "text": match.group(0)[:120],
+            })
+            break
+    return subjects
 
 
 def trend(session: pathlib.Path, warmup_s: float = 0.0) -> dict[str, Any]:
@@ -104,6 +174,38 @@ def trend(session: pathlib.Path, warmup_s: float = 0.0) -> dict[str, Any]:
     }
 
 
+def guest_process_memory(console: str) -> dict[str, Any]:
+    """Per-process Chromium RSS samples emitted by guest/chrome-mem.sh (CMJSON)."""
+    rows: list[dict[str, Any]] = []
+    for m in CMJSON.finditer(console):
+        try:
+            rows.append(json.loads(m.group(1)))
+        except Exception:
+            continue
+    if not rows:
+        return {
+            "available": False,
+            "reason": "no CMJSON sample in console (chrome-mem.sh not run or interface missing)",
+            "samples": 0,
+        }
+    last = rows[-1]
+    state = last.get("state")
+    series = [row.get("rss_kb_sum") for row in rows if row.get("rss_kb_sum") is not None]
+    growth = None
+    if len(series) >= 2:
+        growth = series[-1] - series[0]
+    return {
+        "available": state == "measured",
+        "state": state,
+        "samples": len(rows),
+        "last": last,
+        "series_kb": series,
+        "growth_kb": growth,
+        "shared_double_count": last.get("shared_double_count"),
+        "note": "RSS sum double-counts shared pages; PSS is unavailable on this kernel",
+    }
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("session", type=pathlib.Path)
@@ -127,49 +229,69 @@ def main(argv: list[str]) -> int:
     harness_err = read_text(session / "harness-error.txt") if (session / "harness-error.txt").is_file() else ""
     qemu_err = read_text(session / "qemu.stderr.log") if (session / "qemu.stderr.log").is_file() else ""
 
-    crash_matches: list[dict[str, Any]] = []
-    for name, pat in CRASH_PATTERNS:
-        for m in pat.finditer(console):
-            line = console.count("\n", 0, m.start()) + 1
-            crash_matches.append({"kind": name, "line": line, "text": m.group(0)[:120]})
-            break
+    chrome_lines = chromium_log_lines(console)
+    subjects = crash_subjects(console, chrome_lines)
     crash = {
-        "detected": bool(crash_matches) or bool(harness_err.strip()),
-        "signals": crash_matches,
+        "detected": bool(subjects) or bool(harness_err.strip()),
+        "subjects": subjects,
+        "signals": [{"kind": s["kind"], "pid": s["pid"], "role": s["role"], "text": s["text"]} for s in subjects],
         "harness_error": bool(harness_err.strip()),
         "harness_error_tail": harness_err.strip()[-500:],
         "qemu_stderr_tail": qemu_err.strip()[-500:],
+        "chromium_log_lines": len(chrome_lines),
     }
 
-    hang_reasons: list[str] = []
     final_blank = bool(stats and stats.get("blank"))
     final_colors = stats.get("colors") if stats else None
+    hang_class = None
+    reasons: list[str] = []
     if stats is None:
-        hang_reasons.append("no final screenshot stats")
-    elif final_blank:
-        hang_reasons.append("final frame is blank")
-    elif isinstance(final_colors, (int, float)) and final_colors < 300:
-        hang_reasons.append(f"final frame has only {final_colors} colours")
+        hang_class = "no_evidence"
+        reasons.append("no final screenshot stats")
+    elif isinstance(final_colors, (int, float)) and final_colors < 60:
+        hang_class = "no_window_desktop_only"
+        reasons.append(f"final frame is the desktop only ({final_colors} colours)")
+    elif final_blank or (isinstance(final_colors, (int, float)) and final_colors < 300):
+        hang_class = "window_shell_without_page"
+        reasons.append(f"window shell without page ({final_colors} colours, blank={final_blank})")
     if args.expected_minutes and not hb:
-        hang_reasons.append("no heartbeat lines for a timed session")
+        hang_class = hang_class or "heartbeat_missing"
+        reasons.append("no heartbeat lines for a timed session")
     if hb:
         if args.expected_minutes and len(hb) < max(1, args.expected_minutes - 2):
-            hang_reasons.append(f"heartbeat count {len(hb)} < expected ~{args.expected_minutes}")
+            hang_class = hang_class or "heartbeat_missing"
+            reasons.append(f"heartbeat count {len(hb)} < expected ~{args.expected_minutes}")
         if hb[-1]["chrome"] == 0:
-            hang_reasons.append("last heartbeat reports chrome=0")
+            hang_class = "browser_gone"
+            reasons.append("last heartbeat reports chrome=0")
+
+    # A page that paints has colours >= 300; if it painted but a timed session
+    # lost its heartbeat, that is still a hang and must not be hidden.
     hang = {
-        "detected": bool(hang_reasons),
-        "reasons": hang_reasons,
+        "detected": hang_class is not None,
+        "class": hang_class,
+        "reasons": reasons,
         "heartbeats": len(hb),
         "last_heartbeat": hb[-1] if hb else None,
         "final_stats": stats_name,
+        "final_colors": final_colors,
+        "final_blank": final_blank,
     }
 
     tr = trend(session, args.warmup_minutes * 60.0)
     leak_detected = False
     if not tr.get("insufficient_data"):
         leak_detected = tr["growth_mb"] >= args.leak_mb and tr["slope_mb_per_min"] >= args.leak_slope
-    leak = {"detected": leak_detected, **tr, "threshold_mb": args.leak_mb, "threshold_slope": args.leak_slope}
+    guest_mem = guest_process_memory(console)
+    leak = {
+        "detected": leak_detected,
+        "host_qemu_ws": tr,
+        "guest_chromium": guest_mem,
+        "threshold_mb": args.leak_mb,
+        "threshold_slope": args.leak_slope,
+        "attribution_limited": bool(guest_mem.get("state") not in ("measured",)),
+        "note": "host QEMU working set is a lead only; guest per-process RSS is a separate quantity",
+    }
 
     summary = []
     if crash["detected"]:
@@ -182,6 +304,7 @@ def main(argv: list[str]) -> int:
         summary.append("NO_CRASH_HANG_LEAK")
 
     report = {
+        "schema_version": SCHEMA,
         "session": str(session),
         "summary": summary,
         "crash": crash,

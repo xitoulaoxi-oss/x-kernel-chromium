@@ -1,0 +1,8 @@
+PASS null stats are not ready (got False)
+PASS blank frame is not ready even with 900 colours (got False)
+PASS blank page with spinner (262) is not ready (got False)
+PASS rendered index page (835) is ready (got True)
+PASS boundary 300 is ready (got True)
+PASS 299 is not ready (got False)
+PASS missing colors property is not ready (got False)
+all ready-gate checks passed

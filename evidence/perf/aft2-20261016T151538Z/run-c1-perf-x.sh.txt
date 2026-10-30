@@ -1,8 +1,0 @@
-sh /tmp/xk-c1-perf-x.sh 2>&1
-P1-BEGIN
-xorg_s=1
-jwm_s=2
-P1-END
-kylin-x:~# echo __XK2996688__rc=$?
-__XK2996688__rc=0
-kylin-x:~# [6n

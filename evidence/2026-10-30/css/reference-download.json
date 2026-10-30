@@ -1,0 +1,9 @@
+{
+  "version": "142.0.7444.59",
+  "metadata_url": "https://googlechromelabs.github.io/chrome-for-testing/142.0.7444.59.json",
+  "download_url": "https://storage.googleapis.com/chrome-for-testing-public/142.0.7444.59/linux64/chrome-linux64.zip",
+  "bytes": 172286697,
+  "sha256": "342d848409c9500d581baae5e6b096c4dbacbf473105d80f0661c123f7de7e05",
+  "downloaded_at_unix": 1793344065.3908415,
+  "purpose": "Linux x86_64 same-version CSS reference only, not official AArch64 QEMU acceptance or performance comparison"
+}

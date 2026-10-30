@@ -1,0 +1,9 @@
+test_duplicate_pid_is_rejected (__main__.RoleTests.test_duplicate_pid_is_rejected) ... ok
+test_invalid_pid_is_rejected (__main__.RoleTests.test_invalid_pid_is_rejected) ... ok
+test_real_roles_are_distinct (__main__.RoleTests.test_real_roles_are_distinct) ... ok
+test_unknown_child_not_promoted_to_renderer (__main__.RoleTests.test_unknown_child_not_promoted_to_renderer) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.000s
+
+OK

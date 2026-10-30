@@ -1,0 +1,97 @@
+{
+  "url": "file:///mnt/d/x-kernel-dsh-bridge/submission/for%20github/pages/layout.html",
+  "ready_state": "complete",
+  "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/142.0.0.0 Safari/537.36",
+  "viewport": {
+    "width": 1050,
+    "height": 607,
+    "dpr": 1
+  },
+  "time_origin": 1793344414549.6,
+  "checks": {
+    "C1": true,
+    "C2": true,
+    "C3": true,
+    "C4": true,
+    "C5": true,
+    "C6": true
+  },
+  "verdict": true,
+  "boxes": {
+    "flex": [
+      {
+        "x": 110.5,
+        "y": 178,
+        "width": 262,
+        "height": 56
+      },
+      {
+        "x": 386.5,
+        "y": 178,
+        "width": 262,
+        "height": 56
+      },
+      {
+        "x": 662.5,
+        "y": 178,
+        "width": 262,
+        "height": 56
+      }
+    ],
+    "grid": [
+      {
+        "x": 110.5,
+        "y": 314,
+        "width": 407,
+        "height": 48
+      },
+      {
+        "x": 517.5,
+        "y": 314,
+        "width": 407,
+        "height": 48
+      },
+      {
+        "x": 110.5,
+        "y": 372,
+        "width": 407,
+        "height": 48
+      },
+      {
+        "x": 517.5,
+        "y": 372,
+        "width": 407,
+        "height": 48
+      }
+    ],
+    "border_box": [
+      {
+        "x": 110.5,
+        "y": 500,
+        "width": 250,
+        "height": 150
+      }
+    ]
+  },
+  "styles": {
+    "radius": "12px",
+    "border": "2px",
+    "odd": "rgba(0, 0, 0, 0)",
+    "even": "rgb(240, 243, 246)",
+    "center": "center",
+    "justify": "justify"
+  },
+  "body_sha256": "08c89c55228c295ea75134420d0a9995582d3af5effd66db2355262a31b73199",
+  "html_sha256": "a1b04f9aba81b4b7818be2e7a858d482d471bd0d625dee257f605b2129b8fc4c",
+  "browser_product": "Chrome/142.0.7444.59",
+  "browser_version": "142.0.7444.59",
+  "ok": true,
+  "observed_at_unix": 1793344416.565087,
+  "requested_viewport": {
+    "width": 1050,
+    "height": 607,
+    "dpr": 1
+  },
+  "viewport_matches_requested": true,
+  "reference_scope": "Linux x86_64 headless; same browser version and extracted guest fonts; not an official-platform result."
+}

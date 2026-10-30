@@ -1,3 +1,0 @@
-[W][97339.701364] pw.conf      | [          conf.c: 1031 try_load_conf()] can't load config client.conf: No such file or directory
-[E][97339.702239] pw.conf      | [          conf.c: 1060 pw_conf_load_conf_for_context()] can't load config client.conf: No such file or directory
-qemu-system-aarch64: terminating on signal 15 from pid 103097 (bash)

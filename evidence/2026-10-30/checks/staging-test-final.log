@@ -1,0 +1,5 @@
+PASS: manifest + script + upload inputs
+PASS: duplicate source deduplication
+PASS: missing input rejected
+PASS: basename collision rejected
+Fixtures retained: [local-project]\experiments\REVIEW-FIX\staging-test-a97f748cb78a4153a5b608f47327bb9e

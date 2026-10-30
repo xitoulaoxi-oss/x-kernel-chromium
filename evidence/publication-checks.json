@@ -1,0 +1,24 @@
+{
+  "python": {
+    "review_regressions.py": 0,
+    "cdp_transport_test.py": 0,
+    "process_identity_test.py": 0,
+    "css_layout_test.py": 0,
+    "observe_cases.py": 0,
+    "browser_probe_test.py": 0,
+    "perf_assessment_test.py": 0
+  },
+  "powershell": {
+    "command-result-test.ps1": 0,
+    "staging-test.ps1": 0,
+    "ready-gate-test.ps1": 0,
+    "entry-arguments-test.ps1": 0
+  },
+  "audit": {
+    "broken_links": [],
+    "evidence_hashes_verified": 42
+  },
+  "kernel_source_changed": false,
+  "patch_parse_errors": 0,
+  "note": "Only source/auxiliary checks rerun for publication; this cleanup does not create a new runtime or performance PASS. CDP transport rerun with local-network permission; observer fixtures include the required JSONL files."
+}

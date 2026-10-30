@@ -1,0 +1,4 @@
+CMJSON {"page_size":4096,"page_size_source":"getconf","proc_count":11,"measured":11,"unavailable":0,"rss_kb_sum":520000,"rss_mb_sum":507,"state":"measured","shared_double_count":true,"processes":[]}
+CMJSON {"page_size":4096,"page_size_source":"getconf","proc_count":11,"measured":11,"unavailable":0,"rss_kb_sum":560000,"rss_mb_sum":546,"state":"measured","shared_double_count":true,"processes":[]}
+HB t=60 chrome=11 mem_mb=816
+HB t=120 chrome=11 mem_mb=820
