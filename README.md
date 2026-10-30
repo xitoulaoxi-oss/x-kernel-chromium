@@ -46,3 +46,8 @@ bash build/build-kernel.sh
 实验缓存、浏览器下载、逐帧截图、编译产物及私人工作日志不进入 Git。历史已提交证据仍在 Git 历史中。见 [文档索引](docs/README.md) 与 [发布约定](docs/publish.md)。
 
 许可证：[Apache-2.0](LICENSE)。第三方来源与声明见 [NOTICE](NOTICE) 和 [kernel/LICENSE](kernel/LICENSE)。
+
+
+<!-- post-checkpoint-20261031 -->
+
+[下一阶段任务书](docs/stall_resolution/00_taskbook.md)：阶段分支已保存，先补取证完整性，再定位真实停顿。

@@ -1,0 +1,129 @@
+{
+  "schema": "xk-publication-record/1",
+  "recorded_local": "2026-10-31T03:06:44.002636+08:00",
+  "remote": "https://github.com/xitoulaoxi-oss/x-kernel-chromium",
+  "branch": "checkpoint/trace-ring-20261031",
+  "checkpoint_commit": "8992cf0b6a0c83bf5493f876e271775ba8efc3dd",
+  "remote_verified_commit": "8992cf0b6a0c83bf5493f876e271775ba8efc3dd",
+  "push": "SUCCESS",
+  "note": "This records the source checkpoint push. This taskbook follows in a separate documentation commit; inspect branch history for its current tip.",
+  "tests": [
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/command-frame-boundary-test.ps1"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/command-protocol-replay.ps1"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/command-result-test.ps1"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/step-encoding-test.ps1"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/remote-path-test.ps1"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/xkwin-parse.ps1"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python",
+        "tests/ring_layout_test.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python",
+        "tests/observe_cases.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python",
+        "tests/review_regressions.py"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "known_decoder_probes": {
+    "full_capacity": {
+      "expected": 1024,
+      "actual": 1023,
+      "retained": [
+        1,
+        1023
+      ]
+    },
+    "future_sequence": {
+      "metadata_seq": 1,
+      "entry_seq": 9000,
+      "accepted": true
+    },
+    "note": "Existing tests pass; these additional probes expose decoder gaps. Treat this branch as a diagnostic checkpoint, fix before causal stall analysis."
+  },
+  "publication_scope": {
+    "changed_files": 180,
+    "representative_trace_evidence_files": 22,
+    "excluded": [
+      "full raw experiment trees",
+      "binary/ELF/images",
+      "duplicate submission packages",
+      "full 895-file baseline tree",
+      "ad-hoc debug scripts"
+    ]
+  },
+  "preservation": "Original main worktree and raw experiment files preserved; publication uses an isolated worktree.",
+  "normalization": "Published JSON is UTF-8; published manifests use Git-blob LF bytes. Source-map retains original byte hashes.",
+  "network": "First direct attempts failed. Push and remote verification succeeded using the existing system proxy without changing global configuration."
+}

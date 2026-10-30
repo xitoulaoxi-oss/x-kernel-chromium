@@ -66,3 +66,8 @@
 - [A/B前批](../../experiments/FINALS-RUNS/20261031T002500Z/iteration/05/ab-results-pre.json)、[A/B后批](../../experiments/FINALS-RUNS/20261031T002500Z/iteration/05/ab-results.json)、[sample2较高内存](../../experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample2/perf-decode.json)、[sample3有效采集字段](../../experiments/FINALS-RUNS/20261031T002500Z/iteration/07/sample3/perf-decode.json)。
 
 当前工程预算沿用用户确认约840MB历史客机占用，并保留此次约938.63MiB采样上界；不改称精确Chromium RSS或精确连续峰值。最终得分依统一平台与现场证据，现有进度不足以预测排名分。
+
+
+<!-- post-checkpoint-20261031 -->
+
+[推送后的新任务书](../stall_resolution/00_taskbook.md)：阶段分支已保存，先补取证完整性，再定位真实停顿。

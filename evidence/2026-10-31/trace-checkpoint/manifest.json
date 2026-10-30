@@ -108,8 +108,8 @@
     },
     {
       "path": "evidence/2026-10-31/trace-checkpoint/source-map.json",
-      "bytes": 66041,
-      "sha256": "c437cf98033fa9777731edfc3700ae321e8923811edeed8f78fe892097446db0"
+      "bytes": 66116,
+      "sha256": "0ab588b15b033c47b70c03dcb9d8ad0366c7b841602cb15146824161a2b4426d"
     }
   ]
 }

@@ -10,3 +10,8 @@
 
 
 - [2026-10-31 diagnostic checkpoint](checkpoint-20261031.md)
+
+
+<!-- post-checkpoint-20261031 -->
+
+[启动停顿定位下一阶段任务](stall_resolution/00_taskbook.md)：阶段分支已保存，先补取证完整性，再定位真实停顿。

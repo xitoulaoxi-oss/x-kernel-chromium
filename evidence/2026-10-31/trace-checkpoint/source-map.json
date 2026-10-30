@@ -503,7 +503,7 @@
       "published": "evidence/2026-10-30/finals-tasks/manifest.json",
       "bytes": 5735,
       "sha256": "6f19fee7d866253ffd1d6cdc5853cb3c20b9e18d187077a260d0f23c5bd5efe2",
-      "published_blob_sha256": "aadcfb05c2aeabad7eb2547c8ce9a52c431c96118e8923b2093b2dbf3c017e18",
+      "published_blob_sha256": "10d1710d96f5821a45b9dca0425d7750a528aa9b07ea89bc852ba16fcd412e44",
       "published_blob_bytes": 5736
     },
     {
@@ -1382,5 +1382,6 @@
     "binaries/ELFs",
     "ad-hoc debug scripts"
   ],
-  "note": "sha256 is original local-source bytes; published_blob_sha256 describes normalized Git content."
+  "note": "sha256 is original local-source bytes; published_blob_sha256 describes normalized Git content.",
+  "published_snapshot_commit": "8992cf0b6a0c83bf5493f876e271775ba8efc3dd"
 }
