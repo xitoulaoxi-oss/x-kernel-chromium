@@ -1,0 +1,6 @@
+{
+  "retained_elf_binary_sha256": "ba4fdf2107924091616e3fdbe510fb9202fa0c4aa5bf3e1c17f8a3fcb46ffe42",
+  "active_kernel_sha256": "c915565ac145f95335088296edd93b7a9a7c097188781611eb48ba9d1e067785",
+  "exact_match": false,
+  "consequence": "ELF-derived source-line mapping is provisional. Do not patch kernel code based solely on that mapping; rebuild or obtain an exactly matching ELF first."
+}

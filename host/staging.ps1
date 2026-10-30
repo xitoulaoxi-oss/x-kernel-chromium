@@ -9,6 +9,9 @@ function Resolve-StagingInputs {
         $full = [System.IO.Path]::GetFullPath($full)
         if (-not (Test-Path -LiteralPath $full)) { throw "Staging input missing: $full" }
         $item = Get-Item -LiteralPath $full
+        if ($item.Extension -eq '.sh' -and [System.IO.File]::ReadAllText($full).Contains("`r")) {
+            throw "Guest shell script must use LF line endings: $full"
+        }
         $key = $item.Name.ToLowerInvariant()
         if ($seen.ContainsKey($key)) {
             if ($seen[$key] -ne $full) { throw "Staging basename collision: $key" }

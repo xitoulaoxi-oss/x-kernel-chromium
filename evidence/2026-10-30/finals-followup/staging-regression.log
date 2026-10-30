@@ -1,0 +1,6 @@
+PASS: manifest + script + upload inputs
+PASS: duplicate source deduplication
+PASS: missing input rejected
+PASS: basename collision rejected
+PASS: CRLF shell script rejected before guest upload
+Fixtures retained: [local-project]\experiments\REVIEW-FIX\staging-test-f910dbb5b04346078778abc7518f8e50

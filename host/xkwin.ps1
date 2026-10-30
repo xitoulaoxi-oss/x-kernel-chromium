@@ -158,6 +158,8 @@ param(
     # is not confused with "the page came back".  Writes load-schedule.json.
     [switch]$EnableGuestCdp,
     [switch]$CdpTrace,
+    # Read-only host-side traces, even when guest sleep/serial progress stops.
+    [ValidateRange(0, 3600)][int]$DiagnosticPollSec = 0,
     [string]$CdpEndpoint = '',
     [string]$ExpectedPageUrl = 'file:///usr/share/kiosk/official/index.html',
     [ValidateSet('', 'page', 'js', 'css', 'input')][string]$PageProbeMode = '',
@@ -182,6 +184,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $script:harnessExitCode = 0
+$script:diagnosticTraceSeq = 0
 if ($EnableGuestCdp -and $Writable) { throw 'CDP policy adjustment requires a QEMU snapshot; Writable is not allowed.' }
 if (($LoadSchedule -or $PageProbeMode) -and -not $CdpEndpoint -and -not $EnableGuestCdp) {
     throw 'Semantic verification requires an explicitly configured local -CdpEndpoint; color count cannot prove success.'
@@ -584,8 +587,22 @@ function Invoke-GuestCommand {
     Send-Guest ("echo __${nonce}__rc=`$?`n")
     $deadline = (Get-Date).AddSeconds($TimeoutSec)
     $found = $false
+    $nextDiagnostic = (Get-Date).AddSeconds($DiagnosticPollSec)
     while ((Get-Date) -lt $deadline) {
         Read-Available -QuietMs 400 -MaxMs 1500
+        if ($DiagnosticPollSec -gt 0 -and (Get-Date) -ge $nextDiagnostic) {
+            $script:diagnosticTraceSeq++
+            $requests = @{
+                status = @{ execute = 'query-status' }
+                registers = @{ execute = 'human-monitor-command'; arguments = @{ 'command-line' = 'info registers -a' } }
+            }
+            foreach ($traceName in @('status', 'registers')) {
+                $traceReply = Invoke-Qmp -Command ($requests[$traceName] | ConvertTo-Json -Depth 4 -Compress) -TimeoutMs 1500
+                $trace = @{ observed_utc = (Get-Date).ToUniversalTime().ToString('o'); guest_command = $Label; raw_qmp_reply = $traceReply }
+                Save-Evidence ('diagnostic-{0:d3}-{1}.json' -f $script:diagnosticTraceSeq, $traceName) ($trace | ConvertTo-Json -Depth 4) | Out-Null
+            }
+            $nextDiagnostic = (Get-Date).AddSeconds($DiagnosticPollSec)
+        }
         $tail = $script:buf.ToString($before, $script:buf.Length - $before)
         # Require the value, i.e. the marker's own OUTPUT line.  Matching the
         # bare marker name would also match the echoed command, which the

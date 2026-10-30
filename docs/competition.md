@@ -34,7 +34,7 @@
 | 多窗口 + 切换 | ✅ 两个窗口，Alt+Tab 双向翻转 | [`R37-MW4`](../evidence/README.md) |
 | 10 分钟稳定 | ✅ 600 s × 10 次采样 | [`STAB10P`](../evidence/README.md) |
 | 缺口清单 | ✅ 8 条，含复现与 Linux 对照 | [limitations.md](limitations.md) |
-| 性能 6 类指标 | ✅ 8 次运行 | [performance.md](performance.md) |
+| 四项正式性能基线 | 待完成；旧观测不等同正式四项 | [performance.md](performance.md) |
 | 上游 PR | ✅ 3 个合入 `main` | [upstream.md](upstream.md) |
 | rootfs 清单 | ✅ 3 新增 + 1 改写 | [`rootfs/`](../rootfs/) |
 

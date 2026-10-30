@@ -1,0 +1,419 @@
+{
+  "reported_max_mb": 840,
+  "scope": "Guest-wide used memory sampled while Chromium is running; NOT an exact per-process Chromium RSS/PSS value.",
+  "project_budget_status": "ACCEPTED: use the existing guest-wide observation for the project memory budget, as clarified by the user.",
+  "source": "Historical E005-stability30/run/console.log",
+  "source_sha256": "132fcb70b2946355c375ac7f6b863e71f8e352afc49cc4ddde1377aed636ec95",
+  "samples": [
+    {
+      "t": 60,
+      "chromium_process_count": 16,
+      "guest_used_mb": 833
+    },
+    {
+      "t": 120,
+      "chromium_process_count": 16,
+      "guest_used_mb": 833
+    },
+    {
+      "t": 180,
+      "chromium_process_count": 17,
+      "guest_used_mb": 838
+    },
+    {
+      "t": 240,
+      "chromium_process_count": 17,
+      "guest_used_mb": 838
+    },
+    {
+      "t": 300,
+      "chromium_process_count": 17,
+      "guest_used_mb": 838
+    },
+    {
+      "t": 360,
+      "chromium_process_count": 17,
+      "guest_used_mb": 838
+    },
+    {
+      "t": 420,
+      "chromium_process_count": 17,
+      "guest_used_mb": 839
+    },
+    {
+      "t": 480,
+      "chromium_process_count": 17,
+      "guest_used_mb": 838
+    },
+    {
+      "t": 540,
+      "chromium_process_count": 17,
+      "guest_used_mb": 838
+    },
+    {
+      "t": 600,
+      "chromium_process_count": 17,
+      "guest_used_mb": 838
+    },
+    {
+      "t": 660,
+      "chromium_process_count": 17,
+      "guest_used_mb": 838
+    },
+    {
+      "t": 720,
+      "chromium_process_count": 17,
+      "guest_used_mb": 838
+    },
+    {
+      "t": 780,
+      "chromium_process_count": 17,
+      "guest_used_mb": 838
+    },
+    {
+      "t": 840,
+      "chromium_process_count": 17,
+      "guest_used_mb": 838
+    },
+    {
+      "t": 900,
+      "chromium_process_count": 17,
+      "guest_used_mb": 840
+    },
+    {
+      "t": 960,
+      "chromium_process_count": 17,
+      "guest_used_mb": 840
+    },
+    {
+      "t": 1020,
+      "chromium_process_count": 17,
+      "guest_used_mb": 841
+    },
+    {
+      "t": 1080,
+      "chromium_process_count": 17,
+      "guest_used_mb": 840
+    },
+    {
+      "t": 1140,
+      "chromium_process_count": 17,
+      "guest_used_mb": 840
+    },
+    {
+      "t": 1200,
+      "chromium_process_count": 17,
+      "guest_used_mb": 840
+    },
+    {
+      "t": 1260,
+      "chromium_process_count": 17,
+      "guest_used_mb": 840
+    },
+    {
+      "t": 1320,
+      "chromium_process_count": 17,
+      "guest_used_mb": 840
+    },
+    {
+      "t": 1380,
+      "chromium_process_count": 17,
+      "guest_used_mb": 840
+    },
+    {
+      "t": 1440,
+      "chromium_process_count": 17,
+      "guest_used_mb": 840
+    },
+    {
+      "t": 1500,
+      "chromium_process_count": 17,
+      "guest_used_mb": 840
+    },
+    {
+      "t": 1560,
+      "chromium_process_count": 17,
+      "guest_used_mb": 840
+    },
+    {
+      "t": 1620,
+      "chromium_process_count": 17,
+      "guest_used_mb": 840
+    },
+    {
+      "t": 1680,
+      "chromium_process_count": 17,
+      "guest_used_mb": 840
+    },
+    {
+      "t": 1800,
+      "chromium_process_count": 17,
+      "guest_used_mb": 840
+    }
+  ],
+  "observed_sample_max_mb": 841,
+  "measurement_note": "Sampled maximum, not a continuously recorded high-water mark. Inclusive total-free and cache counters will be captured during ordinary diagnostics; official ranking still uses the competition measurement protocol.",
+  "previous_status_superseded": "memory-scope.json records the prior incomplete-evidence status.",
+  "historical_rounded_max_mb": "about 840 (raw maximum 841)",
+  "inclusive_diagnostic": {
+    "metric": "Guest-wide allocated physical memory including page cache",
+    "formula": "(MemTotal - MemFree) / 1024 MiB; cache is NOT subtracted",
+    "samples": [
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3947768,
+        "cache_kib": 65080,
+        "inclusive_used_mib": 230.301
+      },
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3794444,
+        "cache_kib": 76168,
+        "inclusive_used_mib": 380.031
+      },
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3762480,
+        "cache_kib": 86384,
+        "inclusive_used_mib": 411.246
+      },
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3673224,
+        "cache_kib": 101392,
+        "inclusive_used_mib": 498.41
+      },
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3592680,
+        "cache_kib": 126960,
+        "inclusive_used_mib": 577.066
+      },
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3380892,
+        "cache_kib": 147680,
+        "inclusive_used_mib": 783.891
+      },
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3300472,
+        "cache_kib": 165820,
+        "inclusive_used_mib": 862.426
+      },
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3234580,
+        "cache_kib": 202896,
+        "inclusive_used_mib": 926.773
+      },
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3224444,
+        "cache_kib": 208732,
+        "inclusive_used_mib": 936.672
+      },
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3224812,
+        "cache_kib": 208224,
+        "inclusive_used_mib": 936.312
+      },
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3257564,
+        "cache_kib": 207600,
+        "inclusive_used_mib": 904.328
+      },
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3257544,
+        "cache_kib": 207600,
+        "inclusive_used_mib": 904.348
+      },
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3258660,
+        "cache_kib": 207612,
+        "inclusive_used_mib": 903.258
+      },
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3258716,
+        "cache_kib": 207600,
+        "inclusive_used_mib": 903.203
+      },
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3258848,
+        "cache_kib": 207612,
+        "inclusive_used_mib": 903.074
+      },
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3259272,
+        "cache_kib": 207632,
+        "inclusive_used_mib": 902.66
+      },
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3259556,
+        "cache_kib": 207636,
+        "inclusive_used_mib": 902.383
+      },
+      {
+        "attempt": "attempt01",
+        "total_kib": 4183596,
+        "free_kib": 3259188,
+        "cache_kib": 207804,
+        "inclusive_used_mib": 902.742
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3877660,
+        "cache_kib": 66204,
+        "inclusive_used_mib": 298.766
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3794152,
+        "cache_kib": 77364,
+        "inclusive_used_mib": 380.316
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3754828,
+        "cache_kib": 86996,
+        "inclusive_used_mib": 418.719
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3639668,
+        "cache_kib": 105872,
+        "inclusive_used_mib": 531.18
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3428884,
+        "cache_kib": 135560,
+        "inclusive_used_mib": 737.023
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3333868,
+        "cache_kib": 156352,
+        "inclusive_used_mib": 829.812
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3247412,
+        "cache_kib": 195788,
+        "inclusive_used_mib": 914.242
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3223944,
+        "cache_kib": 208716,
+        "inclusive_used_mib": 937.16
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3224916,
+        "cache_kib": 208160,
+        "inclusive_used_mib": 936.211
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3257556,
+        "cache_kib": 207600,
+        "inclusive_used_mib": 904.336
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3257568,
+        "cache_kib": 207600,
+        "inclusive_used_mib": 904.324
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3258548,
+        "cache_kib": 207608,
+        "inclusive_used_mib": 903.367
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3258852,
+        "cache_kib": 207596,
+        "inclusive_used_mib": 903.07
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3258952,
+        "cache_kib": 207596,
+        "inclusive_used_mib": 902.973
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3259156,
+        "cache_kib": 207624,
+        "inclusive_used_mib": 902.773
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3259512,
+        "cache_kib": 207632,
+        "inclusive_used_mib": 902.426
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3259264,
+        "cache_kib": 207804,
+        "inclusive_used_mib": 902.668
+      },
+      {
+        "attempt": "attempt02",
+        "total_kib": 4183596,
+        "free_kib": 3259364,
+        "cache_kib": 207812,
+        "inclusive_used_mib": 902.57
+      }
+    ],
+    "sampled_max_mib": 937.16,
+    "below_1_5G_at_all_samples": true,
+    "scope_note": "Whole-guest sampled upper bound for unique physical memory, not summed process RSS or a continuous high-water mark. Official ranking protocol remains separate."
+  }
+}
