@@ -1,0 +1,89 @@
+{
+  "files": [
+    {
+      "path": "evidence/2026-10-31/acceptance-review/checks.json",
+      "bytes": 19255,
+      "sha256": "6cbd75dd9aa8553ba71eb3dec4e18f3edb1510ec432d099571db9b5c54f57d7a"
+    },
+    {
+      "path": "evidence/2026-10-31/acceptance-review/publication-tests.json",
+      "bytes": 7192,
+      "sha256": "4c606961bc381d2ff72e3c25f8f283833920240f717e2ab6e10600b52aa9b8c8"
+    },
+    {
+      "path": "evidence/2026-10-31/acceptance-review/README.md",
+      "bytes": 1043,
+      "sha256": "0e95775e341d24d3383a95cba27da22f02b7c5da3ea731f51b82ab4b4a72bfda"
+    },
+    {
+      "path": "evidence/2026-10-31/acceptance-review/source-map.json",
+      "bytes": 14228,
+      "sha256": "94c45d50b252e81e7cb6b4f2eb992661f1aef2b9b1ebba7ef66e93b3c35a3ec9"
+    },
+    {
+      "path": "evidence/2026-10-31/acceptance-review/summary.json",
+      "bytes": 2011,
+      "sha256": "11fe9dbcbcb0e60a1658e6f1cfb1e9ccd0e4b12c1b2c5e8e559a469dee770e06"
+    },
+    {
+      "path": "evidence/2026-10-31/acceptance-review/upstream.json",
+      "bytes": 1290,
+      "sha256": "760be9eff2dbf1f623760b93e9bbf5e2f848d9231cd98ffd5cb1cf96e64e8aa6"
+    },
+    {
+      "path": "evidence/2026-10-31/acceptance-review/01/result.json",
+      "bytes": 1006,
+      "sha256": "983a0fa3de37cf4345ea9d3f83b35ee265548e15299bc5382b342685afe940cc"
+    },
+    {
+      "path": "evidence/2026-10-31/acceptance-review/02/handoff.md",
+      "bytes": 452,
+      "sha256": "6ea6bde9c0e5fa520d6eef6c4bb2b4e5335b8fe701dd245305f441babc1ed1d0"
+    },
+    {
+      "path": "evidence/2026-10-31/acceptance-review/02/result.json",
+      "bytes": 1720,
+      "sha256": "34c4c73675e0a5d9dfb6c3ec72a2e307ffd3743901b30a26baf97c687fd39e71"
+    },
+    {
+      "path": "evidence/2026-10-31/acceptance-review/03/candidate-lock-reviewed.json",
+      "bytes": 3775,
+      "sha256": "ec71933a31dc8116aadc5b7407f130ae0b9c3b67ac234ea81d9954b53bcd2859"
+    },
+    {
+      "path": "evidence/2026-10-31/acceptance-review/03/handoff.md",
+      "bytes": 625,
+      "sha256": "04c8cdefacd5f24fb51190664d7f7024febe97a4a5a64864dfa4bc483c92fae4"
+    },
+    {
+      "path": "evidence/2026-10-31/acceptance-review/03/kernel-source.diff",
+      "bytes": 15412,
+      "sha256": "733ff79fe796ca09f3a7a91809d2a1fc45eeed8d543f2755af81f7520165fe71"
+    },
+    {
+      "path": "evidence/2026-10-31/acceptance-review/03/result.json",
+      "bytes": 2590,
+      "sha256": "37225b451b6af43c4f3cecbefeaae11a65d8b84bef762c6764fb749c864648f7"
+    },
+    {
+      "path": "evidence/2026-10-31/acceptance-review/03/ring-calibration.json",
+      "bytes": 1188,
+      "sha256": "223263a8a4ef27a73bb618a68b22260f7dff8b4ad9a7dbcda4f766ed171146dd"
+    },
+    {
+      "path": "evidence/2026-10-31/acceptance-review/04/attempts.json",
+      "bytes": 2167,
+      "sha256": "e50943d4f42154b534cac644cc63ac044299c02520c47cd8081951dd080e72d0"
+    },
+    {
+      "path": "evidence/2026-10-31/acceptance-review/04/handoff.md",
+      "bytes": 654,
+      "sha256": "453916a264c93f2c5060dbd7634b6d28672cedb61249b2a25e29a0e8cb95a2b0"
+    },
+    {
+      "path": "evidence/2026-10-31/acceptance-review/04/result.json",
+      "bytes": 1412,
+      "sha256": "4d821d1d615c3018d965c56fe5e01e020f42540317b8f2ba68f5a9dc0c10ebb4"
+    }
+  ]
+}

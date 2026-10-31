@@ -1,0 +1,21 @@
+{
+  "task": "convergence/02_fix_attempt_runner",
+  "status": "PASS",
+  "new_runner": "host/attempt_runner.py",
+  "fixes": [
+    "terminal state is SUCCESS only with outer exit 0, qemu-metrics.json, zz-final.stats.json, no harness error and the owned QEMU PID from qemu-owner.json alive",
+    "QEMU ownership is checked by process image name qemu-system-aarch64, not any same-named process",
+    "deadline without a terminal is TIMEOUT (exit 2), never success",
+    "outer process is given 20 s to return its own exit code after terminal evidence; only then is it terminated",
+    "guest QEMU is never terminated by the classifier; timeout cleanup is a separate explicit action"
+  ],
+  "real_terminal_records": {
+    "success": {"dir": "experiments/FINALS-RUNS/20261031T161500Z/convergence/02/short2", "status": "SUCCESS", "exit_code": 0, "owner_alive": true, "metrics": true, "zz_final": true},
+    "timeout": {"dir": "experiments/FINALS-RUNS/20261031T161500Z/convergence/02/timeout", "status": "TIMEOUT", "exit_code": 1, "timed_out": true, "outer_terminated": true, "owner_alive": true, "cleanup": "explicitly killed the owned QEMU after the report"}
+  },
+  "offline_negatives": {"file": "tests/attempt_terminal_test.py", "cases": 7, "passed": 7,
+                         "covers": "no error/no terminal, fake metrics, terminal without owned QEMU, non-QEMU PID, dead PID, timeout, harness error"},
+  "old_runner": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/run_stall_attempts.ps1 had the reported flaws; it is preserved and not used for new results",
+  "limits": ["controlled timeout occurred during boot, not a browser stall", "no auto-resume of a failure scene"],
+  "next": "03 candidate freeze"
+}

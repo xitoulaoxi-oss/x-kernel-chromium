@@ -1520,7 +1520,12 @@ function Invoke-FrameWatch {
         if ($waitMs -gt 0) { Start-Sleep -Milliseconds $waitMs }
         if ($sw.Elapsed.TotalSeconds -ge $Duration) { break }
         $n++
+        # Frame timestamps are taken from the SAME Stopwatch base as t0.  The
+        # screenshot helper still records UTC/file times for traceability, but
+        # they are not used as the measurement clock.
+        $reqS = $sw.Elapsed.TotalSeconds
         $shot = Invoke-ScreenDump -Name ('fw-{0:d3}' -f $n) -TimeoutSec 20
+        $doneS = $sw.Elapsed.TotalSeconds
         if ($shot) {
             # CPU seconds are sampled WITH each frame, not just at the end:
             # that turns the capture window into a CPU timeline, so the share
@@ -1530,13 +1535,13 @@ function Invoke-FrameWatch {
             try { $proc.Refresh(); $cpuS = [math]::Round($proc.TotalProcessorTime.TotalSeconds, 3) } catch { }
             $frames.Add([pscustomobject]@{
                 n        = $n
-                t_req_s  = [math]::Round(($shot.t_req - $t0).TotalSeconds, 3)
-                t_done_s = [math]::Round(($shot.t_done - $t0).TotalSeconds, 3)
+                t_req_s  = [math]::Round($reqS, 3)
+                t_done_s = [math]::Round($doneS, 3)
                 cpu_s    = $cpuS
                 png      = (Split-Path -Leaf $shot.png)
             })
             if ($n -le 3 -or ($n % 10) -eq 0) {
-                Write-Host ("    fw {0:d3}  t={1,7:N2}s" -f $n, ($shot.t_done - $t0).TotalSeconds) -ForegroundColor DarkGray
+                Write-Host ("    fw {0:d3}  t={1,7:N2}s" -f $n, $doneS) -ForegroundColor DarkGray
             }
         }
         # The console must keep being drained: the guest's kernel log plus the

@@ -13,6 +13,15 @@ class IdentityTests(unittest.TestCase):
     def test_unrelated_renderer_is_rejected(self):
         s=self.snapshot();s[171]['PPid']=1
         self.assertFalse(assess({'ok':True,'browser_pids':[91],'renderer_pids':[171]},s)['ok'])
+    def test_zombie_renderer_is_rejected(self):
+        s=self.snapshot();s[171]['State']='Z (zombie)'
+        self.assertFalse(assess({'ok':True,'browser_pids':[91],'renderer_pids':[171]},s)['ok'])
+    def test_zero_thread_renderer_is_rejected(self):
+        s=self.snapshot();s[171]['Threads']=0
+        self.assertFalse(assess({'ok':True,'browser_pids':[91],'renderer_pids':[171]},s)['ok'])
+    def test_zombie_browser_is_rejected(self):
+        s=self.snapshot();s[91]['State']='X (dead)'
+        self.assertFalse(assess({'ok':True,'browser_pids':[91],'renderer_pids':[171]},s)['ok'])
     def test_echoed_script_is_not_a_snapshot(self):
         self.assertEqual(parse_snapshot('echo "PROC_IDENTITY_PID=$p"\ngrep Pid /proc/$p/status'),{})
     def test_missing_evidence_is_structured_failure(self):

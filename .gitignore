@@ -82,3 +82,8 @@ kernel/target/
 /evidence/baseline/final1/
 /evidence/baseline/x4final/
 /tests/debug-*.ps1
+
+
+# Optional generated diagnostic helper and symbol tables
+/guest/mono-clock
+/artifacts/*.symtab

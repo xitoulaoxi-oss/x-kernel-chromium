@@ -1,0 +1,32 @@
+{
+  "verified_at": "2026-10-31T16:41:59.871014+08:00",
+  "prs": [
+    {
+      "number": 1039,
+      "state": "merged",
+      "merged_at": "2026-10-18T16:41:19+08:00",
+      "title": "io/drmdevice: legacy ADDFB, MODE_CURSOR and SET_CLIENT_CAP semantics",
+      "url": "https://gitee.com/openkylin/x-kernel/pulls/1039",
+      "api": "https://gitee.com/api/v5/repos/openkylin/x-kernel/pulls/1039",
+      "response_sha256": "9f56dc0955e4802fe75b24f926d836c7df5a11279f9716467ed301fe96efdbeb"
+    },
+    {
+      "number": 1050,
+      "state": "merged",
+      "merged_at": "2026-10-18T23:44:09+08:00",
+      "title": "pull_request_18793850",
+      "url": "https://gitee.com/openkylin/x-kernel/pulls/1050",
+      "api": "https://gitee.com/api/v5/repos/openkylin/x-kernel/pulls/1050",
+      "response_sha256": "bcbef2caa726561d973d578da043c579904aba5c5deef1f38f486df8d881db20"
+    },
+    {
+      "number": 1059,
+      "state": "merged",
+      "merged_at": "2026-10-19T10:37:42+08:00",
+      "title": "io/drmdevice: implement GEM_CLOSE and MODE_CLOSEFB",
+      "url": "https://gitee.com/openkylin/x-kernel/pulls/1059",
+      "api": "https://gitee.com/api/v5/repos/openkylin/x-kernel/pulls/1059",
+      "response_sha256": "4f6327d956feb106a364fa4991a45e16630df729f3463935e9383aea9e45fa2e"
+    }
+  ]
+}

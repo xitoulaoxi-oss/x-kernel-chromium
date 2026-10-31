@@ -111,33 +111,34 @@ class AcceptanceTests(unittest.TestCase):
         paths=self.cold_runs();r=self.run_tool('summarize_coldstart.py',*paths[:19],'--g1')
         self.assertNotEqual(r.returncode,0)
 
-    def page_value(self):
-        return dict(url='file:///test.html',ready_state='complete',time_origin=100,
+    def page_value(self, page="interaction.html"):
+        return dict(url='file:///'+page,ready_state='complete',time_origin=100,
                     body_text='six real results',verdict_pass=True,
                     rows={f'{p}{i}':dict(pass_=True, **{'pass':True}) for p in ('T','C') for i in range(1,7)})
 
     def test_real_js_and_css_rows_pass(self):
         for mode in ('js','css'):
-            self.assertTrue(probe.assess(self.page_value(),'target','file:///test.html',mode)['ok'])
+            page = 'interaction.html' if mode == 'js' else 'layout.html'
+            self.assertTrue(probe.assess(self.page_value(page),'target','file:///'+page,mode)['ok'])
 
     def test_js_not_run_fails(self):
         v=self.page_value();v['verdict_pass']=False
-        self.assertFalse(probe.assess(v,'target','file:///test.html','js')['ok'])
+        self.assertFalse(probe.assess(v,'target','file:///interaction.html','js')['ok'])
 
     def test_one_css_failure_fails(self):
-        v=self.page_value();v['rows']['C4']['pass']=False
-        self.assertFalse(probe.assess(v,'target','file:///test.html','css')['ok'])
+        v=self.page_value('layout.html');v['rows']['C4']['pass']=False
+        self.assertFalse(probe.assess(v,'target','file:///layout.html','css')['ok'])
 
     def test_wrong_url_fails(self):
         self.assertFalse(probe.assess(self.page_value(),'target','file:///other.html','page')['ok'])
 
     def test_keyboard_requires_value_and_echo(self):
         v=self.page_value();v['keyboard_value']='hello x-kernel';v['keyboard_echo']='echo: hello x-kernel'
-        self.assertTrue(probe.assess(v,'target','file:///test.html','input','hello x-kernel')['ok'])
+        self.assertTrue(probe.assess(v,'target','file:///interaction.html','input','hello x-kernel')['ok'])
 
     def test_stale_echo_without_typed_value_fails(self):
         v=self.page_value();v['keyboard_value']='';v['keyboard_echo']='echo: hello x-kernel'
-        self.assertFalse(probe.assess(v,'target','file:///test.html','input','hello x-kernel')['ok'])
+        self.assertFalse(probe.assess(v,'target','file:///interaction.html','input','hello x-kernel')['ok'])
 
     @unittest.skipUnless(os.name=='nt','Windows harness guard')
     def test_diagnostic_policy_cannot_modify_original_disk(self):

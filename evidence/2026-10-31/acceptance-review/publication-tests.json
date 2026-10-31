@@ -1,0 +1,44 @@
+[
+  {
+    "test": "page_verdict_test.py",
+    "exit_code": 0,
+    "stdout": "PASS static index not_applicable, not false\r\nPASS static index as js page fails\r\nPASS empty document fails\r\nPASS official/hash mismatch fails\r\nPASS interaction page requires T1-T6 only\r\nPASS interaction T failure is a real failure\r\nPASS layout page requires C1-C6 only\r\nPASS js real top-level verdict passes\r\nPASS js failed top-level verdict is rejected\r\nPASS css real top-level verdict passes\r\nPASS css failed top-level verdict is rejected\r\nPASS unknown document does not pass\r\nPAGE-VERDICT-TESTS-PASS\r\n",
+    "stderr": ""
+  },
+  {
+    "test": "attempt_terminal_test.py",
+    "exit_code": 0,
+    "stdout": "PASS no error but no terminal is not success\r\nPASS fake metrics alone is not success\r\nPASS terminal files without owned QEMU are not success\r\nPASS non-QEMU owner PID is not success\r\nPASS dead owner PID is not success\r\nPASS deadline with no terminal is TIMEOUT\r\nPASS harness error is ERROR\r\nATTEMPT-TERMINAL-TESTS-PASS\r\n",
+    "stderr": ""
+  },
+  {
+    "test": "ring_layout_test.py",
+    "exit_code": 0,
+    "stdout": "PASS empty ring ok\r\nPASS N-1 capacity valid=1023\r\nPASS N capacity valid=1024\r\nPASS N+1 capacity valid=1024\r\nPASS seq0 is valid when metadata seq=N\r\nPASS future seq is corrupt, not ok\r\nPASS half-written entry counted, not decoded\r\nPASS wrong CPU is corrupt\r\nPASS unknown kind is corrupt\r\nPASS duplicate seq rejected\r\nPASS old wrapped entry is stale, not fatal\r\nPASS wrong schema rejected\r\nPASS wrong total rejected\r\nPASS wrong cpu count rejected\r\nPASS zero ticks_per_sec rejected\r\nPASS wrong clock domain rejected\r\nPASS wrong checksum rejected\r\nPASS wrong magic rejected\r\nPASS short buffer rejected\r\nRING-LAYOUT-TESTS-PASS\r\n",
+    "stderr": ""
+  },
+  {
+    "test": "ring_writer_model_test.py",
+    "exit_code": 0,
+    "stdout": "PASS reuse with commit cleared is half-written\r\nPASS payload before commit is half-written\r\nPASS reservation before commit is half-written, not future\r\nPASS commit last publishes exactly one valid record\r\nPASS future seq is not accepted\r\nWRITER-MODEL-TESTS-PASS\r\n",
+    "stderr": ""
+  },
+  {
+    "test": "process_identity_test.py",
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": "test_echoed_script_is_not_a_snapshot (__main__.IdentityTests.test_echoed_script_is_not_a_snapshot) ... ok\r\ntest_missing_evidence_is_structured_failure (__main__.IdentityTests.test_missing_evidence_is_structured_failure) ... ok\r\ntest_renderer_joins_through_zygote (__main__.IdentityTests.test_renderer_joins_through_zygote) ... ok\r\ntest_unknown_child_is_not_role_proof (__main__.IdentityTests.test_unknown_child_is_not_role_proof) ... ok\r\ntest_unrelated_renderer_is_rejected (__main__.IdentityTests.test_unrelated_renderer_is_rejected) ... ok\r\ntest_zero_thread_renderer_is_rejected (__main__.IdentityTests.test_zero_thread_renderer_is_rejected) ... ok\r\ntest_zombie_browser_is_rejected (__main__.IdentityTests.test_zombie_browser_is_rejected) ... ok\r\ntest_zombie_renderer_is_rejected (__main__.IdentityTests.test_zombie_renderer_is_rejected) ... ok\r\n\r\n----------------------------------------------------------------------\r\nRan 8 tests in 0.092s\r\n\r\nOK\r\n"
+  },
+  {
+    "test": "observe_cases.py",
+    "exit_code": 0,
+    "stdout": "PASS crash session detected as CRASH\r\nPASS crash subject keeps child PID 105\r\nPASS crash subject names the browser PID 87\r\nPASS 262-colour window is window_shell_without_page\r\nPASS shell session summarised as HANG\r\nPASS 28-colour frame is no_window_desktop_only\r\nPASS rising host WS is flagged LEAK\r\nPASS CMJSON per-process sample is available\r\nPASS per-process RSS growth is 40000 kB\r\nPASS measured CMJSON lifts attribution_limited\r\nPASS flat host WS is not flagged\r\nPASS no CMJSON keeps attribution_limited true\r\nPASS harness timeout is not a target CRASH\r\nPASS harness error alone is not crash\r\nPASS control channel is called out\r\nPASS missing HB in a session that did not configure HB is not HANG\r\nPASS missing HB is an observer limitation\r\nPASS observer limitation has its own summary\r\nall observe cases passed\r\n",
+    "stderr": ""
+  },
+  {
+    "test": "review_regressions.py",
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": "test_20_first_attempts_pass (__main__.AcceptanceTests.test_20_first_attempts_pass) ... ok\r\ntest_29_minutes_fails (__main__.AcceptanceTests.test_29_minutes_fails) ... ok\r\ntest_browser_disappeared_midrun_fails (__main__.AcceptanceTests.test_browser_disappeared_midrun_fails) ... ok\r\ntest_color_only_legacy_evidence_fails (__main__.AcceptanceTests.test_color_only_legacy_evidence_fails) ... ok\r\ntest_complete_30min_navigation_evidence_passes (__main__.AcceptanceTests.test_complete_30min_navigation_evidence_passes) ... ok\r\ntest_diagnostic_policy_cannot_modify_original_disk (__main__.AcceptanceTests.test_diagnostic_policy_cannot_modify_original_disk) ... ok\r\ntest_duplicate_heartbeats_fail (__main__.AcceptanceTests.test_duplicate_heartbeats_fail) ... ok\r\ntest_incomplete_rehearsals_fail (__main__.AcceptanceTests.test_incomplete_rehearsals_fail) ... ok\r\ntest_js_not_run_fails (__main__.AcceptanceTests.test_js_not_run_fails) ... ok\r\ntest_keyboard_requires_value_and_echo (__main__.AcceptanceTests.test_keyboard_requires_value_and_echo) ... ok\r\ntest_missing_crash_marker_but_harness_error_fails (__main__.AcceptanceTests.test_missing_crash_marker_but_harness_error_fails) ... ok\r\ntest_old_frame_fails_even_if_colorful (__main__.AcceptanceTests.test_old_frame_fails_even_if_colorful) ... ok\r\ntest_one_css_failure_fails (__main__.AcceptanceTests.test_one_css_failure_fails) ... ok\r\ntest_only_19_runs_fail (__main__.AcceptanceTests.test_only_19_runs_fail) ... ok\r\ntest_probe_transport_failure_has_nonzero_and_evidence (__main__.AcceptanceTests.test_probe_transport_failure_has_nonzero_and_evidence) ... ok\r\ntest_real_js_and_css_rows_pass (__main__.AcceptanceTests.test_real_js_and_css_rows_pass) ... ok\r\ntest_repeated_directory_cannot_make_20 (__main__.AcceptanceTests.test_repeated_directory_cannot_make_20) ... ok\r\ntest_restart_is_not_first_attempt_success (__main__.AcceptanceTests.test_restart_is_not_first_attempt_success) ... ok\r\ntest_shortened_expectation_cannot_pass (__main__.AcceptanceTests.test_shortened_expectation_cannot_pass) ... ok\r\ntest_stale_echo_without_typed_value_fails (__main__.AcceptanceTests.test_stale_echo_without_typed_value_fails) ... ok\r\ntest_websocket_disconnect_is_failure (__main__.AcceptanceTests.test_websocket_disconnect_is_failure) ... ok\r\ntest_websocket_fragmentation_and_ping (__main__.AcceptanceTests.test_websocket_fragmentation_and_ping) ... ok\r\ntest_websocket_masks_client_frames (__main__.AcceptanceTests.test_websocket_masks_client_frames) ... ok\r\ntest_websocket_upgrade_validates_accept (__main__.AcceptanceTests.test_websocket_upgrade_validates_accept) ... ok\r\ntest_wrong_url_fails (__main__.AcceptanceTests.test_wrong_url_fails) ... ok\r\n\r\n----------------------------------------------------------------------\r\nRan 25 tests in 2.010s\r\n\r\nOK\r\n"
+  }
+]

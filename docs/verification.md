@@ -31,3 +31,8 @@ Gates 06/09/10/11 are blocked, 07 is partial, 08 corrected the metric definition
 ## 2026-10-31 checkpoint clarification
 
 截至2026-10-31，trace-followup/01–05已提供阶段实现和实测记录；发布前又发现解码器边界问题，仍需修复。首启停顿、完整验收和四项五轮未通过。见 [精简证据](../evidence/2026-10-31/trace-checkpoint/README.md)。
+
+
+## 2026-10-31 current candidate review
+
+convergence/01–04阶段完成，固定候选四轮单/双窗口未复现历史停顿，范围为脚本/窗口完成。当前完整功能、20首启、30分钟/10加载与四项五轮尚未执行。本轮只修JS/CSS顶层verdict字段并通过12组离线检查。见 [验收与评分](acceptance-20261031.md)。

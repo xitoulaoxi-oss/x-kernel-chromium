@@ -1,0 +1,52 @@
+{
+  "schema": "xk-acceptance-progress/1",
+  "date": "2026-10-31",
+  "stage": "Matched candidate frozen; bounded window/script reproduction passed; final candidate qualification not yet run.",
+  "checkpoint_before": "a86833eadfc6ed43da8392f7c9dce01c893b85a6",
+  "current_candidate": {
+    "trace_off": "dc69d5cd91bf0e804320e7dd5f40237bc7bc72efb5bbcb962ad7a52ea435ba4f",
+    "trace_on": "23b4237dcb85a762128529cd532db0b83f6899e2a062101e5080efdbf5d1ae21"
+  },
+  "bounded_reproduction": "4/4 script/window completion; no DOM/full-functional claim",
+  "final_gates": {
+    "integrated_functional": "NOT_RUN",
+    "twenty_first_starts": "NOT_RUN",
+    "current_30min_10loads": "NOT_RUN",
+    "four_metrics_five_runs": "NOT_RUN"
+  },
+  "historical_capabilities": [
+    "1800.43s and ten page loads",
+    "JS6/6 and CSS6/6",
+    "Linux CSS comparison",
+    "input/renderer subsets",
+    "guest occupancy budget supported by samples"
+  ],
+  "verified_upstream_merges": 3,
+  "scoring": {
+    "current_total": "NOT_ASSESSABLE_FROM_CURRENT_CANDIDATE_EVIDENCE",
+    "potential_base_after_revalidation": 57,
+    "base_breakdown": {
+      "stability": 20,
+      "functionality": 20,
+      "memory_qualification": 4,
+      "upstream_merges": 9,
+      "documented_reusable_entry": 4
+    },
+    "remaining_unawarded": {
+      "performance_rank": 16,
+      "optimization_effect": 6,
+      "innovation": 5,
+      "three_fault_diagnoses": 6,
+      "defense_and_demo": 10
+    },
+    "assumptions": "57 is conditional on live revalidation of listed items and evaluator acceptance, not a current score. Ranking and subjective scores unknown."
+  },
+  "source_changes_this_turn": [
+    "JS/CSS top-level verdict regression fixed",
+    "four real-shape positive/negative tests added",
+    "legacy fixtures updated to current page contracts",
+    "default manifest no longer requires an unpublished optional helper ELF"
+  ],
+  "live_qemu_tests_this_turn": 0,
+  "publication": "Intermediate branch checkpoint; no release/tag/merge claim"
+}

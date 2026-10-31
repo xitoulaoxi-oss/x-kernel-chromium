@@ -6,56 +6,56 @@
       "task": "01",
       "file": "01_fix_ring_decoder.md",
       "title": "修复解码窗口与异常记录校验",
-      "status": "READY",
-      "execution_started": false,
+      "status": "COMPLETED",
+      "execution_started": true,
       "dependency": "先做；预计1–2小时。"
     },
     {
       "task": "02",
       "file": "02_prove_writer_context.md",
       "title": "证明每CPU写入的独占与发布顺序",
-      "status": "READY",
-      "execution_started": false,
+      "status": "COMPLETED",
+      "execution_started": true,
       "dependency": "可先审查；合并验证依赖01。预计2–4小时。"
     },
     {
       "task": "03",
       "file": "03_complete_wakeup_events.md",
       "title": "补齐能支持因果定位的事件边界",
-      "status": "WAITING_GATE",
-      "execution_started": false,
+      "status": "PARTIAL",
+      "execution_started": true,
       "dependency": "01/02通过。预计2–4小时。"
     },
     {
       "task": "04",
       "file": "04_harden_capture_failures.md",
       "title": "保留中途导出失败的全部证据",
-      "status": "READY",
-      "execution_started": false,
+      "status": "COMPLETED",
+      "execution_started": true,
       "dependency": "可独立实现；最终用01/02新环验证。预计1–2小时。"
     },
     {
       "task": "05",
       "file": "05_capture_stall_and_fix.md",
       "title": "捕获真实停顿并做一个可解释修复",
-      "status": "WAITING_GATE",
-      "execution_started": false,
+      "status": "PARTIAL",
+      "execution_started": true,
       "dependency": "01–04通过；每个假设预算4–8小时。"
     },
     {
       "task": "06",
       "file": "06_validate_metric_clocks.md",
       "title": "落实单调时钟和正确的观测指标",
-      "status": "READY",
-      "execution_started": false,
+      "status": "COMPLETED",
+      "execution_started": true,
       "dependency": "可独立离线推进，真实验证需一个就绪会话。预计2–4小时。"
     },
     {
       "task": "07",
       "file": "07_validate_identity_and_observer.md",
       "title": "验证身份负例与采样扰动",
-      "status": "WAITING_GATE",
-      "execution_started": false,
+      "status": "PARTIAL",
+      "execution_started": true,
       "dependency": "身份代码可先做；实验依赖06。预计2–4小时。"
     },
     {
@@ -66,5 +66,7 @@
       "execution_started": false,
       "dependency": "05有可解释候选，06/07满足采集条件。"
     }
-  ]
+  ],
+  "executed_at": "2026-10-31T14:45:00+08:00",
+  "execution_note": "01/02/04/06 COMPLETED; 03/05/07 PARTIAL; 08 waiting. Writer violations found under Chromium were fixed and revalidated on trace6."
 }

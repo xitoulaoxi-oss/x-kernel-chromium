@@ -1,0 +1,64 @@
+{
+  "schema": "xk-convergence-plan/1",
+  "tasks": [
+    {
+      "task": "01",
+      "file": "01_correct_verdict_contracts.md",
+      "title": "纠正页面与历史结果判定",
+      "status": "COMPLETED",
+      "execution_started": true,
+      "budget_dependency": "预算45–90分钟；先做。"
+    },
+    {
+      "task": "02",
+      "file": "02_fix_attempt_runner.md",
+      "title": "让一次尝试有可靠终态与退出码",
+      "status": "COMPLETED",
+      "execution_started": true,
+      "budget_dependency": "依赖01；预算1–2小时。"
+    },
+    {
+      "task": "03",
+      "file": "03_freeze_matched_candidates.md",
+      "title": "冻结同源码诊断版与关闭版候选",
+      "status": "COMPLETED",
+      "execution_started": true,
+      "budget_dependency": "可先整理；真实短验证需02。预算1–2小时。"
+    },
+    {
+      "task": "04",
+      "file": "04_run_bounded_reproduction.md",
+      "title": "用真实失败场景做四轮有界对照",
+      "status": "COMPLETED",
+      "execution_started": true,
+      "budget_dependency": "01–03通过；最多4轮冷启动或2小时，先到即停止。"
+    },
+    {
+      "task": "05",
+      "file": "05_qualify_current_candidate.md",
+      "title": "验证当前版本是否已经可交付",
+      "status": "READY",
+      "execution_started": true,
+      "budget_dependency": "04无可信失败，或06修复后短回归通过。"
+    },
+    {
+      "task": "06",
+      "file": "06_fix_first_verified_failure.md",
+      "title": "只修最早一个可证实的失败",
+      "status": "CONDITIONAL",
+      "execution_started": false,
+      "budget_dependency": "仅04或05出现可信失败时执行；每个假设最多4小时。"
+    },
+    {
+      "task": "07",
+      "file": "07_complete_metrics_and_final_evidence.md",
+      "title": "通过稳定性后只补剩余评分证据",
+      "status": "WAITING_GATE",
+      "execution_started": false,
+      "budget_dependency": "05的三个门槛通过；可提前只读整理。"
+    }
+  ],
+  "rule": "Task06 is conditional on a trustworthy failure; task05 may proceed after bounded non-reproduction without falsely claiming a causal fix.",
+  "executed_at": "2026-10-31T16:45:00+08:00",
+  "execution_note": "01-04 COMPLETED; 05 READY after four bounded non-reproductions; 06 conditional; 07 waiting."
+}

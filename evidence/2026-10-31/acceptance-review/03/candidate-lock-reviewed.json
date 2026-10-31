@@ -1,0 +1,75 @@
+{
+  "schema": "xk-candidate-lock/1",
+  "frozen_at": "2026-10-31T16:30:00+08:00",
+  "git_head": "fa83aa50b91ef6d06859ac15f31b9437432dcb54",
+  "source_diff": {
+    "file": "experiments/FINALS-RUNS/20261031T161500Z/convergence/03/kernel-source.diff",
+    "sha256": "733ff79fe796ca09f3a7a91809d2a1fc45eeed8d543f2755af81f7520165fe71"
+  },
+  "trace_off": {
+    "bin": "artifacts/kernel-conv-notrace.bin",
+    "bin_sha256": "dc69d5cd91bf0e804320e7dd5f40237bc7bc72efb5bbcb962ad7a52ea435ba4f",
+    "elf": "artifacts/kernel-conv-notrace.elf",
+    "elf_sha256": "16418778e4633b2f6b2682849dd793098fe8cd9f2e09194e382d39684af4ece3",
+    "config": "artifacts/kernel-conv-notrace.config",
+    "config_sha256": "38f5fcd9aa78e0bf2bcb0dba4cbf3f87bb6f3b2549a0c6bd0044927cfb081a36",
+    "symtab": "artifacts/kernel-conv-notrace.symtab",
+    "symtab_sha256": "5bf6db42eef43162f350537f4411ce0ed6bd4d32df3834ee9e863bcb825396df",
+    "ring_symbol": null,
+    "feature": "KFEAT_TRACE_RING is not set",
+    "build_exit": 0,
+    "command": "OUT_NAME=kernel-conv-notrace.bin DEFCONFIG=platforms/kplat-aarch64/qemu_defconfig bash build/build-kernel.sh",
+    "short_boot": {
+      "status": "SUCCESS",
+      "exit_code": 0,
+      "attempt": "experiments/FINALS-RUNS/20261031T161500Z/convergence/03/trace-off/attempt.json"
+    }
+  },
+  "trace_on": {
+    "bin": "artifacts/kernel-conv-trace.bin",
+    "bin_sha256": "23b4237dcb85a762128529cd532db0b83f6899e2a062101e5080efdbf5d1ae21",
+    "elf": "artifacts/kernel-conv-trace.elf",
+    "elf_sha256": "da64f0b1fb9df3c1c47b73810910026df436c483b38b42695ebd8fbed91181fa",
+    "config": "artifacts/kernel-conv-trace.config",
+    "config_sha256": "858670175670ad2acf109a6ca8039c9e8c984219046bbc16b63907cc5b9263ba",
+    "symtab": "artifacts/kernel-conv-trace.symtab",
+    "symtab_sha256": "46400374dfc659e69ead63e762fcdeea6148023becc58507423f9bf592eaba1a",
+    "ring_symbol": "XK_TRACE_RING ffff80000092eec0",
+    "ring_phys": "0x40b2eec0",
+    "feature": "KFEAT_TRACE_RING=y",
+    "build_exit": 0,
+    "command": "OUT_NAME=kernel-conv-trace.bin DEFCONFIG=platforms/kplat-aarch64/qemu_trace_defconfig bash build/build-kernel.sh",
+    "short_boot": {
+      "status": "SUCCESS",
+      "exit_code": 0,
+      "attempt": "experiments/FINALS-RUNS/20261031T161500Z/convergence/03/trace-on/attempt.json"
+    },
+    "capture": {
+      "file": "experiments/FINALS-RUNS/20261031T161500Z/convergence/03/trace-on-capture.bin",
+      "sha256": "98fec9d4ed95981228c367c81c8c0175758d0ec2103c41dfcc1ae230ffac39d2",
+      "valid": 4096,
+      "writer_violations": 0,
+      "half": 0,
+      "corrupt": 0
+    }
+  },
+  "pages": {
+    "pages/index.html": "831cf28f3748940b450d1da325aa39a2dcaea2fee15b0532bf4111144d176b38",
+    "pages/interaction.html": "58130daa4a2f426fd16b8bde93d964713f20e147da8af1537ab2d8b506d2fd58",
+    "pages/layout.html": "a1b04f9aba81b4b7818be2e7a858d482d471bd0d625dee257f605b2129b8fc4c"
+  },
+  "rootfs": {
+    "file": "D:\\x-kernel-dsh-bridge\\delivered\\agentos-disk.img",
+    "sha256": "441b4504cfa7fef53f8458f28b4a80eb71f4fd08104f9f260627993fce47fe84"
+  },
+  "qemu_command": "experiments/FINALS-RUNS/20261031T161500Z/convergence/03/trace-on/qemu-cmd.txt",
+  "calibration": "experiments/FINALS-RUNS/20261031T161500Z/convergence/03/ring-calibration.json",
+  "rules": [
+    "formal tests use trace-off",
+    "trace-on only for failure deep dive/control",
+    "do not switch trace3/4/5/6 or mix results",
+    "ring coverage differs per CPU; late freeze can miss the trigger"
+  ],
+  "review_note": "Derived review copy; original lock preserved. Only malformed source_diff SHA text corrected from actual archived patch; runtime artifact hashes unchanged.",
+  "original_recorded_source_diff_sha256": "733ff79fe796ca09f3a7a91809d2a1fc45eed8d543f2755af81f7520165fe71"
+}

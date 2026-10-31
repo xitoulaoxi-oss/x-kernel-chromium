@@ -1,0 +1,33 @@
+{
+  "task": "convergence/03_freeze_matched_candidates",
+  "status": "PASS",
+  "candidate_lock": "experiments/FINALS-RUNS/20261031T161500Z/convergence/03/candidate-lock.json",
+  "matched_pair": {
+    "trace_off": {"bin": "artifacts/kernel-conv-notrace.bin", "bin_sha256": "dc69d5cd91bf0e804320e7dd5f40237bc7bc72efb5bbcb962ad7a52ea435ba4f",
+                  "elf_sha256": "16418778e4633b2f6b2682849dd793098fe8cd9f2e09194e382d39684af4ece3",
+                  "config_sha256": "38f5fcd9aa78e0bf2bcb0dba4cbf3f87bb6f3b2549a0c6bd0044927cfb081a36", "symbol": "absent"},
+    "trace_on": {"bin": "artifacts/kernel-conv-trace.bin", "bin_sha256": "23b4237dcb85a762128529cd532db0b83f6899e2a062101e5080efdbf5d1ae21",
+                 "elf_sha256": "da64f0b1fb9df3c1c47b73810910026df436c483b38b42695ebd8fbed91181fa",
+                 "config_sha256": "858670175670ad2acf109a6ca8039c9e8c984219046bbc16b63907cc5b9263ba",
+                 "symbol": "XK_TRACE_RING ffff80000092eec0", "phys": "0x40b2eec0"}
+  },
+  "build_exit_codes": {"trace_off": 0, "trace_on": 0},
+  "symbol_maps": ["artifacts/kernel-conv-trace.symtab", "artifacts/kernel-conv-notrace.symtab"],
+  "map_note": "the build does not emit a linker .map; nm -n symbol tables are saved instead and hashed in candidate-lock",
+  "short_boots": {
+    "trace_off": {"status": "SUCCESS", "exit_code": 0, "attempt": "experiments/FINALS-RUNS/20261031T161500Z/convergence/03/trace-off/attempt.json"},
+    "trace_on": {"status": "SUCCESS", "exit_code": 0, "attempt": "experiments/FINALS-RUNS/20261031T161500Z/convergence/03/trace-on/attempt.json"}
+  },
+  "trace_on_capture": {"file": "experiments/FINALS-RUNS/20261031T161500Z/convergence/03/trace-on-capture.bin",
+                       "sha256": "98fec9d4ed95981228c367c81c8c0175758d0ec2103c41dfcc1ae230ffac39d2",
+                       "valid": 4096, "writer_violations": 0, "half": 0, "corrupt": 0},
+  "calibration": {
+    "file": "experiments/FINALS-RUNS/20261031T161500Z/convergence/03/ring-calibration.json",
+    "per_cpu_coverage_s": [0.9935, 16.7852, 12.9537, 14.447],
+    "cpu0_warning": "CPU0 retained fewer than 1 s of the boot window; late freeze can miss the trigger"
+  },
+  "pages": {"index": "831cf28f...", "interaction": "58130daa...", "layout": "a1b04f9a..."},
+  "rootfs_sha256": "441b4504cfa7fef53f8458f28b4a80eb71f4fd08104f9f260627993fce47fe84",
+  "limits": ["short boot validation only", "no browser functional run in this task", "trace-on and trace-off are matched source but different diagnostic feature"],
+  "next": "04 bounded reproduction using candidate-lock, trace-off formal"
+}

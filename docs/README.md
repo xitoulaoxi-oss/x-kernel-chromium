@@ -15,3 +15,8 @@
 <!-- post-checkpoint-20261031 -->
 
 [启动停顿定位下一阶段任务](stall_resolution/00_taskbook.md)：阶段分支已保存，先补取证完整性，再定位真实停顿。
+
+
+<!-- acceptance-progress-20261031 -->
+
+[最新验收、进度与评分复核](acceptance-20261031.md)：01–04阶段完成，当前候选正式验收待执行；本轮修复JS/CSS总结果字段误判。

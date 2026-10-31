@@ -107,7 +107,7 @@ EXPRESSION = r'''(() => {
  }
  const v=document.getElementById('verdict');
  const nav=performance.getEntriesByType('navigation')[0];
- return {url:location.href, title:document.title, ready_state:document.readyState,
+ return {url:location.href, title:document.title, h1:document.querySelector('h1') ? document.querySelector('h1').textContent : null, ready_state:document.readyState,
    time_origin:performance.timeOrigin, body_text:document.body ? document.body.innerText : '',
    page_load_end_ms: nav ? performance.timeOrigin + nav.loadEventEnd : null,
    dom_content_loaded_ms: nav ? performance.timeOrigin + nav.domContentLoadedEventEnd : null,
@@ -117,7 +117,7 @@ EXPRESSION = r'''(() => {
 })()'''
 
 
-def assess(value, target_id, expected_url, mode, expected_text=None):
+def assess(value, target_id, expected_url, mode, expected_text=None, expected_body_sha256=None):
     if not isinstance(value, dict):
         return {'ok': False, 'error': 'DOM response missing'}
     body = value.pop('body_text', '')
@@ -128,19 +128,54 @@ def assess(value, target_id, expected_url, mode, expected_text=None):
     value['target_id'] = target_id
     value['expected_url'] = expected_url
     value['mode'] = mode
-    value['ok'] = (value.get('url') == expected_url and value.get('ready_state') == 'complete'
-                   and bool(body.strip()) and bool(value['navigation_id']))
+    value['expected_body_sha256'] = expected_body_sha256
+    base_ok = (value.get('url') == expected_url and value.get('ready_state') == 'complete'
+               and bool(body.strip()) and bool(value['navigation_id']))
+    if expected_body_sha256:
+        base_ok = base_ok and value['body_sha256'] == expected_body_sha256
+    # Page contract: the static index has no T/C/verdict nodes; interaction only
+    # owns T1-T6 and layout only C1-C6.  Missing/not-applicable is never false.
+    basename = expected_url.rsplit('/', 1)[-1]
+    kind = {'index.html': 'static_index', 'interaction.html': 'interaction',
+            'layout.html': 'layout'}.get(basename)
+    value['page_kind'] = kind
+    raw_rows = value.get('rows') or {}
+    if kind == 'static_index':
+        value['rows'] = {f'{p}{i}': 'not_applicable' for p in ('T', 'C') for i in range(1, 7)}
+        value['verdict'] = 'not_applicable'
+        value['ok'] = base_ok and bool((value.get('h1') or '').strip()) and bool((value.get('title') or '').strip())
+    elif kind in ('interaction', 'layout'):
+        prefix = 'T' if kind == 'interaction' else 'C'
+        other = 'C' if prefix == 'T' else 'T'
+        value['rows'] = {f'{prefix}{i}': raw_rows.get(f'{prefix}{i}', {'pass': False, 'text': None})
+                         for i in range(1, 7)}
+        value['rows'].update({f'{other}{i}': 'not_applicable' for i in range(1, 7)})
+        value['verdict'] = 'not_applicable' if mode == 'page' else bool(value.get('verdict_pass'))
+        if mode == 'page':
+            value['ok'] = base_ok and all(value['rows'][f'{prefix}{i}'].get('pass') is True
+                                          for i in range(1, 7))
+        elif mode in ('js', 'css'):
+            value['ok'] = base_ok and value.get('verdict_pass') is True and all(
+                value['rows'][f'{prefix}{i}'].get('pass') is True for i in range(1, 7))
+        else:
+            value['ok'] = base_ok
+    else:
+        # Unknown document: page mode must not pass just because the URL matched.
+        value['rows'] = {f'{p}{i}': 'not_applicable' for p in ('T', 'C') for i in range(1, 7)}
+        value['verdict'] = 'not_applicable'
+        value['ok'] = False
+        value['error'] = 'unknown page contract for expected URL'
     if mode in ('js', 'css'):
         prefix = 'T' if mode == 'js' else 'C'
         value['ok'] = value['ok'] and value.get('verdict_pass') is True and all(
-            value.get('rows', {}).get(f'{prefix}{i}', {}).get('pass') is True for i in range(1, 7))
+            raw_rows.get(f'{prefix}{i}', {}).get('pass') is True for i in range(1, 7))
     if mode == 'input':
         value['expected_text'] = expected_text
         value['ok'] = value['ok'] and bool(expected_text) and value.get('keyboard_value') == expected_text and expected_text in (value.get('keyboard_echo') or '')
     return value
 
 
-def probe(endpoint, expected_url, mode, timeout=10, expected_text=None):
+def probe(endpoint, expected_url, mode, timeout=10, expected_text=None, expected_body_sha256=None):
     u = urllib.parse.urlsplit(endpoint)
     if u.scheme != 'http' or u.hostname not in ('127.0.0.1', 'localhost', '::1'):
         raise ValueError('CDP endpoint must be local http://localhost:port')
@@ -170,7 +205,7 @@ def probe(endpoint, expected_url, mode, timeout=10, expected_text=None):
             if message.get('id') == 1:
                 if 'error' in message or message.get('result', {}).get('exceptionDetails'):
                     raise RuntimeError('DOM evaluation failed')
-                return assess(message.get('result', {}).get('result', {}).get('value'), target['id'], expected_url, mode, expected_text)
+                return assess(message.get('result', {}).get('result', {}).get('value'), target['id'], expected_url, mode, expected_text, expected_body_sha256)
         raise TimeoutError('CDP result timeout')
     except Exception as exc:
         raise RuntimeError('CDP DOM transport: ' + str(exc)) from exc
@@ -185,9 +220,11 @@ def main():
     ap.add_argument('--mode', choices=['page', 'js', 'css', 'input'], default='page')
     ap.add_argument('--out', required=True)
     ap.add_argument('--expected-text')
+    ap.add_argument('--expected-body-sha256')
     args = ap.parse_args()
     try:
-        result = probe(args.endpoint, args.expected_url, args.mode, expected_text=args.expected_text)
+        result = probe(args.endpoint, args.expected_url, args.mode, expected_text=args.expected_text,
+                       expected_body_sha256=args.expected_body_sha256)
     except Exception as exc:
         result = {'ok': False, 'error': str(exc)}
     result['probe_id'] = str(uuid.uuid4())

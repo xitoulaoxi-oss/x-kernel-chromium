@@ -49,6 +49,8 @@ ENTRIES_PER_CPU = 1024
 ENTRIES_OFF = HEADER_LEN + META_LEN * CPU_COUNT
 TOTAL_LEN = ENTRIES_OFF + ENTRY_SIZE * ENTRIES_PER_CPU * CPU_COUNT
 COMMITTED = 1
+KNOWN_KINDS = frozenset(range(1, 11))
+MAX_SEQ = 1 << 48
 
 
 def fnv1a64(data: bytes) -> int:
@@ -76,6 +78,8 @@ def parse_header(data: bytes, require_full: bool = True) -> dict:
     if cpus != CPU_COUNT: problems.append(f'cpu_count {cpus}')
     if esize != ENTRY_SIZE: problems.append(f'entry_size {esize}')
     if epc != ENTRIES_PER_CPU: problems.append(f'entries_per_cpu {epc}')
+    if tps == 0 or tps > 1_000_000_000: problems.append(f'ticks_per_sec {tps}')
+    if domain != 0: problems.append(f'clock_domain {domain}')
     if checksum != want: problems.append(f'header_checksum {checksum:016x} != {want:016x}')
     if require_full and len(data) < TOTAL_LEN: problems.append(f'buffer {len(data)} < {TOTAL_LEN}')
     return {
@@ -93,12 +97,16 @@ def decode(data: bytes) -> dict:
     except ValueError as exc:
         return {'ok': False, 'error': str(exc)}
     cpus = []
+    severe = []
     if header['ok']:
         for cpu in range(CPU_COUNT):
             mo = HEADER_LEN + cpu * META_LEN
             seq, dropped, head, mflags = struct.unpack_from('<QQII', data, mo)
+            counts = {'valid': 0, 'unused': 0, 'half_written': 0,
+                      'stale': 0, 'corrupt': 0, 'unknown_kind': 0}
             entries = []
-            bad = 0
+            if seq > MAX_SEQ:
+                severe.append(f'cpu{cpu} seq {seq} over limit {MAX_SEQ}')
             for slot in range(ENTRIES_PER_CPU):
                 o = ENTRIES_OFF + (cpu * ENTRIES_PER_CPU + slot) * ENTRY_SIZE
                 eseq, ticks, a0, a1, kind, ecpu, eflags = struct.unpack_from('<QQQQHHI', data, o)
@@ -106,26 +114,47 @@ def decode(data: bytes) -> dict:
                     # An all-zero slot is unused, not a half write.  Only a slot
                     # with some non-zero content and no commit is suspicious.
                     if eseq or ticks or a0 or a1 or kind or ecpu:
-                        bad += 1
+                        counts['half_written'] += 1
+                    else:
+                        counts['unused'] += 1
                     continue
-                # A committed slot must belong to the current retained window and
-                # carry this CPU's id; otherwise it is stale or corrupt.
-                if eseq + ENTRIES_PER_CPU <= seq or ecpu != cpu:
-                    bad += 1
+                # Contract: metadata seq is the NEXT sequence to reserve.  A
+                # committed entry is retained iff seq-N <= eseq < seq.
+                lo = seq - ENTRIES_PER_CPU if seq > ENTRIES_PER_CPU else 0
+                if ecpu != cpu:
+                    counts['corrupt'] += 1
                     continue
+                if eseq >= seq:
+                    # A "future" seq at metadata seq=1 was accepted by the old
+                    # decoder; it cannot be a completed record of this boot.
+                    counts['corrupt'] += 1
+                    continue
+                if eseq < lo:
+                    counts['stale'] += 1
+                    continue
+                if kind not in KNOWN_KINDS:
+                    counts['unknown_kind'] += 1
+                    continue
+                counts['valid'] += 1
                 entries.append({'seq': eseq, 'ticks': ticks, 'arg0': a0, 'arg1': a1,
                                 'kind': kind, 'cpu': ecpu, 'flags': eflags})
             entries.sort(key=lambda e: e['seq'])
             duplicate_seq = sum(1 for a, b in zip(entries, entries[1:]) if a['seq'] == b['seq'])
-            retained_lo = max(0, seq - ENTRIES_PER_CPU + 1) if seq else None
+            retained_lo = max(0, seq - ENTRIES_PER_CPU) if seq else None
             cpus.append({
                 'cpu': cpu, 'seq': seq, 'dropped': dropped, 'head': head,
-                'entries': entries, 'uncommitted_or_stale': bad,
+                'entries': entries, 'counts': counts, 'writer_violations': mflags,
+                'uncommitted_or_stale': counts['half_written'] + counts['stale'] + counts['corrupt'],
                 'duplicate_seq': duplicate_seq,
                 'retained_seq': [retained_lo, seq - 1] if seq else [],
             })
-    ok = bool(header['ok']) and all(c['duplicate_seq'] == 0 for c in cpus)
-    return {'ok': ok, 'header': header, 'cpus': cpus}
+    if any(c['counts']['corrupt'] or c['counts']['unknown_kind'] or c['duplicate_seq']
+           for c in cpus):
+        severe.append('committed entry has wrong CPU/kind or duplicate seq')
+    if any(c.get('writer_violations') for c in cpus):
+        severe.append('writer observed with IRQs enabled (dropped write recorded)')
+    ok = bool(header['ok']) and not severe
+    return {'ok': ok, 'severe': severe, 'header': header, 'cpus': cpus}
 
 
 def main() -> int:

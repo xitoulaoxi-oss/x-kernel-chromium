@@ -1,0 +1,298 @@
+{
+  "existing_test_results": [
+    {
+      "command": [
+        "python",
+        "tests/page_verdict_test.py"
+      ],
+      "exit_code": 0,
+      "stdout": "PASS static index not_applicable, not false\r\nPASS static index as js page fails\r\nPASS empty document fails\r\nPASS official/hash mismatch fails\r\nPASS interaction page requires T1-T6 only\r\nPASS interaction T failure is a real failure\r\nPASS layout page requires C1-C6 only\r\nPASS js real top-level verdict passes\r\nPASS js failed top-level verdict is rejected\r\nPASS css real top-level verdict passes\r\nPASS css failed top-level verdict is rejected\r\nPASS unknown document does not pass\r\nPAGE-VERDICT-TESTS-PASS\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python",
+        "tests/attempt_terminal_test.py"
+      ],
+      "exit_code": 0,
+      "stdout": "PASS no error but no terminal is not success\r\nPASS fake metrics alone is not success\r\nPASS terminal files without owned QEMU are not success\r\nPASS non-QEMU owner PID is not success\r\nPASS dead owner PID is not success\r\nPASS deadline with no terminal is TIMEOUT\r\nPASS harness error is ERROR\r\nATTEMPT-TERMINAL-TESTS-PASS\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python",
+        "tests/ring_layout_test.py"
+      ],
+      "exit_code": 0,
+      "stdout": "PASS empty ring ok\r\nPASS N-1 capacity valid=1023\r\nPASS N capacity valid=1024\r\nPASS N+1 capacity valid=1024\r\nPASS seq0 is valid when metadata seq=N\r\nPASS future seq is corrupt, not ok\r\nPASS half-written entry counted, not decoded\r\nPASS wrong CPU is corrupt\r\nPASS unknown kind is corrupt\r\nPASS duplicate seq rejected\r\nPASS old wrapped entry is stale, not fatal\r\nPASS wrong schema rejected\r\nPASS wrong total rejected\r\nPASS wrong cpu count rejected\r\nPASS zero ticks_per_sec rejected\r\nPASS wrong clock domain rejected\r\nPASS wrong checksum rejected\r\nPASS wrong magic rejected\r\nPASS short buffer rejected\r\nRING-LAYOUT-TESTS-PASS\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python",
+        "tests/ring_writer_model_test.py"
+      ],
+      "exit_code": 0,
+      "stdout": "PASS reuse with commit cleared is half-written\r\nPASS payload before commit is half-written\r\nPASS reservation before commit is half-written, not future\r\nPASS commit last publishes exactly one valid record\r\nPASS future seq is not accepted\r\nWRITER-MODEL-TESTS-PASS\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python",
+        "tests/process_identity_test.py"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "test_echoed_script_is_not_a_snapshot (__main__.IdentityTests.test_echoed_script_is_not_a_snapshot) ... ok\r\ntest_missing_evidence_is_structured_failure (__main__.IdentityTests.test_missing_evidence_is_structured_failure) ... ok\r\ntest_renderer_joins_through_zygote (__main__.IdentityTests.test_renderer_joins_through_zygote) ... ok\r\ntest_unknown_child_is_not_role_proof (__main__.IdentityTests.test_unknown_child_is_not_role_proof) ... ok\r\ntest_unrelated_renderer_is_rejected (__main__.IdentityTests.test_unrelated_renderer_is_rejected) ... ok\r\ntest_zero_thread_renderer_is_rejected (__main__.IdentityTests.test_zero_thread_renderer_is_rejected) ... ok\r\ntest_zombie_browser_is_rejected (__main__.IdentityTests.test_zombie_browser_is_rejected) ... ok\r\ntest_zombie_renderer_is_rejected (__main__.IdentityTests.test_zombie_renderer_is_rejected) ... ok\r\n\r\n----------------------------------------------------------------------\r\nRan 8 tests in 0.098s\r\n\r\nOK\r\n"
+    },
+    {
+      "command": [
+        "python",
+        "tests/observe_cases.py"
+      ],
+      "exit_code": 0,
+      "stdout": "PASS crash session detected as CRASH\r\nPASS crash subject keeps child PID 105\r\nPASS crash subject names the browser PID 87\r\nPASS 262-colour window is window_shell_without_page\r\nPASS shell session summarised as HANG\r\nPASS 28-colour frame is no_window_desktop_only\r\nPASS rising host WS is flagged LEAK\r\nPASS CMJSON per-process sample is available\r\nPASS per-process RSS growth is 40000 kB\r\nPASS measured CMJSON lifts attribution_limited\r\nPASS flat host WS is not flagged\r\nPASS no CMJSON keeps attribution_limited true\r\nPASS harness timeout is not a target CRASH\r\nPASS harness error alone is not crash\r\nPASS control channel is called out\r\nPASS missing HB in a session that did not configure HB is not HANG\r\nPASS missing HB is an observer limitation\r\nPASS observer limitation has its own summary\r\nall observe cases passed\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python",
+        "tests/review_regressions.py"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "test_20_first_attempts_pass (__main__.AcceptanceTests.test_20_first_attempts_pass) ... ok\r\ntest_29_minutes_fails (__main__.AcceptanceTests.test_29_minutes_fails) ... ok\r\ntest_browser_disappeared_midrun_fails (__main__.AcceptanceTests.test_browser_disappeared_midrun_fails) ... ok\r\ntest_color_only_legacy_evidence_fails (__main__.AcceptanceTests.test_color_only_legacy_evidence_fails) ... ok\r\ntest_complete_30min_navigation_evidence_passes (__main__.AcceptanceTests.test_complete_30min_navigation_evidence_passes) ... ok\r\ntest_diagnostic_policy_cannot_modify_original_disk (__main__.AcceptanceTests.test_diagnostic_policy_cannot_modify_original_disk) ... ok\r\ntest_duplicate_heartbeats_fail (__main__.AcceptanceTests.test_duplicate_heartbeats_fail) ... ok\r\ntest_incomplete_rehearsals_fail (__main__.AcceptanceTests.test_incomplete_rehearsals_fail) ... ok\r\ntest_js_not_run_fails (__main__.AcceptanceTests.test_js_not_run_fails) ... ok\r\ntest_keyboard_requires_value_and_echo (__main__.AcceptanceTests.test_keyboard_requires_value_and_echo) ... ok\r\ntest_missing_crash_marker_but_harness_error_fails (__main__.AcceptanceTests.test_missing_crash_marker_but_harness_error_fails) ... ok\r\ntest_old_frame_fails_even_if_colorful (__main__.AcceptanceTests.test_old_frame_fails_even_if_colorful) ... ok\r\ntest_one_css_failure_fails (__main__.AcceptanceTests.test_one_css_failure_fails) ... ok\r\ntest_only_19_runs_fail (__main__.AcceptanceTests.test_only_19_runs_fail) ... ok\r\ntest_probe_transport_failure_has_nonzero_and_evidence (__main__.AcceptanceTests.test_probe_transport_failure_has_nonzero_and_evidence) ... ok\r\ntest_real_js_and_css_rows_pass (__main__.AcceptanceTests.test_real_js_and_css_rows_pass) ... ok\r\ntest_repeated_directory_cannot_make_20 (__main__.AcceptanceTests.test_repeated_directory_cannot_make_20) ... ok\r\ntest_restart_is_not_first_attempt_success (__main__.AcceptanceTests.test_restart_is_not_first_attempt_success) ... ok\r\ntest_shortened_expectation_cannot_pass (__main__.AcceptanceTests.test_shortened_expectation_cannot_pass) ... ok\r\ntest_stale_echo_without_typed_value_fails (__main__.AcceptanceTests.test_stale_echo_without_typed_value_fails) ... ok\r\ntest_websocket_disconnect_is_failure (__main__.AcceptanceTests.test_websocket_disconnect_is_failure) ... ok\r\ntest_websocket_fragmentation_and_ping (__main__.AcceptanceTests.test_websocket_fragmentation_and_ping) ... ok\r\ntest_websocket_masks_client_frames (__main__.AcceptanceTests.test_websocket_masks_client_frames) ... ok\r\ntest_websocket_upgrade_validates_accept (__main__.AcceptanceTests.test_websocket_upgrade_validates_accept) ... ok\r\ntest_wrong_url_fails (__main__.AcceptanceTests.test_wrong_url_fails) ... ok\r\n\r\n----------------------------------------------------------------------\r\nRan 25 tests in 1.899s\r\n\r\nOK\r\n"
+    },
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/command-frame-boundary-test.ps1"
+      ],
+      "exit_code": 0,
+      "stdout": "PASS: unterminated rc=12 is pending\r\nPASS: unterminated rc=12 at deadline is incomplete\r\nPASS: rc=0junk is malformed\r\nPASS: empty rc with terminator is malformed\r\nPASS: complete 127 is ok\r\nPASS: partial ANSI prefix is ok\r\nPASS: ANSI before echoed command is ignored\r\nPASS: two valid frames conflict\r\nPASS: malformed then valid conflicts\r\nPASS: echo only is missing\r\nPASS: wrong nonce is missing\r\nPASS: byte boundary final frame is 127\r\nPASS: byte boundary without terminator at deadline is incomplete\r\nCOMMAND-FRAME-TESTS-PASS\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/command-protocol-replay.ps1"
+      ],
+      "exit_code": 0,
+      "stdout": "PASS: real crash marker behind partial ANSI\r\nPASS: real single2 spliced upload, nonzero rc\r\nPASS: real stop continuation, no marker\r\nPASS: terminated empty rc is malformed\r\nPASS: echoed marker with digits is not a result\r\nPASS: wrong nonce\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/step-encoding-test.ps1"
+      ],
+      "exit_code": 0,
+      "stdout": "STEP-ENCODING-TESTS-PASS\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/remote-path-test.ps1"
+      ],
+      "exit_code": 0,
+      "stdout": "REMOTE-PATH-TESTS-PASS\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tests/xkwin-parse.ps1"
+      ],
+      "exit_code": 0,
+      "stdout": "XKWIN-PARSE-OK\r\n",
+      "stderr": ""
+    }
+  ],
+  "page_verdict_before": [
+    {
+      "mode": "js",
+      "expected": true,
+      "actual": false
+    },
+    {
+      "mode": "css",
+      "expected": true,
+      "actual": false
+    }
+  ],
+  "source_fix": {
+    "files": [
+      "host/page_probe.py",
+      "tests/page_verdict_test.py",
+      "tests/review_regressions.py"
+    ],
+    "reason": "Read top-level verdict_pass returned by EXPRESSION; preserve per-row pass checks",
+    "new_tests": 4,
+    "fixture_note": "Legacy generic test.html fixture was updated to the actual interaction/layout contracts; production unknown-page rejection retained."
+  },
+  "candidate_hash_checks": [
+    {
+      "file": "artifacts/kernel-conv-notrace.bin",
+      "sha256": "dc69d5cd91bf0e804320e7dd5f40237bc7bc72efb5bbcb962ad7a52ea435ba4f",
+      "matched": true
+    },
+    {
+      "file": "artifacts/kernel-conv-notrace.elf",
+      "sha256": "16418778e4633b2f6b2682849dd793098fe8cd9f2e09194e382d39684af4ece3",
+      "matched": true
+    },
+    {
+      "file": "artifacts/kernel-conv-notrace.config",
+      "sha256": "38f5fcd9aa78e0bf2bcb0dba4cbf3f87bb6f3b2549a0c6bd0044927cfb081a36",
+      "matched": true
+    },
+    {
+      "file": "artifacts/kernel-conv-notrace.symtab",
+      "sha256": "5bf6db42eef43162f350537f4411ce0ed6bd4d32df3834ee9e863bcb825396df",
+      "matched": true
+    },
+    {
+      "file": "artifacts/kernel-conv-trace.bin",
+      "sha256": "23b4237dcb85a762128529cd532db0b83f6899e2a062101e5080efdbf5d1ae21",
+      "matched": true
+    },
+    {
+      "file": "artifacts/kernel-conv-trace.elf",
+      "sha256": "da64f0b1fb9df3c1c47b73810910026df436c483b38b42695ebd8fbed91181fa",
+      "matched": true
+    },
+    {
+      "file": "artifacts/kernel-conv-trace.config",
+      "sha256": "858670175670ad2acf109a6ca8039c9e8c984219046bbc16b63907cc5b9263ba",
+      "matched": true
+    },
+    {
+      "file": "artifacts/kernel-conv-trace.symtab",
+      "sha256": "46400374dfc659e69ead63e762fcdeea6148023becc58507423f9bf592eaba1a",
+      "matched": true
+    },
+    {
+      "file": "pages/index.html",
+      "sha256": "831cf28f3748940b450d1da325aa39a2dcaea2fee15b0532bf4111144d176b38",
+      "matched": true
+    },
+    {
+      "file": "pages/interaction.html",
+      "sha256": "58130daa4a2f426fd16b8bde93d964713f20e147da8af1537ab2d8b506d2fd58",
+      "matched": true
+    },
+    {
+      "file": "pages/layout.html",
+      "sha256": "a1b04f9aba81b4b7818be2e7a858d482d471bd0d625dee257f605b2129b8fc4c",
+      "matched": true
+    },
+    {
+      "file": "experiments/FINALS-RUNS/20261031T161500Z/convergence/03/kernel-source.diff",
+      "sha256": "733ff79fe796ca09f3a7a91809d2a1fc45eeed8d543f2755af81f7520165fe71",
+      "matched": false
+    }
+  ],
+  "upstream": [
+    {
+      "number": 1039,
+      "state": "merged",
+      "merged_at": "2026-10-18T16:41:19+08:00",
+      "title": "io/drmdevice: legacy ADDFB, MODE_CURSOR and SET_CLIENT_CAP semantics",
+      "url": "https://gitee.com/openkylin/x-kernel/pulls/1039",
+      "api": "https://gitee.com/api/v5/repos/openkylin/x-kernel/pulls/1039",
+      "response_sha256": "9f56dc0955e4802fe75b24f926d836c7df5a11279f9716467ed301fe96efdbeb"
+    },
+    {
+      "number": 1050,
+      "state": "merged",
+      "merged_at": "2026-10-18T23:44:09+08:00",
+      "title": "pull_request_18793850",
+      "url": "https://gitee.com/openkylin/x-kernel/pulls/1050",
+      "api": "https://gitee.com/api/v5/repos/openkylin/x-kernel/pulls/1050",
+      "response_sha256": "bcbef2caa726561d973d578da043c579904aba5c5deef1f38f486df8d881db20"
+    },
+    {
+      "number": 1059,
+      "state": "merged",
+      "merged_at": "2026-10-19T10:37:42+08:00",
+      "title": "io/drmdevice: implement GEM_CLOSE and MODE_CLOSEFB",
+      "url": "https://gitee.com/openkylin/x-kernel/pulls/1059",
+      "api": "https://gitee.com/api/v5/repos/openkylin/x-kernel/pulls/1059",
+      "response_sha256": "4f6327d956feb106a364fa4991a45e16630df729f3463935e9383aea9e45fa2e"
+    }
+  ],
+  "bounded_reproduction": [
+    {
+      "round": "r1-off-single",
+      "exit_code": 0,
+      "page_probe_present": false,
+      "trace_on": false,
+      "runner_status": "SUCCESS"
+    },
+    {
+      "round": "r2-on-single",
+      "exit_code": 0,
+      "page_probe_present": false,
+      "trace_on": true,
+      "runner_status": "SUCCESS"
+    },
+    {
+      "round": "r3-off-double",
+      "exit_code": 0,
+      "page_probe_present": false,
+      "trace_on": false,
+      "runner_status": "SUCCESS"
+    },
+    {
+      "round": "r4-on-double",
+      "exit_code": 0,
+      "page_probe_present": false,
+      "trace_on": true,
+      "runner_status": "SUCCESS"
+    }
+  ],
+  "final_acceptance_executed_this_turn": false,
+  "current_candidate_final_gates": {
+    "integrated_functional": "NOT_RUN",
+    "twenty_first_starts": "NOT_RUN",
+    "current_30min_10loads": "NOT_RUN",
+    "four_metrics_five_runs": "NOT_RUN"
+  },
+  "historical_check_before_fixture_update": [
+    {
+      "command": [
+        "python",
+        "tests/review_regressions.py"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "test_20_first_attempts_pass (__main__.AcceptanceTests.test_20_first_attempts_pass) ... ok\r\ntest_29_minutes_fails (__main__.AcceptanceTests.test_29_minutes_fails) ... ok\r\ntest_browser_disappeared_midrun_fails (__main__.AcceptanceTests.test_browser_disappeared_midrun_fails) ... ok\r\ntest_color_only_legacy_evidence_fails (__main__.AcceptanceTests.test_color_only_legacy_evidence_fails) ... ok\r\ntest_complete_30min_navigation_evidence_passes (__main__.AcceptanceTests.test_complete_30min_navigation_evidence_passes) ... ok\r\ntest_diagnostic_policy_cannot_modify_original_disk (__main__.AcceptanceTests.test_diagnostic_policy_cannot_modify_original_disk) ... ok\r\ntest_duplicate_heartbeats_fail (__main__.AcceptanceTests.test_duplicate_heartbeats_fail) ... ok\r\ntest_incomplete_rehearsals_fail (__main__.AcceptanceTests.test_incomplete_rehearsals_fail) ... ok\r\ntest_js_not_run_fails (__main__.AcceptanceTests.test_js_not_run_fails) ... ok\r\ntest_keyboard_requires_value_and_echo (__main__.AcceptanceTests.test_keyboard_requires_value_and_echo) ... FAIL\r\ntest_missing_crash_marker_but_harness_error_fails (__main__.AcceptanceTests.test_missing_crash_marker_but_harness_error_fails) ... ok\r\ntest_old_frame_fails_even_if_colorful (__main__.AcceptanceTests.test_old_frame_fails_even_if_colorful) ... ok\r\ntest_one_css_failure_fails (__main__.AcceptanceTests.test_one_css_failure_fails) ... ok\r\ntest_only_19_runs_fail (__main__.AcceptanceTests.test_only_19_runs_fail) ... ok\r\ntest_probe_transport_failure_has_nonzero_and_evidence (__main__.AcceptanceTests.test_probe_transport_failure_has_nonzero_and_evidence) ... ok\r\ntest_real_js_and_css_rows_pass (__main__.AcceptanceTests.test_real_js_and_css_rows_pass) ... FAIL\r\ntest_repeated_directory_cannot_make_20 (__main__.AcceptanceTests.test_repeated_directory_cannot_make_20) ... ok\r\ntest_restart_is_not_first_attempt_success (__main__.AcceptanceTests.test_restart_is_not_first_attempt_success) ... ok\r\ntest_shortened_expectation_cannot_pass (__main__.AcceptanceTests.test_shortened_expectation_cannot_pass) ... ok\r\ntest_stale_echo_without_typed_value_fails (__main__.AcceptanceTests.test_stale_echo_without_typed_value_fails) ... ok\r\ntest_websocket_disconnect_is_failure (__main__.AcceptanceTests.test_websocket_disconnect_is_failure) ... ok\r\ntest_websocket_fragmentation_and_ping (__main__.AcceptanceTests.test_websocket_fragmentation_and_ping) ... ok\r\ntest_websocket_masks_client_frames (__main__.AcceptanceTests.test_websocket_masks_client_frames) ... ok\r\ntest_websocket_upgrade_validates_accept (__main__.AcceptanceTests.test_websocket_upgrade_validates_accept) ... ok\r\ntest_wrong_url_fails (__main__.AcceptanceTests.test_wrong_url_fails) ... ok\r\n\r\n======================================================================\r\nFAIL: test_keyboard_requires_value_and_echo (__main__.AcceptanceTests.test_keyboard_requires_value_and_echo)\r\n----------------------------------------------------------------------\r\nTraceback (most recent call last):\r\n  File \"D:\\x-kernel-dsh-bridge\\submission\\for github\\tests\\review_regressions.py\", line 136, in test_keyboard_requires_value_and_echo\r\n    self.assertTrue(probe.assess(v,'target','file:///test.html','input','hello x-kernel')['ok'])\r\nAssertionError: False is not true\r\n\r\n======================================================================\r\nFAIL: test_real_js_and_css_rows_pass (__main__.AcceptanceTests.test_real_js_and_css_rows_pass)\r\n----------------------------------------------------------------------\r\nTraceback (most recent call last):\r\n  File \"D:\\x-kernel-dsh-bridge\\submission\\for github\\tests\\review_regressions.py\", line 121, in test_real_js_and_css_rows_pass\r\n    self.assertTrue(probe.assess(self.page_value(),'target','file:///test.html',mode)['ok'])\r\nAssertionError: False is not true\r\n\r\n----------------------------------------------------------------------\r\nRan 25 tests in 2.029s\r\n\r\nFAILED (failures=2)\r\n"
+    }
+  ],
+  "candidate_source_patch_hash_discrepancy": {
+    "recorded": "733ff79fe796ca09f3a7a91809d2a1fc45eed8d543f2755af81f7520165fe71",
+    "actual": "733ff79fe796ca09f3a7a91809d2a1fc45eeed8d543f2755af81f7520165fe71",
+    "decision": "Original lock preserved. Binary/ELF/config/symbol/page hashes match; patch-hash mismatch remains a provenance gap, not a runtime failure. Require a fresh source snapshot/build lock before final reproducibility claim."
+  }
+}

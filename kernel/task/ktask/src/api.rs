@@ -262,8 +262,11 @@ pub(crate) fn rearm_local_timer() {
                 // instead of parking forever.
                 None => {
                     let now = khal::time::monotonic_time_nanos();
+                    let deadline = now.saturating_add(IDLE_FALLBACK_NS);
+                    #[cfg(feature = "trace_ring")]
+                    crate::trace_ring::record(crate::trace_ring::TIMER_ARM, deadline, 1);
                     khal::time::arm_timer(ktime_types::MonotonicInstant::from_span_since_origin(
-                        ktime_types::TimeSpan::from_nanos(now.saturating_add(IDLE_FALLBACK_NS)),
+                        ktime_types::TimeSpan::from_nanos(deadline),
                     ))
                 }
             },
@@ -815,9 +818,9 @@ pub fn run_idle() -> ! {
             crate::trace_ring::record(crate::trace_ring::IDLE_RETURN, 1, 0);
             continue;
         }
-        drop(guard);
         #[cfg(feature = "trace_ring")]
         crate::trace_ring::record(crate::trace_ring::IDLE_RETURN, 0, 0);
+        drop(guard);
 
         #[cfg(feature = "arm-timer-resume-fixup")]
         {

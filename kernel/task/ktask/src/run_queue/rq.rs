@@ -65,6 +65,11 @@ pub(super) fn request_resched_on(rq: &RunQueue) {
 
 #[cfg(feature = "smp")]
 pub(super) fn request_remote_resched(cpu_id: LogicalCpuId) -> kipi::Result<()> {
+    #[cfg(feature = "trace_ring")]
+    {
+        let _g = kspin::NoPreemptIrqSave::new();
+        crate::trace_ring::record(crate::trace_ring::IPI_SEND, cpu_id.as_usize() as u64, 0);
+    }
     if let Err(err) = kipi::notify_reschedule(cpu_id) {
         warn!(
             "failed to request reschedule on CPU {}: {}",
@@ -98,6 +103,11 @@ pub(crate) fn kick_running_task(task: &TaskInner) {
         if cpu_id == this_cpu_id() {
             task.set_preempt_pending(true);
             return;
+        }
+        #[cfg(feature = "trace_ring")]
+        {
+            let _g = kspin::NoPreemptIrqSave::new();
+            crate::trace_ring::record(crate::trace_ring::IPI_SEND, cpu_id.as_usize() as u64, 1);
         }
         let kick_result = kipi::notify_reschedule(cpu_id);
         if let Err(err) = &kick_result {
@@ -135,6 +145,8 @@ impl<G: BaseGuard> KRunQueueRef<'_, G> {
     ///
     /// This function is used to add a new task to the scheduler.
     pub(crate) fn add_task(&mut self, task: KtaskRef) {
+        #[cfg(feature = "trace_ring")]
+        crate::trace_ring::record(crate::trace_ring::ENQUEUE, 0, 0);
         debug!(
             "task add: {} on run_queue {}",
             task.id_name(),
@@ -782,6 +794,8 @@ impl RunQueue {
             next_task.cpu_id().as_usize(),
             self.cpu_id.as_usize()
         );
+        #[cfg(feature = "trace_ring")]
+        crate::trace_ring::record(crate::trace_ring::SCHEDULE, 0, 0);
         trace!(
             "context switch: {} -> {}",
             prev_task.id_name(),

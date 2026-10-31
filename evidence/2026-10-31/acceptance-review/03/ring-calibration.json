@@ -1,0 +1,61 @@
+{
+  "capture": "trace-on-capture.bin",
+  "sha256": "98fec9d4ed95981228c367c81c8c0175758d0ec2103c41dfcc1ae230ffac39d2",
+  "ticks_per_sec": 62500000,
+  "per_cpu": [
+    {
+      "cpu": 0,
+      "seq": 46969,
+      "retained": [
+        45945,
+        46968
+      ],
+      "first_ticks": 2057614268,
+      "last_ticks": 2119710537,
+      "coverage_s": 0.9935,
+      "dropped": 45945,
+      "entries": 1024
+    },
+    {
+      "cpu": 1,
+      "seq": 13904,
+      "retained": [
+        12880,
+        13903
+      ],
+      "first_ticks": 971757718,
+      "last_ticks": 2020833437,
+      "coverage_s": 16.7852,
+      "dropped": 12880,
+      "entries": 1024
+    },
+    {
+      "cpu": 2,
+      "seq": 20974,
+      "retained": [
+        19950,
+        20973
+      ],
+      "first_ticks": 1211229168,
+      "last_ticks": 2020835168,
+      "coverage_s": 12.9537,
+      "dropped": 19950,
+      "entries": 1024
+    },
+    {
+      "cpu": 3,
+      "seq": 7595,
+      "retained": [
+        6571,
+        7594
+      ],
+      "first_ticks": 1117898800,
+      "last_ticks": 2020833531,
+      "coverage_s": 14.447,
+      "dropped": 6571,
+      "entries": 1024
+    }
+  ],
+  "total_valid": 4096,
+  "severe": []
+}

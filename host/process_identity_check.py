@@ -19,15 +19,21 @@ def assess(browser,snapshot):
     if browser.get('ok') is not True:return {'ok':False,'error':'Browser role evidence unavailable'}
     browsers=[p for p in browser.get('browser_pids',[]) if snapshot.get(p,{}).get('Pid')==p]
     renderers=[]
+    rejected=[]
+    for pid in list(browser.get('browser_pids',[]))+list(browser.get('renderer_pids',[])):
+        item=snapshot.get(pid,{})
+        if item and (str(item.get('State','')).startswith(('Z','X')) or item.get('Threads',0)<1):
+            rejected.append({'pid':pid,'reason':'dead/zombie or zero threads','state':item.get('State'),'threads':item.get('Threads')})
     for pid in browser.get('renderer_pids',[]):
         item=snapshot.get(pid,{})
         if item.get('Pid')!=pid or item.get('Threads',0)<1:continue
+        if str(item.get('State','')).startswith(('Z','X')):continue
         chain=[];parent=pid
         while parent in snapshot and parent not in chain and len(chain)<32:
             chain.append(parent);parent=snapshot[parent].get('PPid')
         if any(p in browsers for p in chain[1:]):renderers.append({'pid':pid,'ancestry':chain,'procfs':item})
-    return {'ok':bool(browsers and renderers),'browser_matches':browsers,'renderer_matches':renderers,
-            'note':'Role is from Chromium; PID, threads and parent chain are independently read from guest procfs.'}
+    return {'ok':bool(browsers and renderers) and not rejected,'browser_matches':browsers,'renderer_matches':renderers,'rejected':rejected,
+            'note':'Role is from Chromium; PID, threads and parent chain are independently read from guest procfs. Z/X or zero-thread targets are rejected before injection.'}
 
 def main():
     ap=argparse.ArgumentParser();ap.add_argument('session');args=ap.parse_args();p=Path(args.session)

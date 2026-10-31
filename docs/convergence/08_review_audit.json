@@ -1,0 +1,652 @@
+{
+  "schema": "xk-convergence-review/1",
+  "date": "2026-10-31",
+  "timezone": "Asia/Hong_Kong",
+  "written_at": "2026-10-31T16:14:43.863552+08:00",
+  "scope": "Read-only code/log review, existing offline checks and documentation only; no live QEMU or source changes or push",
+  "independent_checks": {
+    "checks": [
+      {
+        "test": "ring_layout_test.py",
+        "exit_code": 0,
+        "stdout": "PASS empty ring ok\r\nPASS N-1 capacity valid=1023\r\nPASS N capacity valid=1024\r\nPASS N+1 capacity valid=1024\r\nPASS seq0 is valid when metadata seq=N\r\nPASS future seq is corrupt, not ok\r\nPASS half-written entry counted, not decoded\r\nPASS wrong CPU is corrupt\r\nPASS unknown kind is corrupt\r\nPASS duplicate seq rejected\r\nPASS old wrapped entry is stale, not fatal\r\nPASS wrong schema rejected\r\nPASS wrong total rejected\r\nPASS wrong cpu count rejected\r\nPASS zero ticks_per_sec rejected\r\nPASS wrong clock domain rejected\r\nPASS wrong checksum rejected\r\nPASS wrong magic rejected\r\nPASS short buffer rejected\r\nRING-LAYOUT-TESTS-PASS\r\n",
+        "stderr": ""
+      },
+      {
+        "test": "ring_writer_model_test.py",
+        "exit_code": 0,
+        "stdout": "PASS reuse with commit cleared is half-written\r\nPASS payload before commit is half-written\r\nPASS reservation before commit is half-written, not future\r\nPASS commit last publishes exactly one valid record\r\nPASS future seq is not accepted\r\nWRITER-MODEL-TESTS-PASS\r\n",
+        "stderr": ""
+      },
+      {
+        "test": "process_identity_test.py",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "test_echoed_script_is_not_a_snapshot (__main__.IdentityTests.test_echoed_script_is_not_a_snapshot) ... ok\r\ntest_missing_evidence_is_structured_failure (__main__.IdentityTests.test_missing_evidence_is_structured_failure) ... ok\r\ntest_renderer_joins_through_zygote (__main__.IdentityTests.test_renderer_joins_through_zygote) ... ok\r\ntest_unknown_child_is_not_role_proof (__main__.IdentityTests.test_unknown_child_is_not_role_proof) ... ok\r\ntest_unrelated_renderer_is_rejected (__main__.IdentityTests.test_unrelated_renderer_is_rejected) ... ok\r\ntest_zero_thread_renderer_is_rejected (__main__.IdentityTests.test_zero_thread_renderer_is_rejected) ... ok\r\ntest_zombie_browser_is_rejected (__main__.IdentityTests.test_zombie_browser_is_rejected) ... ok\r\ntest_zombie_renderer_is_rejected (__main__.IdentityTests.test_zombie_renderer_is_rejected) ... ok\r\n\r\n----------------------------------------------------------------------\r\nRan 8 tests in 0.092s\r\n\r\nOK\r\n"
+      }
+    ],
+    "trace6_decode": {
+      "ok": true,
+      "sha256": "8c801436185252a14995d0b515d88287821a8274dcb1c1f762daf1808c819bac",
+      "coverage": [
+        {
+          "cpu": 0,
+          "valid": 1024,
+          "writer_violations": 0,
+          "first_tick": 6731463900,
+          "last_tick": 6838315868,
+          "span_s": 1.709631488,
+          "counts": {
+            "valid": 1024,
+            "unused": 0,
+            "half_written": 0,
+            "stale": 0,
+            "corrupt": 0,
+            "unknown_kind": 0
+          },
+          "metadata_seq": 416650,
+          "overwritten": 415626
+        },
+        {
+          "cpu": 1,
+          "valid": 1024,
+          "writer_violations": 0,
+          "first_tick": 6773055462,
+          "last_tick": 6838266187,
+          "span_s": 1.0433716,
+          "counts": {
+            "valid": 1024,
+            "unused": 0,
+            "half_written": 0,
+            "stale": 0,
+            "corrupt": 0,
+            "unknown_kind": 0
+          },
+          "metadata_seq": 306364,
+          "overwritten": 305340
+        },
+        {
+          "cpu": 2,
+          "valid": 1024,
+          "writer_violations": 0,
+          "first_tick": 6519605356,
+          "last_tick": 6835584906,
+          "span_s": 5.0556728,
+          "counts": {
+            "valid": 1024,
+            "unused": 0,
+            "half_written": 0,
+            "stale": 0,
+            "corrupt": 0,
+            "unknown_kind": 0
+          },
+          "metadata_seq": 270978,
+          "overwritten": 269954
+        },
+        {
+          "cpu": 3,
+          "valid": 1024,
+          "writer_violations": 0,
+          "first_tick": 6049649743,
+          "last_tick": 6791425356,
+          "span_s": 11.868409808,
+          "counts": {
+            "valid": 1024,
+            "unused": 0,
+            "half_written": 0,
+            "stale": 0,
+            "corrupt": 0,
+            "unknown_kind": 0
+          },
+          "metadata_seq": 291156,
+          "overwritten": 290132
+        }
+      ]
+    },
+    "attempts": [
+      {
+        "run": 1,
+        "kernel": "trace5",
+        "page_check_present": false,
+        "metrics_present": true,
+        "startup_script_W5_seen": true,
+        "heartbeat_configured": false,
+        "scope": "startup-script/window evidence only; no DOM/full-functional claim"
+      },
+      {
+        "run": 2,
+        "kernel": "trace5",
+        "page_check_present": false,
+        "metrics_present": true,
+        "startup_script_W5_seen": true,
+        "heartbeat_configured": false,
+        "scope": "startup-script/window evidence only; no DOM/full-functional claim"
+      },
+      {
+        "run": 3,
+        "kernel": "trace5",
+        "page_check_present": false,
+        "metrics_present": true,
+        "startup_script_W5_seen": true,
+        "heartbeat_configured": false,
+        "scope": "startup-script/window evidence only; no DOM/full-functional claim"
+      },
+      {
+        "run": 4,
+        "kernel": "trace5",
+        "page_check_present": false,
+        "metrics_present": true,
+        "startup_script_W5_seen": true,
+        "heartbeat_configured": false,
+        "scope": "startup-script/window evidence only; no DOM/full-functional claim"
+      },
+      {
+        "run": 5,
+        "kernel": "trace5",
+        "page_check_present": false,
+        "metrics_present": true,
+        "startup_script_W5_seen": true,
+        "heartbeat_configured": false,
+        "scope": "startup-script/window evidence only; no DOM/full-functional claim"
+      },
+      {
+        "run": 6,
+        "kernel": "trace5",
+        "page_check_present": false,
+        "metrics_present": true,
+        "startup_script_W5_seen": true,
+        "heartbeat_configured": false,
+        "scope": "startup-script/window evidence only; no DOM/full-functional claim"
+      }
+    ],
+    "page_contracts": {
+      "index": {
+        "bytes": 5730,
+        "sha256": "831cf28f3748940b450d1da325aa39a2dcaea2fee15b0532bf4111144d176b38",
+        "has_T_nodes": false,
+        "has_C_nodes": false,
+        "has_verdict": false
+      },
+      "interaction": {
+        "bytes": 10991,
+        "sha256": "58130daa4a2f426fd16b8bde93d964713f20e147da8af1537ab2d8b506d2fd58",
+        "has_T_nodes": true,
+        "has_C_nodes": false,
+        "has_verdict": true
+      },
+      "layout": {
+        "bytes": 11444,
+        "sha256": "a1b04f9aba81b4b7818be2e7a858d482d471bd0d625dee257f605b2129b8fc4c",
+        "has_T_nodes": false,
+        "has_C_nodes": true,
+        "has_verdict": true
+      }
+    },
+    "corrected_interpretation": "T/C/verdict are not applicable to static index.html; their absence does not prove DOM failure.",
+    "runner_risks": [
+      "missing error file treated as success even when deadline elapsed",
+      "forced termination of harness without recording its actual exit code",
+      "qemu_alive matches any QEMU process rather than the recorded session PID",
+      "six attempts use trace5 with DOM/heartbeat disabled; not trace6 or old dual-window reproducer"
+    ]
+  },
+  "source_files": [
+    {
+      "path": "docs/stall_resolution/09_plan_status.json",
+      "bytes": 2601,
+      "sha256": "8cb58197d7db63377fff86eb5f385dc24421d934c6137e400ebaa95b4af9bf96"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T032000Z/stall-resolution/01/handoff.md",
+      "bytes": 553,
+      "sha256": "f945e47fbc1e5a9d97f063f8ef331ce6e2133efcc35f80225a680a944377ab3b"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T032000Z/stall-resolution/01/result.json",
+      "bytes": 1442,
+      "sha256": "745dfe15511b0665f208f043004d03a32b74f69ac11c51eadeff29a7a570669d"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T032000Z/stall-resolution/02/boot/console.log",
+      "bytes": 2834,
+      "sha256": "d406d5d618b28ce3ea083ba330c49cee064aa2bba6114ef9c63c425366976aa7"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T032000Z/stall-resolution/02/boot/qemu-cmd.txt",
+      "bytes": 530,
+      "sha256": "5510fb3672b6ba169adeb95d09c24406feee73480682a05388e5ff3c2b83d1c3"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T032000Z/stall-resolution/02/capture.json",
+      "bytes": 2212,
+      "sha256": "4cf232ce34fb538ab7da7bb58bdf29be553416aaa37511780529e46f933df63a"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T032000Z/stall-resolution/02/result.json",
+      "bytes": 2273,
+      "sha256": "49484210b81a79f5e39ab795dc6505e126067b02a19e162c9f6eb88d9f2221af"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T032000Z/stall-resolution/02/writer-context.json",
+      "bytes": 2383,
+      "sha256": "53823bee936e8dedd6ac30e99cf931084cc84497bcc08bdae2fc1f4714d35c04"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T032000Z/stall-resolution/04/handoff.md",
+      "bytes": 526,
+      "sha256": "0d95b0e74d694978dc520a75272967b9c9ccb1ac5301594a2fe44adf0c603a86"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T032000Z/stall-resolution/04/result.json",
+      "bytes": 1193,
+      "sha256": "186fea7cfc8cc0bacadfe9b78fbb327b2750af046c2cf5e259f137086efb1758"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T032000Z/stall-resolution/04/session/console.log",
+      "bytes": 973,
+      "sha256": "eb952d4460675ab70211d8a4276833481fbf635465afbe5a08f45b3a74dfdcb2"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T032000Z/stall-resolution/04/session/qemu-cmd.txt",
+      "bytes": 530,
+      "sha256": "c72eac6f3c2fcb03ca8a3941a65bd806b825be3d99a0c1319e1ef91021292c7c"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T130800Z/stall-resolution/02/capture.json",
+      "bytes": 6390,
+      "sha256": "02f71c24f43ddc12fe144408a628836f2832dc8d471b0fa9fa78f4d97f186c5d"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T130800Z/stall-resolution/02/handoff.md",
+      "bytes": 658,
+      "sha256": "968f2ca2308ae2eb2029eb5b6be320a1bcc5f9fc3a983406da7a2732148a68b2"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T130800Z/stall-resolution/02/trace4/console.log",
+      "bytes": 2834,
+      "sha256": "a5d4edba5a993bf323a934c4dcacbbdc17260708d222a8269dadc89c21de60f4"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T130800Z/stall-resolution/02/trace4/qemu-cmd.txt",
+      "bytes": 530,
+      "sha256": "5925ec5eec191f0e6e2d938e9301dc1c32f47c646a4ce83fe05745d0800f5044"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T130800Z/stall-resolution/03/capture.json",
+      "bytes": 6470,
+      "sha256": "f9b00eec499b3a75090933d1d28fe6c3d6876da9a9631a32fa9911b5515ef2b8"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T130800Z/stall-resolution/03/event-coverage.json",
+      "bytes": 4602,
+      "sha256": "ba72c6c013715d889953b280617f410b5061efb38e7aba019a83158956f05ce7"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T130800Z/stall-resolution/03/handoff.md",
+      "bytes": 558,
+      "sha256": "31048d25bb483e89cbf5aeefe06da6cd1a363201517cc565644bb0fac2eb4c42"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T130800Z/stall-resolution/03/result.json",
+      "bytes": 2417,
+      "sha256": "29925a92acc8327a806829804f5b99f5eb27744ab431dfa15dee9653cbd9974d"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T130800Z/stall-resolution/03/trace5/console.log",
+      "bytes": 2834,
+      "sha256": "bbd919ca760d6dac1f1d6c29dc9d7a190bb5eaa23852b065d7e151e956755008"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T130800Z/stall-resolution/03/trace5/qemu-cmd.txt",
+      "bytes": 530,
+      "sha256": "d8faddd8d7e87182312f5f8a7ebf457111a8af0714695a0aeb2c950d44591491"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T134500Z/stall-resolution/06/clock-helper/console.log",
+      "bytes": 1569,
+      "sha256": "418f9deaab7db008e2ed14f8b6103487bb24767acd2a0ba80c5107f1f4fa849e"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T134500Z/stall-resolution/06/clock-helper/qemu-cmd.txt",
+      "bytes": 529,
+      "sha256": "fdd13824536bbc15213df53b6bdae788b5d965424976047e19c3dc5d8b46e3bf"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T134500Z/stall-resolution/06/frame-clock/console.log",
+      "bytes": 13096,
+      "sha256": "34ccfe155cb022cf477317fb244bc108564260aeb02666bcd8043ae833c209b5"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T134500Z/stall-resolution/06/frame-clock/page-check.json",
+      "bytes": 1554,
+      "sha256": "783d661a9b0a08a6163e4b8f0d65e021090bd15cb5a79578daa21c97cf4a3cf4"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T134500Z/stall-resolution/06/frame-clock/qemu-cmd.txt",
+      "bytes": 563,
+      "sha256": "f61d3aae3a3404c6d57de69e527dec53e9c84aa526861d52eadedd481043463e"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T134500Z/stall-resolution/06/handoff.md",
+      "bytes": 642,
+      "sha256": "a90a2cc2ece5bf7e557ce4e039082627169b47cd7ab0b002093b912706dee864"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T134500Z/stall-resolution/06/result.json",
+      "bytes": 1869,
+      "sha256": "871add0e9ba57af81e5783d122b3fe935d84cc57dba4346dcd5d88343af9db8d"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T140500Z/stall-resolution/05/attempt-01/console.log",
+      "bytes": 13124,
+      "sha256": "6438cb63563d46e9707064b6a5cc39fa51da5a2f57069817029687181ee65638"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T140500Z/stall-resolution/05/attempt-01/page-check.json",
+      "bytes": 1554,
+      "sha256": "b509d4cb722b2f0e331877801db42e7326001a1178586a637a084c00d904325d"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T140500Z/stall-resolution/05/attempt-01/qemu-cmd.txt",
+      "bytes": 564,
+      "sha256": "fa8383c9fff9d5559ba2befbebb49095e985b26621cc43cbbc83acc9bd5f16a9"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T140500Z/stall-resolution/05/run_stall_attempts.ps1",
+      "bytes": 2306,
+      "sha256": "fa5282e706143cd3b239f4cfe5cbb8e4bad167daee8cf83289ea3676701fdae1"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T141000Z/stall-resolution/05/attempt-01/console.log",
+      "bytes": 9770,
+      "sha256": "6f00ccf84a792974ecdd811be4bc11f80f59f76b3fbd94c3d7fe0714bca0b0e0"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T141000Z/stall-resolution/05/attempt-01/qemu-cmd.txt",
+      "bytes": 530,
+      "sha256": "68d2a4bac20ae4214d4e2337908e42cff80648b766febcd88fe18f883020193e"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T141000Z/stall-resolution/05/run_stall_attempts.ps1",
+      "bytes": 2178,
+      "sha256": "800a839d3ea4a1fd93bf342a1c9de480d759b78c36151d298e613a26507b5766"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T142000Z/stall-resolution/05/attempt-01/driver.out.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T142000Z/stall-resolution/05/run_stall_attempts.ps1",
+      "bytes": 2623,
+      "sha256": "a28a7f4400016b163145e7048925091f9638f4bda512a421fbec4e56d32aee20"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/02/trace6-browser/capture.json",
+      "bytes": 6511,
+      "sha256": "5b8dcdaac3e4f9296b75dd8736819d02011dde8aa81cd6a582c1a8fb56a51d0a"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/02/trace6-browser/console.log",
+      "bytes": 9770,
+      "sha256": "f2d87b19ebb43cff65368dc35bc008d4967727471d493addbfd94e3afe53ad2f"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/02/trace6-browser/driver.out.log",
+      "bytes": 12583,
+      "sha256": "2e5c05a3563efb6f61c47d404bffc211c4ecf861dac14da93fd388402d08c1f8"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/02/trace6-browser/qemu-cmd.txt",
+      "bytes": 530,
+      "sha256": "3a38c22130c1d8430fe1e897025d1f976d5b2555081c52cc895bb4c02d685eb6"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-01/console.log",
+      "bytes": 9770,
+      "sha256": "ba8c446a2921d14449d40779ea872c1359b679ad46966ed1295a41c26c2773f5"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-01/driver.out.log",
+      "bytes": 12579,
+      "sha256": "846af97699d766e474a0ddd9253dc5e8999fa49fe86f3773914a1059a40bd621"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-01/qemu-cmd.txt",
+      "bytes": 530,
+      "sha256": "3b10aca78091a26cb179ac2e3414a7c672dd46422e477279d47dc074da452da9"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-02/console.log",
+      "bytes": 9770,
+      "sha256": "030c79b46a72e4d51e9271e5cdc824a546f965009672c4a67053d1345d503ca4"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-02/driver.out.log",
+      "bytes": 12579,
+      "sha256": "a2bee592796bf339f2a2204cef611becf2bd6f0d610bdb5ff1aab00d12bbdb44"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-02/qemu-cmd.txt",
+      "bytes": 530,
+      "sha256": "de1fc122f47c24330c1adea57478e03f722a3043e4077e389929a432b730b8c9"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-03/console.log",
+      "bytes": 9767,
+      "sha256": "7b15cc822ed4e8c2ddad32794814bb8301330fb11ff33ec477b6e6e7aabeaf49"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-03/driver.out.log",
+      "bytes": 12576,
+      "sha256": "6e91f0189e948cf5364616209225ee2e5dfa4bf04b715cc81fbe5e4239376142"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-03/qemu-cmd.txt",
+      "bytes": 530,
+      "sha256": "c92912f2e1f7b926a49dddf84635597519b6cfacb600df16471eeee042b537c1"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-04/console.log",
+      "bytes": 9770,
+      "sha256": "9157f63e95f6da2e6ca05b24058660d478282c9d9cfedfe39a229ccb17288570"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-04/driver.out.log",
+      "bytes": 12579,
+      "sha256": "05c7609e94ab115c61e54af7bf3e27e29c247cf1dd995ca4a37e08e694fcbafb"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-04/qemu-cmd.txt",
+      "bytes": 530,
+      "sha256": "561e47587eb6fde0bb1fad579f793f439c4f66fc486a2403a8944e7d615d8912"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-05/console.log",
+      "bytes": 9768,
+      "sha256": "a577e7356f946f67f38f3fe8cd7c335da9766f40671826cb3991b80a7d48405a"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-05/driver.out.log",
+      "bytes": 12577,
+      "sha256": "b3dbbc1212fcd131ee8e11279795c029f308a5810a238c962281d7f448f49545"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-05/qemu-cmd.txt",
+      "bytes": 530,
+      "sha256": "55e51ed23f128c99297cd687b688b3c998b0931b03fde13026e35c0a230c33c0"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-06/console.log",
+      "bytes": 9770,
+      "sha256": "5ab040e2f433eeaa76c6cbd251d9ade3bc2fdf0c712dba923906ee027700e0ed"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-06/driver.out.log",
+      "bytes": 12579,
+      "sha256": "d4b6458314a636315944b3a971f8843c49ee67716c71e963759b9da8685e6d82"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempt-06/qemu-cmd.txt",
+      "bytes": 530,
+      "sha256": "b9451966a81c53cd19b65903e4a05c8e2cb3e285bacc73979eb21fd6cfc4be12"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/attempts.json",
+      "bytes": 1604,
+      "sha256": "51c718dfa06fcacb812c772149e4b37d0c7daf6bfdb1cf8a0dd84a803f1f9304"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/handoff.md",
+      "bytes": 681,
+      "sha256": "e96070eb916f24f4e6fb0360e56ffc94225d5956bb498b286ae62e03f17f2853"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/normal-browser/capture.json",
+      "bytes": 6584,
+      "sha256": "c299ae21899640c5b8ad6023a9651b018dbbbc87a54d76bbf13af284eae3fd75"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/normal-browser/console.log",
+      "bytes": 9770,
+      "sha256": "bc1ab798bd87c0b1031bae0b0fa8fe5acb08e102652ce98947a868eef7d9e296"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/normal-browser/driver.out.log",
+      "bytes": 12583,
+      "sha256": "6683b608d1ff5cc83ea9926a7612e533f1d53f3317672b506bed54fcb534cee8"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/normal-browser/qemu-cmd.txt",
+      "bytes": 530,
+      "sha256": "c2a8fda10bf1c578825eb972d35dba308eea63b89e361e4d349f37a5bc2c58a6"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/result.json",
+      "bytes": 1858,
+      "sha256": "c4109eae6a3e9546eb2c8c4d4663ba48272a2ef805935e053cb62834e1f7abe0"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/run_normal_trace.ps1",
+      "bytes": 1504,
+      "sha256": "0bf29799f676a0ac8ad35ec4fcdbf328376617522eb0d36a432d19b3bca0ec7c"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T143000Z/stall-resolution/05/run_stall_attempts.ps1",
+      "bytes": 2600,
+      "sha256": "c4caa5b7605a94b96ddec0273f529fb59ba31cc6cf5c67ea4ced5da08df66e7b"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T144500Z/stall-resolution/07/handoff.md",
+      "bytes": 381,
+      "sha256": "a2de678af5d9e3204fcd7b2aab6fe832750be0f0041f7f780a92e35396cbddf5"
+    },
+    {
+      "path": "experiments/FINALS-RUNS/20261031T144500Z/stall-resolution/07/result.json",
+      "bytes": 920,
+      "sha256": "3eedc361ffacb21725f7bf2300fc17d33b488ccf68a5b56de197cbe446ab6a6a"
+    },
+    {
+      "path": "guest/06-fetch-pages.sh",
+      "bytes": 1135,
+      "sha256": "907d8ac4f5c6ab32f70cf181cec3287a46d4d8e099977c954a31bceb7cdfc016"
+    },
+    {
+      "path": "guest/mono-clock.c",
+      "bytes": 265,
+      "sha256": "59943ebeb1649e77c5ac59050ab151a9be541be176f58995a8ed3bb7283a555a"
+    },
+    {
+      "path": "guest/serve-pages.txt",
+      "bytes": 744,
+      "sha256": "ed291242470003adff7f6e8468fbafe87854cb49dbf86e19593da9f794354075"
+    },
+    {
+      "path": "host/baseline_x4b.py",
+      "bytes": 7698,
+      "sha256": "0d9fdb10b873e71f2dbc7783b56ff8b334e2db2fb2ad5ec73cc1625fb4f85142"
+    },
+    {
+      "path": "host/page_probe.py",
+      "bytes": 8831,
+      "sha256": "dd49cee00629d2a326a53165c7a9db2ca738811662fd211855c8338413109cbd"
+    },
+    {
+      "path": "host/process_identity_check.py",
+      "bytes": 2787,
+      "sha256": "1577e75d9f147c5668de5684ae2a4dee49de36b8deda2ce5653c3c4611038c1b"
+    },
+    {
+      "path": "host/ring_capture.py",
+      "bytes": 8300,
+      "sha256": "802f771bb58e36373046d2a9735e6c481dccf426b4480d3e376c0921d5f0ceb3"
+    },
+    {
+      "path": "host/ring_decode.py",
+      "bytes": 7202,
+      "sha256": "cd13a0149e69d3b3ede784de24271eb147360dc506fe0adf5b93bc645754363d"
+    },
+    {
+      "path": "host/xkwin.ps1",
+      "bytes": 110006,
+      "sha256": "3c99958d97802013f5fa8757edccbe9536ccd36f34045b5551effbe2348daaf4"
+    },
+    {
+      "path": "kernel/task/ktask/src/api.rs",
+      "bytes": 42427,
+      "sha256": "ea4087448d2271149c369b92f6b2cec805ff1bee184af7212d232e93e63471fb"
+    },
+    {
+      "path": "kernel/task/ktask/src/trace_ring.rs",
+      "bytes": 6441,
+      "sha256": "49d80c355a37d343f7d492787bdf5508b73b382f5c6eba204c6c2fc17d82d39f"
+    },
+    {
+      "path": "pages/index.html",
+      "bytes": 5730,
+      "sha256": "831cf28f3748940b450d1da325aa39a2dcaea2fee15b0532bf4111144d176b38"
+    },
+    {
+      "path": "pages/interaction.html",
+      "bytes": 10991,
+      "sha256": "58130daa4a2f426fd16b8bde93d964713f20e147da8af1537ab2d8b506d2fd58"
+    },
+    {
+      "path": "pages/layout.html",
+      "bytes": 11444,
+      "sha256": "a1b04f9aba81b4b7818be2e7a858d482d471bd0d625dee257f605b2129b8fc4c"
+    },
+    {
+      "path": "tests/process_identity_test.py",
+      "bytes": 2340,
+      "sha256": "48980993ab710d9c3e415869e4e7e03fe7763d54815393abbd7ad99e1699406d"
+    },
+    {
+      "path": "tests/ring_layout_test.py",
+      "bytes": 5182,
+      "sha256": "f0cf907714129df7fb83cc4fdbf6ea89fbf9a8bc0601a8155908eb2a65c86345"
+    },
+    {
+      "path": "tests/ring_writer_model_test.py",
+      "bytes": 2393,
+      "sha256": "7589bc4edaf7c5c25f952cd563bd79443621508183ec921a9da83ee914198d30"
+    },
+    {
+      "path": "tests/run-finals.ps1",
+      "bytes": 10490,
+      "sha256": "021db27029dcafe189e6b5c4268cc5bc7a7b70ce49b317b9912e4b5366631d16"
+    },
+    {
+      "path": "tests/USAGE.md",
+      "bytes": 1785,
+      "sha256": "f7277ac4484f78b4dae3a298fe066dad415143dddba0f4204393a5c2e48de830"
+    }
+  ],
+  "decisions": [
+    "Index T/C absence is not DOM failure",
+    "Six trace5 script/window successes are not trace6 full acceptance",
+    "No natural fallback sample is not a global blocker",
+    "Separate candidate acceptance from historic causal proof",
+    "Four-round reproduction cap then mandatory branch to qualification or one verified failure"
+  ]
+}

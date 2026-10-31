@@ -28,7 +28,10 @@ pub const IDLE_RETURN: u16 = 3;
 pub const TIMER_ARM: u16 = 4;
 pub const TIMER_DISARM: u16 = 5;
 pub const TIMER_IRQ: u16 = 6;
+pub const IPI_SEND: u16 = 7;
 pub const IPI_RECV: u16 = 8;
+pub const ENQUEUE: u16 = 9;
+pub const SCHEDULE: u16 = 10;
 
 #[repr(align(64))]
 struct Storage([u8; TOTAL_LEN]);
@@ -57,12 +60,6 @@ unsafe fn w32(p: *mut u8, off: usize, v: u32) {
 unsafe fn w64(p: *mut u8, off: usize, v: u64) {
     // SAFETY: caller guarantees `off` is an aligned field in the ring.
     unsafe { core::ptr::write_volatile(p.add(off) as *mut u64, v.to_le()) }
-}
-
-#[inline]
-unsafe fn r64(p: *const u8, off: usize) -> u64 {
-    // SAFETY: caller guarantees `off` is an aligned field in the ring.
-    unsafe { core::ptr::read_volatile(p.add(off) as *const u64) }
 }
 
 fn fnv1a64(bytes: &[u8]) -> u64 {
@@ -114,8 +111,9 @@ pub fn init(cpu_count: usize) {
 /// Appends one event.  `kind` is the small event vocabulary in ring-layout.json.
 pub fn record(kind: u16, arg0: u64, arg1: u64) {
     let p = base();
-    // SAFETY: magic is immutable after init and read-only here.
-    if unsafe { r64(p, 0) } != MAGIC {
+    // SAFETY: magic is published with Release by init and read with Acquire so a
+    // secondary CPU cannot observe a half-initialized header.
+    if unsafe { AtomicU64::from_ptr(p as *mut u64).load(Ordering::Acquire) } != MAGIC {
         return;
     }
     let cpu = khal::percpu::this_cpu_id().as_usize();
@@ -123,22 +121,44 @@ pub fn record(kind: u16, arg0: u64, arg1: u64) {
         return;
     }
     let meta = HEADER_LEN + cpu * META_LEN;
-    // SAFETY: each CPU has one writer for its metadata/entries; the host is a
-    // read-only observer and exports only after the guest is frozen.
+    // The writer protocol assumes same-CPU exclusion (IRQ/preemption off).  A
+    // release-visible counter makes a violation observable instead of silently
+    // racing the slot; such a write is dropped.
+    if karch::local_irq_enabled() {
+        // SAFETY: meta+20 is the per-CPU flags field in the fixed object.
+        unsafe {
+            AtomicU32::from_ptr(p.add(meta + 20) as *mut u32).fetch_add(1, Ordering::Relaxed);
+        }
+        return;
+    }
+    // SAFETY: this CPU's writers are serialized by local IRQ/preemption
+    // exclusion (init, idle inside NoPreemptIrqSave, timer IRQ and IPI handler).
+    // A paused host reader sees the commit protocol, never a live reference.
     unsafe {
         let seq_atomic = AtomicU64::from_ptr(p.add(meta) as *mut u64);
         let seq = seq_atomic.load(Ordering::Relaxed);
         let slot = (seq as usize) % ENTRIES_PER_CPU;
         let entry = ENTRIES_OFF + (cpu * ENTRIES_PER_CPU + slot) * ENTRY_SIZE;
         let e = p.add(entry);
+        // A reused slot still has the old COMMITTED bit.  Clear it before any
+        // new payload byte, otherwise a reader can pair the new seq with the
+        // previous record and accept it.
+        let commit = AtomicU32::from_ptr(e.add(36) as *mut u32);
+        commit.store(0, Ordering::Release);
         w64(e, 0, seq);
         w64(e, 8, khal::time::now_ticks().as_raw());
         w64(e, 16, arg0);
         w64(e, 24, arg1);
         w32(e, 32, ((cpu as u32) << 16) | u32::from(kind));
-        // Payload is visible before the commit flag (release).
-        AtomicU32::from_ptr(e.add(36) as *mut u32).store(COMMITTED, Ordering::Release);
+        // Publish the reservation before the commit flag.  A stop between the
+        // two stores sees a half-written slot (commit=0), never a "future" seq.
         seq_atomic.store(seq.wrapping_add(1), Ordering::Release);
+        commit.store(COMMITTED, Ordering::Release);
+        w32(
+            p,
+            meta + 16,
+            ((seq as u32).wrapping_add(1)) % (ENTRIES_PER_CPU as u32),
+        );
         if seq >= ENTRIES_PER_CPU as u64 {
             let dropped = AtomicU64::from_ptr(p.add(meta + 8) as *mut u64);
             dropped.fetch_add(1, Ordering::Relaxed);

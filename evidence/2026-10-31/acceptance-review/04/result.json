@@ -1,0 +1,16 @@
+{
+  "task": "convergence/04_run_bounded_reproduction",
+  "status": "PASS",
+  "bounded": {"rounds": 4, "max_rounds": 4, "wall_minutes": 16, "order": ["trace-off single", "trace-on single", "trace-off double", "trace-on double"]},
+  "rounds": [
+    {"round": "r1-off-single", "kernel": "kernel-conv-notrace.bin", "status": "SUCCESS", "exit_code": 0, "markers": "W5, wins=1"},
+    {"round": "r2-on-single", "kernel": "kernel-conv-trace.bin", "status": "SUCCESS", "exit_code": 0, "markers": "W5, wins=1", "capture": "r2-on-single-capture.bin", "valid": 4096, "writer_violations": 0},
+    {"round": "r3-off-double", "kernel": "kernel-conv-notrace.bin", "status": "SUCCESS", "exit_code": 0, "markers": "N6/N7, wins=2"},
+    {"round": "r4-on-double", "kernel": "kernel-conv-trace.bin", "status": "SUCCESS", "exit_code": 0, "markers": "N6/N7, wins=2", "capture": "r4-on-double-capture.bin", "valid": 4096, "writer_violations": 0}
+  ],
+  "ledger": "experiments/FINALS-RUNS/20261031T161500Z/convergence/04/attempts.json",
+  "credible_failure": false,
+  "conclusion": "This candidate did not reproduce the historical single-window W2 stop or double-window about:blank in four bounded rounds. Historical root cause is not claimed fixed.",
+  "scope_limit": "the four rounds validated script/window completion, not the full DOM/interaction suite; 05 must run that separately",
+  "next": "05 current-candidate qualification"
+}

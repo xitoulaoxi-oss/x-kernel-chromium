@@ -1,0 +1,16 @@
+{
+  "task": "convergence/01_correct_verdict_contracts",
+  "status": "PASS",
+  "changes": [
+    "page_probe distinguishes static_index/interaction/layout from expected URL",
+    "static index outputs T/C/verdict=not_applicable; it requires URL/readyState/body/h1/title, not JS rows",
+    "interaction page mode requires T1-T6; layout requires C1-C6; JS/CSS modes keep the stricter verdict check",
+    "unknown documents fail even if URL matches; optional expected body hash is enforced",
+    "added eight replay checks for static pass, static-as-JS fail, empty doc, hash mismatch, T/C ownership and unknown doc"
+  ],
+  "tests": {"file": "tests/page_verdict_test.py", "cases": 8, "passed": 8},
+  "reviewed": "experiments/FINALS-RUNS/20261031T161500Z/convergence/01/reviewed-attempts.json",
+  "corrections": ["140500/attempt-01 is not a page failure", "143000 six runs are trace5 script/window evidence, not trace6 full qualification"],
+  "preserved_old_results": true,
+  "next": "02 runner terminal state"
+}
